@@ -2,18 +2,22 @@ import 'package:flutter/material.dart';
 import 'src/screens/login_screen.dart';
 
 void main() {
-  runApp(const UserApp());
+  runApp(const MyApp());
 }
 
-class UserApp extends StatelessWidget {
-  const UserApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Facility Management - User App',
       debugShowCheckedModeBanner: false,
-      home: const LoginScreen(),
+      title: 'User App',
+      theme: ThemeData(
+        primaryColor: Colors.teal,
+        scaffoldBackgroundColor: Colors.white,
+      ),
+      home: LoginScreen(), // ← remove const here
     );
   }
 }

@@ -1,45 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:user_a/src/themes/colors.dart';
+
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
+      backgroundColor: AppColors.background,
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "User Login",
-              style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 20),
-            SizedBox(
-              width: 260,
-              child: TextField(
-                decoration: InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(),
-                ),
+            Text("Welcome Back",
+                style: TextStyle(
+                    fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+            SizedBox(height: 10),
+            Text("Login to continue",
+                style: TextStyle(fontSize: 16, color: AppColors.textLight)),
+            SizedBox(height: 40),
+
+            TextField(
+              decoration: InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 20),
-            SizedBox(
-              width: 260,
-              child: TextField(
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: "Password",
-                  border: OutlineInputBorder(),
-                ),
+            SizedBox(height: 15),
+
+            TextField(
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: "Password",
+                border: OutlineInputBorder(),
               ),
             ),
-            SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {},
-              child: Text("Login"),
+            SizedBox(height: 25),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () {},
+                child: Text("LOGIN", style: TextStyle(fontSize: 16)),
+              ),
             ),
           ],
         ),
@@ -47,12 +55,3 @@ class LoginScreen extends StatelessWidget {
     );
   }
 }
-TextButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => RegisterScreen()),
-    );
-  },
-  child: Text("Create an account"),
-),
