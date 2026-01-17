@@ -1,3 +1,5 @@
+# This file is for password hashing and jwt token generation
+
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import jwt 
@@ -7,10 +9,10 @@ from app.core.config import settings
 # Setup Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password, hashed_password):
+def verify_password(plain_password, hashed_password): # while login
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_password_hash(password):
+def get_password_hash(password): # while registering 
     return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
