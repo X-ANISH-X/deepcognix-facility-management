@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.transport import auth
+from app.transport import auth, category, service
 
 app = FastAPI(title="DeepCognix Facility Management API")
 
@@ -15,6 +15,12 @@ app.add_middleware(
 
 # Register Routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+
+# Category Routers
+app.include_router(category.router)
+
+# Service Routers
+app.include_router(service.router)
 
 @app.get("/")
 def read_root():
