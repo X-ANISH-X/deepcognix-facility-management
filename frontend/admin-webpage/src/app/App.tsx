@@ -1,21 +1,24 @@
 import { useState } from 'react';
 import { ThemeProvider, useTheme } from '@/app/context/ThemeContext';
+import { LanguageProvider, useLanguage } from '@/app/context/LanguageContext';
 import { LoginPage } from '@/app/components/LoginPage';
 import { DashboardView } from '@/app/components/DashboardView';
 import { TechnicianMapView } from '@/app/components/TechnicianMapView';
 import { WorkOrdersView } from '@/app/components/WorkOrdersView';
 import { ServicesView } from '@/app/components/ServicesView';
 import { ReportsView } from '@/app/components/ReportsView';
-import { LayoutDashboard, Map, ClipboardList, Settings, FileText, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import { SettingsView } from '@/app/components/SettingsView';
+import { LayoutDashboard, Map, ClipboardList, Settings, FileText, LogOut, Menu, X, Sun, Moon, Globe } from 'lucide-react';
 import { Toaster } from '@/app/components/ui/sonner';
 
-type View = 'dashboard' | 'map' | 'orders' | 'services' | 'reports';
+type View = 'dashboard' | 'map' | 'orders' | 'services' | 'reports' | 'settings';
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { language } = useLanguage();
 
   const navItems = [
     { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
@@ -86,7 +89,7 @@ function AppContent() {
         </nav>
 
         {/* Theme Toggle */}
-        <div className="px-4 mt-4">
+        <div className="px-4 mt-4 space-y-2">
           <button
             onClick={toggleTheme}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -102,6 +105,19 @@ function AppContent() {
                 {isSidebarOpen && <span className="font-medium">Light Mode</span>}
               </>
             )}
+          </button>
+          
+          {/* Settings Button */}
+          <button
+            onClick={() => setCurrentView('settings')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
+              currentView === 'settings'
+                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-500 dark:to-emerald-500 text-white shadow-lg shadow-teal-500/30'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            {isSidebarOpen && <span className="font-medium">Settings</span>}
           </button>
         </div>
 
@@ -146,10 +162,10 @@ function AppContent() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {navItems.find(item => item.id === currentView)?.label}
+                  {currentView === 'settings' ? 'Settings' : navItems.find(item => item.id === currentView)?.label}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {new Date().toLocaleDateString('en-US', { 
+                  {new Date().toLocaleDateString(language === 'ar' ? 'ar-SA' : 'en-US', { 
                     weekday: 'long', 
                     year: 'numeric', 
                     month: 'long', 
@@ -176,6 +192,7 @@ function AppContent() {
           {currentView === 'orders' && <WorkOrdersView />}
           {currentView === 'services' && <ServicesView />}
           {currentView === 'reports' && <ReportsView />}
+          {currentView === 'settings' && <SettingsView />}
         </div>
       </main>
         </>
@@ -187,7 +204,9 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <LanguageProvider>
+        <AppContent />
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

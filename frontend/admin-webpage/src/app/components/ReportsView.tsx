@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
+import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { mockApi, type WorkOrder, type Technician } from '@/app/services/mockApi';
 import { Download, Filter, FileText, Calendar, DollarSign, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -18,15 +19,18 @@ export function ReportsView() {
   const [endDate, setEndDate] = useState('2026-01-31');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
       const [orders, techs] = await Promise.all([
         mockApi.getWorkOrders(),
         mockApi.getTechnicians()
       ]);
       setWorkOrders(orders);
       setTechnicians(techs);
+      setIsLoading(false);
     };
     loadData();
   }, []);
@@ -91,10 +95,14 @@ export function ReportsView() {
     .reduce((sum, wo) => sum + (wo.actualCost || 0), 0);
   const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
 
+  if (isLoading) {
+    return <LoadingSpinner message="Loading Reports..." />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
           <p className="text-gray-500 mt-1">Export and analyze performance data</p>
@@ -164,7 +172,7 @@ export function ReportsView() {
 
       {/* Filters */}
       <Card className="rounded-3xl border-none shadow-lg">
-        <CardHeader>
+        <CardHeader className="pt-3">
           <CardTitle className="flex items-center gap-2">
             <Filter className="w-5 h-5" />
             Report Filters
