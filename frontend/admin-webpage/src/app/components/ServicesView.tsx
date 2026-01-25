@@ -7,6 +7,9 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { Switch } from '@/app/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
+import { LoadingSpinner } from '@/app/components/LoadingSpinner';
+import { getServiceColor, getServiceBgColor, AVAILABLE_SERVICES } from '@/app/utils/serviceColors';
 import { mockApi, type Service } from '@/app/services/mockApi';
 import { Plus, Edit, DollarSign, Clock, Tag } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,11 +18,14 @@ export function ServicesView() {
   const [services, setServices] = useState<Service[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadServices = async () => {
+      setIsLoading(true);
       const data = await mockApi.getServices();
       setServices(data);
+      setIsLoading(false);
     };
     loadServices();
   }, []);
@@ -68,17 +74,6 @@ export function ServicesView() {
     toast.success(`Service ${updated.isActive ? 'activated' : 'deactivated'}`);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'HVAC': 'bg-blue-500',
-      'Plumbing': 'bg-green-500',
-      'Electrical': 'bg-yellow-500',
-      'Cleaning': 'bg-purple-500',
-      'Security': 'bg-red-500',
-    };
-    return colors[category] || 'bg-gray-500';
-  };
-
   const servicesByCategory = services.reduce((acc, service) => {
     if (!acc[service.category]) {
       acc[service.category] = [];
@@ -86,6 +81,10 @@ export function ServicesView() {
     acc[service.category].push(service);
     return acc;
   }, {} as Record<string, Service[]>);
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading Services & Pricing..." />;
+  }
 
   return (
     <div className="space-y-6">
@@ -114,7 +113,18 @@ export function ServicesView() {
                 </div>
                 <div className="flex-1 flex flex-col gap-1">
                   <Label htmlFor="category">Category</Label>
-                  <Input id="category" name="category" required className="rounded-xl" />
+                  <Select name="category" required>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AVAILABLE_SERVICES.map((service) => (
+                        <SelectItem key={service} value={service}>
+                          {service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -151,7 +161,7 @@ export function ServicesView() {
       {Object.entries(servicesByCategory).map(([category, categoryServices]) => (
         <div key={category}>
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-3 h-3 rounded-full ${getCategoryColor(category)}`}></div>
+            <div className={`w-3 h-3 rounded-full ${getServiceBgColor(category)}`}></div>
             <h2 className="text-xl font-bold">{category}</h2>
             <Badge variant="outline">{categoryServices.length} services</Badge>
           </div>
@@ -163,7 +173,7 @@ export function ServicesView() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className={`w-10 h-10 ${getCategoryColor(service.category)} rounded-xl flex items-center justify-center`}>
+                        <div className={`w-10 h-10 ${getServiceBgColor(service.category)} rounded-xl flex items-center justify-center`}>
                           <Tag className="w-5 h-5 text-white" />
                         </div>
                       </div>
@@ -245,13 +255,18 @@ export function ServicesView() {
                 </div>
                 <div className="flex-1 flex flex-col gap-1">
                   <Label htmlFor="edit-category">Category</Label>
-                  <Input 
-                    id="edit-category" 
-                    name="category" 
-                    defaultValue={editingService.category}
-                    required 
-                    className="rounded-xl" 
-                  />
+                  <Select name="category" defaultValue={editingService.category} required>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AVAILABLE_SERVICES.map((service) => (
+                        <SelectItem key={service} value={service}>
+                          {service}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

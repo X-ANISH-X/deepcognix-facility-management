@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/ca
 import { Badge } from '@/app/components/ui/badge';
 import { mockApi, type KPIData, type WorkOrder } from '@/app/services/mockApi';
 import { mockRevenueData } from '@/app/services/mockRevenueData';
+import { useLanguage } from '@/app/context/LanguageContext';
 import { Activity, DollarSign, Users, Wrench, TrendingUp, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 
 export function DashboardView() {
+  const { language, t } = useLanguage();
   const [kpis, setKpis] = useState<KPIData | null>(null);
   const [recentOrders, setRecentOrders] = useState<WorkOrder[]>([]);
   const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
@@ -86,11 +88,11 @@ export function DashboardView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex flex-col justify-start">
-        <h1 className="text-3xl font-bold tracking-tight">Mission Control</h1>
-        <p className="text-gray-500 mt-1">Real-time facility management overview</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('Mission Control')}</h1>
+        <p className="text-gray-500 mt-1">{t('Real-time facility management overview')}</p>
       </div>
 
       {/* KPI Cards */}
@@ -102,7 +104,7 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">{kpis.activeWorkOrders}</div>
-              <div className="text-sm opacity-90 mt-1">Active Work Orders</div>
+              <div className="text-sm opacity-90 mt-1">{t('Active Work Orders')}</div>
             </div>
           </CardContent>
         </Card>
@@ -114,7 +116,7 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">${(kpis.totalRevenue / 1000).toFixed(1)}k</div>
-              <div className="text-sm opacity-90 mt-1">Total Revenue</div>
+              <div className="text-sm opacity-90 mt-1">{t('Weekly Revenue')}</div>
             </div>
           </CardContent>
         </Card>
@@ -150,7 +152,7 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">{kpis.totalTechnicians}</div>
-              <div className="text-sm opacity-90 mt-1">Total Technicians</div>
+              <div className="text-sm opacity-90 mt-1">{t('Total Technicians')}</div>
             </div>
           </CardContent>
         </Card>
@@ -198,7 +200,7 @@ export function DashboardView() {
         {/* Service Distribution */}
         <Card className="flex-1 min-w-[300px] rounded-3xl border-none shadow-lg flex flex-col">
           <CardHeader>
-            <CardTitle>Service Distribution</CardTitle>
+            <CardTitle>{t('Service Distribution')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -241,7 +243,7 @@ export function DashboardView() {
       {/* Recent Work Orders */}
       <Card className="rounded-3xl border-none shadow-lg flex flex-col">
         <CardHeader className="flex-shrink-0">
-          <CardTitle>Recent Work Orders</CardTitle>
+          <CardTitle>{t('Recent Work Orders')}</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
           <div className="space-y-4 flex-1">

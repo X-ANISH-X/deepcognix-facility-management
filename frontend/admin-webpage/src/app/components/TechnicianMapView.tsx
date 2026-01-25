@@ -2,20 +2,25 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
+import { LoadingSpinner } from '@/app/components/LoadingSpinner';
+import { getServiceColor } from '@/app/utils/serviceColors';
 import { mockApi, type Technician } from '@/app/services/mockApi';
 import { MapPin, Phone, Mail, Navigation, User } from 'lucide-react';
 
 export function TechnicianMapView() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadTechnicians = async () => {
+      setIsLoading(true);
       const data = await mockApi.getTechnicians();
       setTechnicians(data);
       if (data.length > 0) {
         setSelectedTech(data[0]);
       }
+      setIsLoading(false);
     };
     loadTechnicians();
   }, []);
@@ -37,6 +42,10 @@ export function TechnicianMapView() {
       default: return status;
     }
   };
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading Technician Tracking..." />;
+  }
 
   return (
     <div className="space-y-6">
@@ -61,7 +70,7 @@ export function TechnicianMapView() {
               }}></div>
               
               {/* Map overlay info */}
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md rounded-2xl px-4 py-2 shadow-lg">
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md rounded-2xl px-4 py-2 shadow-lg text-gray-900">
                 <p className="text-sm font-semibold">New York City Area</p>
                 <p className="text-xs text-gray-500">Live Tracking Enabled</p>
               </div>
@@ -93,7 +102,7 @@ export function TechnicianMapView() {
 
                   {/* Info popup for selected technician */}
                   {selectedTech?.id === tech.id && (
-                    <div className="absolute top-14 left-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-xl p-4 z-30">
+                    <div className="absolute top-14 left-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-xl p-4 z-30 text-gray-900">
                       <div className="flex items-center gap-3 mb-3">
                         <div className={`w-10 h-10 ${getStatusColor(tech.status)} rounded-full flex items-center justify-center text-white font-bold`}>
                           {tech.avatar}
@@ -121,7 +130,7 @@ export function TechnicianMapView() {
               ))}
 
               {/* Legend */}
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-lg">
+              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-lg text-gray-900">
                 <p className="text-sm font-semibold mb-2">Status Legend</p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -146,9 +155,9 @@ export function TechnicianMapView() {
         <div className="space-y-4">
           <Card className="rounded-3xl border-none shadow-lg">
             <CardHeader>
-              <CardTitle>Active Technicians</CardTitle>
+              <CardTitle className="text-gray-900 dark:text-white">Active Technicians</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 max-h-[560px] overflow-y-auto">
+            <CardContent className="space-y-3 max-h-[560px] overflow-y-auto text-gray-900 dark:text-black">
               {technicians.map((tech) => (
                 <div
                   key={tech.id}
@@ -199,7 +208,7 @@ export function TechnicianMapView() {
 
                   <div className="mt-3 flex flex-wrap gap-1">
                     {tech.specialty.map((spec) => (
-                      <Badge key={spec} variant="outline" className="text-xs">
+                      <Badge key={spec} className={`text-xs ${getServiceColor(spec)}`}>
                         {spec}
                       </Badge>
                     ))}

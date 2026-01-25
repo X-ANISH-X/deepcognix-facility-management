@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
+import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { mockApi, type WorkOrder, type Technician } from '@/app/services/mockApi';
 import { Plus, Search, Filter, Calendar, MapPin, DollarSign, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,9 +22,11 @@ export function WorkOrdersView() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
+      setIsLoading(true);
       const [orders, techs] = await Promise.all([
         mockApi.getWorkOrders(),
         mockApi.getTechnicians()
@@ -31,6 +34,7 @@ export function WorkOrdersView() {
       setWorkOrders(orders);
       setTechnicians(techs);
       setFilteredOrders(orders);
+      setIsLoading(false);
     };
     loadData();
   }, []);
@@ -106,6 +110,10 @@ export function WorkOrdersView() {
       default: return 'bg-gray-500/10 text-gray-600 border-gray-200';
     }
   };
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading Work Orders..." />;
+  }
 
   return (
     <div className="space-y-6">
