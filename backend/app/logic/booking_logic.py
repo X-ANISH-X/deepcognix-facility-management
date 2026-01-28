@@ -47,3 +47,59 @@ def get_booking_by_id(conn, booking_id: int):
         return cursor.fetchone()
     finally:
         cursor.close()
+
+
+def start_job(conn, booking_id, technician_id):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT status, technician_id FROM bookings WHERE id = %s",
+            (booking_id,)
+        )
+        booking = cursor.fetchone()
+
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["technician_id"] != technician_id:
+            return False, "Booking not assigned to technician"
+
+        if booking["status"] != "assigned":
+            return False, "Job can be started only when assigned"
+
+        cursor.execute(
+            "UPDATE bookings SET status = 'in_progress' WHERE id = %s",
+            (booking_id,)
+        )
+        conn.commit()
+        return True, None
+    finally:
+        cursor.close()
+
+
+def complete_job(conn, booking_id: int, technician_id: int):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT id, status, technician_id FROM bookings WHERE id = %s",
+            (booking_id,)
+        )
+        booking = cursor.fetchone()
+
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["technician_id"] != technician_id:
+            return False, "Booking not assigned to technician"
+
+        if booking["status"] != "in_progress":
+            return False, "Job can be completed only when in progress"
+
+        cursor.execute(
+            "UPDATE bookings SET status = 'completed' WHERE id = %s",
+            (booking_id,)
+        )
+        conn.commit()
+        return True, None
+    finally:
+        cursor.close()

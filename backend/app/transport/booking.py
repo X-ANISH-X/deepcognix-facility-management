@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.database import get_db_connection
 from app.logic import booking_logic
+from app.logic.booking_logic import start_job, complete_job
 from app.model.booking_model import BookingCreate, BookingResponse
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
@@ -23,3 +24,30 @@ def get_booking(booking_id: int, db=Depends(get_db_connection)):
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     return booking
+
+
+@router.post("/{booking_id}/start")
+def start_booking(booking_id: int, conn=Depends(get_db_connection)):
+    technician_id = 1  # TEMP
+
+    success, error = start_job(conn, booking_id, technician_id)
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Job started successfully"}
+
+
+@router.post("/{booking_id}/complete")
+def complete_booking(booking_id: int, conn=Depends(get_db_connection)):
+    technician_id = 1  # TEMP, JWT later
+
+    success, error = complete_job(
+        conn=conn,
+        booking_id=booking_id,
+        technician_id=technician_id
+    )
+
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Job completed successfully"}
