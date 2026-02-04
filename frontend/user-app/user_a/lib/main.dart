@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
 import 'src/screens/login_screen.dart';
+import 'src/controllers/register_controller.dart';
+import 'src/controllers/home_controller.dart';
+import 'src/controllers/package_controller.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -10,14 +16,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'User App',
+
       theme: ThemeData(
         primaryColor: Colors.teal,
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: LoginScreen(), // ← remove const here
+
+      initialBinding: BindingsBuilder(() {
+        Get.put(RegisterController());
+        Get.put(HomeController());
+        Get.put(PackageController());
+
+      }),
+
+      home: LoginScreen(),
     );
   }
 }

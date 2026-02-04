@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF009688);
-  static const Color background = Color(0xFFF5F5F5);
-  static const Color textDark = Colors.black87;
-  static const Color textLight = Colors.black54;
+  // Primary
+  static const Color primary = Color(0xFF0FB9B1); // teal-green
+  static const Color primaryDark = Color(0xFF0AA39C);
+
+  // Backgrounds
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color card = Color(0xFFF7F9FA);
+
+  // Text
+  static const Color textDark = Color(0xFF1C1C1E);
+  static const Color textLight = Color(0xFF8E8E93);
+
+  // Borders & dividers
+  static const Color border = Color(0xFFE5E5EA);
 }
