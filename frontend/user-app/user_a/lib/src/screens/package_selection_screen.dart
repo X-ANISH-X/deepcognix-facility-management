@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:user_a/src/controllers/package_controller.dart';
-import 'package:user_a/src/themes/colors.dart';
 import 'package:user_a/src/screens/checklist_preview_screen.dart';
-
 
 class PackageSelectionScreen extends GetView<PackageController> {
   const PackageSelectionScreen({super.key});
@@ -15,12 +13,9 @@ class PackageSelectionScreen extends GetView<PackageController> {
       appBar: AppBar(
         title: const Text(
           'Select Package',
-          style: TextStyle(
-            color: AppColors.textDark,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
-        backgroundColor: AppColors.background,
+        centerTitle: false,
         elevation: 0,
       ),
       body: Padding(
@@ -28,96 +23,128 @@ class PackageSelectionScreen extends GetView<PackageController> {
         child: Obx(
           () => ListView.separated(
             itemCount: controller.packages.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final pkg = controller.packages[index];
 
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          pkg.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textDark,
-                          ),
-                        ),
-                        Text(
-                          '\$${pkg.price.toInt()}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      pkg.description,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textLight,
+              return InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  Get.to(() => ChecklistPreviewScreen(package: pkg));
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(
+                            Theme.of(context).brightness == Brightness.dark
+                                ? 0.2
+                                : 0.05),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Checklist preview
-                    ...pkg.checklist.take(3).map(
-                          (item) => Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.check_circle,
-                                  size: 16,
-                                  color: AppColors.primary,
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            pkg.name,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
+                          ),
+                          Text(
+                            '\$${pkg.price.toInt()}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      Theme.of(context).primaryColor,
+                                ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 6),
+
+                      Text(
+                        pkg.description,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall,
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      // Checklist Preview
+                      ...pkg.checklist.take(3).map(
+                        (item) => Padding(
+                          padding:
+                              const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 18,
+                                color:
+                                    Theme.of(context).primaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
                                   item,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.textDark,
-                                  ),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
-
-                    const SizedBox(height: 12),
-
-                    // CTA
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () {
-                          // next: checklist preview / booking
-                          Get.to(() => const ChecklistPreviewScreen());
-                        },
-                        child: const Text('Continue'),
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 16),
+
+                      // Continue Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(14),
+                            ),
+                            padding:
+                                const EdgeInsets.symmetric(
+                                    vertical: 14),
+                          ),
+                          onPressed: () {
+                            Get.to(() =>
+                                ChecklistPreviewScreen(
+                                    package: pkg));
+                          },
+                          child: const Text(
+                            'Continue',
+                            style: TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

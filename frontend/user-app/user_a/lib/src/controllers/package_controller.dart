@@ -38,4 +38,11 @@ class PackageController extends GetxController {
       ],
     ),
   ].obs;
+
+  // ✅ THIS FIXES YOUR SELECTION ISSUE
+  final selectedPackage = Rxn<PackageModel>();
+
+  void selectPackage(PackageModel package) {
+    selectedPackage.value = package;
+  }
 }

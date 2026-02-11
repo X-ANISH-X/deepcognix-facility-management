@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import 'package:user_a/src/controllers/package_controller.dart';
-import 'package:user_a/src/themes/colors.dart';
+import 'package:user_a/src/models/package_model.dart';
+import 'package:user_a/src/screens/booking_details_screen.dart';
 
-class ChecklistPreviewScreen extends GetView<PackageController> {
-  const ChecklistPreviewScreen({super.key});
+class ChecklistPreviewScreen extends StatelessWidget {
+  final PackageModel package;
+
+  const ChecklistPreviewScreen({
+    super.key,
+    required this.package,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final package = controller.packages.first; // temp: selected package later
-
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           'Service Checklist',
-          style: TextStyle(
-            color: AppColors.textDark,
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
-        backgroundColor: AppColors.background,
+        centerTitle: false,
         elevation: 0,
       ),
       body: Padding(
@@ -28,78 +28,102 @@ class ChecklistPreviewScreen extends GetView<PackageController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Package summary
+            // 🔹 Package Summary Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(
+                        Theme.of(context).brightness ==
+                                Brightness.dark
+                            ? 0.2
+                            : 0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     package.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
-                    ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                   Text(
                     '\$${package.price.toInt()}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color:
+                              Theme.of(context).primaryColor,
+                        ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            const Text(
+            Text(
               'Tasks included in this package',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
-              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Checklist
+            // 🔹 Checklist List
             Expanded(
               child: ListView.separated(
                 itemCount: package.checklist.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, __) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
+                  final task = package.checklist[index];
+
                   return Container(
-                    padding: const EdgeInsets.all(14),
+                    padding:
+                        const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      color:
+                          Theme.of(context).cardColor,
+                      borderRadius:
+                          BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .dividerColor,
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.check_circle_outline,
-                          color: AppColors.primary,
-                          size: 20,
+                          size: 22,
+                          color: Theme.of(context)
+                              .primaryColor,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            package.checklist[index],
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textDark,
-                            ),
+                            task,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium,
                           ),
                         ),
                       ],
@@ -109,21 +133,29 @@ class ChecklistPreviewScreen extends GetView<PackageController> {
               ),
             ),
 
-            // Continue CTA
+            const SizedBox(height: 20),
+
+            // 🔹 Continue Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(
+                          vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius:
+                        BorderRadius.circular(16),
                   ),
                 ),
                 onPressed: () {
-                  Get.to(() => const Placeholder());
+                  Get.to(() =>
+                      const BookingDetailsScreen());
                 },
-                child: const Text('Continue'),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ),
           ],
