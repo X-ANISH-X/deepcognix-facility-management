@@ -1,16 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'package:user_a/src/controllers/register_controller.dart';
+import 'package:user_a/src/controllers/theme_controller.dart';
 
 class RegisterScreen extends GetView<RegisterController> {
   const RegisterScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final themeController = Get.find<ThemeController>();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Register"),
+        title: Text("register".tr),
         centerTitle: false,
+        elevation: 0,
+        actions: [
+          Obx(
+            () => IconButton(
+              icon: Icon(
+                themeController.isDark.value
+                    ? Icons.dark_mode
+                    : Icons.light_mode,
+              ),
+              onPressed: themeController.toggleTheme,
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -22,16 +39,17 @@ class RegisterScreen extends GetView<RegisterController> {
               const SizedBox(height: 20),
 
               Text(
-                "Create Account",
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                "create_account".tr,
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 8),
 
               Text(
-                "Join us today",
+                "register_subtitle".tr,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
 
@@ -39,9 +57,9 @@ class RegisterScreen extends GetView<RegisterController> {
 
               TextField(
                 controller: controller.nameController,
-                decoration: const InputDecoration(
-                  labelText: "Name",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "name".tr,
+                  border: const OutlineInputBorder(),
                 ),
               ),
 
@@ -49,9 +67,9 @@ class RegisterScreen extends GetView<RegisterController> {
 
               TextField(
                 controller: controller.emailController,
-                decoration: const InputDecoration(
-                  labelText: "Email",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "email".tr,
+                  border: const OutlineInputBorder(),
                 ),
               ),
 
@@ -60,9 +78,9 @@ class RegisterScreen extends GetView<RegisterController> {
               TextField(
                 controller: controller.passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: "Password",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "password".tr,
+                  border: const OutlineInputBorder(),
                 ),
               ),
 
@@ -72,11 +90,11 @@ class RegisterScreen extends GetView<RegisterController> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: controller.onRegisterPressed,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Text(
-                      "Create Account",
-                      style: TextStyle(fontSize: 16),
+                      "create_account".tr,
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                 ),

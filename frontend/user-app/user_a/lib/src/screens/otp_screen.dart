@@ -1,16 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'home_screen.dart';
+import 'package:user_a/src/controllers/theme_controller.dart';
 
 class OtpScreen extends StatelessWidget {
   const OtpScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final themeController = Get.find<ThemeController>();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("OTP Verification"),
+        title: Text("otp_verification".tr),
         centerTitle: false,
+        elevation: 0,
+        actions: [
+          Obx(
+            () => IconButton(
+              icon: Icon(
+                themeController.isDark.value
+                    ? Icons.dark_mode
+                    : Icons.light_mode,
+              ),
+              onPressed: themeController.toggleTheme,
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -22,16 +39,17 @@ class OtpScreen extends StatelessWidget {
               const SizedBox(height: 20),
 
               Text(
-                "Verification",
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                "verification".tr,
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 8),
 
               Text(
-                "Enter the code sent to your email and phone",
+                "otp_instruction".tr,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
 
@@ -40,9 +58,9 @@ class OtpScreen extends StatelessWidget {
               TextField(
                 keyboardType: TextInputType.number,
                 maxLength: 6,
-                decoration: const InputDecoration(
-                  labelText: "Enter OTP",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "enter_otp".tr,
+                  border: const OutlineInputBorder(),
                   counterText: "",
                 ),
               ),
@@ -53,14 +71,13 @@ class OtpScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // Fake OTP success
                     Get.offAll(() => const HomeScreen());
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Text(
-                      "Verify OTP",
-                      style: TextStyle(fontSize: 16),
+                      "verify_otp".tr,
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
                 ),
@@ -72,12 +89,12 @@ class OtpScreen extends StatelessWidget {
                 child: TextButton(
                   onPressed: () {
                     Get.snackbar(
-                      "OTP Sent",
-                      "A new OTP has been sent",
+                      "otp_sent".tr,
+                      "otp_resent".tr,
                       snackPosition: SnackPosition.BOTTOM,
                     );
                   },
-                  child: const Text("Resend Code"),
+                  child: Text("resend_code".tr),
                 ),
               ),
             ],

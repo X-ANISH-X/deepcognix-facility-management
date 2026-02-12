@@ -11,9 +11,9 @@ class PackageSelectionScreen extends GetView<PackageController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Select Package',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          'select_package'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
         elevation: 0,
@@ -51,19 +51,17 @@ class PackageSelectionScreen extends GetView<PackageController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header
+                      // HEADER
                       Row(
                         mainAxisAlignment:
                             MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            pkg.name,
+                            pkg.name.tr,   // 🔥 FIX
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           Text(
                             '\$${pkg.price.toInt()}',
@@ -72,8 +70,7 @@ class PackageSelectionScreen extends GetView<PackageController> {
                                 .titleMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color:
-                                      Theme.of(context).primaryColor,
+                                  color: Theme.of(context).primaryColor,
                                 ),
                           ),
                         ],
@@ -82,15 +79,13 @@ class PackageSelectionScreen extends GetView<PackageController> {
                       const SizedBox(height: 6),
 
                       Text(
-                        pkg.description,
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall,
+                        pkg.description.tr,   // 🔥 FIX
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
 
                       const SizedBox(height: 14),
 
-                      // Checklist Preview
+                      // CHECKLIST PREVIEW
                       ...pkg.checklist.take(3).map(
                         (item) => Padding(
                           padding:
@@ -106,7 +101,7 @@ class PackageSelectionScreen extends GetView<PackageController> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  item,
+                                  item.tr,   // 🔥 FIX
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodySmall,
@@ -119,7 +114,7 @@ class PackageSelectionScreen extends GetView<PackageController> {
 
                       const SizedBox(height: 16),
 
-                      // Continue Button
+                      // CONTINUE BUTTON
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -134,12 +129,11 @@ class PackageSelectionScreen extends GetView<PackageController> {
                           ),
                           onPressed: () {
                             Get.to(() =>
-                                ChecklistPreviewScreen(
-                                    package: pkg));
+                                ChecklistPreviewScreen(package: pkg));
                           },
-                          child: const Text(
-                            'Continue',
-                            style: TextStyle(fontSize: 15),
+                          child: Text(
+                            'continue'.tr,
+                            style: const TextStyle(fontSize: 15),
                           ),
                         ),
                       ),

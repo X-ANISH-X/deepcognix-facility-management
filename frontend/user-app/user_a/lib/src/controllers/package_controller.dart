@@ -5,41 +5,40 @@ class PackageController extends GetxController {
   final packages = <PackageModel>[
     PackageModel(
       id: 'basic',
-      name: 'Basic',
-      description: 'Essential cleaning',
+      name: 'pkg_basic',
+      description: 'pkg_basic_desc',
       price: 99,
       checklist: [
-        'Dusting',
-        'Vacuuming',
-        'Trash removal',
+        'task_dusting',
+        'task_vacuuming',
+        'task_trash',
       ],
     ),
     PackageModel(
       id: 'standard',
-      name: 'Standard',
-      description: 'Most popular choice',
+      name: 'pkg_standard',
+      description: 'pkg_standard_desc',
       price: 149,
       checklist: [
-        'Dusting',
-        'Vacuuming',
-        'Mopping',
-        'Restroom cleaning',
+        'task_dusting',
+        'task_vacuuming',
+        'task_mopping',
+        'task_restroom',
       ],
     ),
     PackageModel(
       id: 'premium',
-      name: 'Premium',
-      description: 'Deep cleaning',
+      name: 'pkg_premium',
+      description: 'pkg_premium_desc',
       price: 249,
       checklist: [
-        'All Standard tasks',
-        'Deep cleaning',
-        'Carpet cleaning',
+        'task_all_standard',
+        'task_deep_cleaning',
+        'task_carpet_cleaning',
       ],
     ),
   ].obs;
 
-  // ✅ THIS FIXES YOUR SELECTION ISSUE
   final selectedPackage = Rxn<PackageModel>();
 
   void selectPackage(PackageModel package) {

@@ -6,26 +6,26 @@ class HomeController extends GetxController {
   final services = <ServiceModel>[
     ServiceModel(
       id: 'office',
-      title: 'Office Cleaning',
-      subtitle: 'Corporate & workspace',
+      title: 'service_office',
+      subtitle: 'service_office_desc',
       icon: Icons.business,
     ),
     ServiceModel(
       id: 'mall',
-      title: 'Mall Cleaning',
-      subtitle: 'Large retail spaces',
+      title: 'service_mall',
+      subtitle: 'service_mall_desc',
       icon: Icons.store_mall_directory,
     ),
     ServiceModel(
       id: 'theater',
-      title: 'Theater Cleaning',
-      subtitle: 'Auditorium & lobby',
+      title: 'service_theater',
+      subtitle: 'service_theater_desc',
       icon: Icons.theaters,
     ),
     ServiceModel(
       id: 'glass',
-      title: 'Glass Cleaning',
-      subtitle: 'Exterior & interior',
+      title: 'service_glass',
+      subtitle: 'service_glass_desc',
       icon: Icons.window,
     ),
   ].obs;

@@ -14,9 +14,9 @@ class HomeScreen extends GetView<HomeController> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Choose Service",
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          "choose_service".tr,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
         elevation: 0,
@@ -28,14 +28,11 @@ class HomeScreen extends GetView<HomeController> {
                     ? Icons.dark_mode
                     : Icons.light_mode,
               ),
-              onPressed: () {
-                themeController.toggleTheme();
-              },
+              onPressed: themeController.toggleTheme,
             ),
           ),
         ],
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Obx(
@@ -61,14 +58,6 @@ class HomeScreen extends GetView<HomeController> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(
-                            themeController.isDark.value ? 0.2 : 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,11 +76,11 @@ class HomeScreen extends GetView<HomeController> {
                           color: Theme.of(context).primaryColor,
                         ),
                       ),
-
                       const SizedBox(height: 20),
 
+                      // 🔥 FIXED HERE
                       Text(
-                        service.title,
+                        service.title.tr,
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -100,10 +89,10 @@ class HomeScreen extends GetView<HomeController> {
 
                       const SizedBox(height: 6),
 
+                      // 🔥 FIXED HERE
                       Text(
-                        service.subtitle,
-                        style:
-                            Theme.of(context).textTheme.bodySmall,
+                        service.subtitle.tr,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),

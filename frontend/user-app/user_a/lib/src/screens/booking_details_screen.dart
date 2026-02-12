@@ -11,9 +11,9 @@ class BookingDetailsScreen extends GetView<BookingController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Booking Details',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          'booking_details'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
         elevation: 0,
@@ -25,12 +25,12 @@ class BookingDetailsScreen extends GetView<BookingController> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
 
-              _sectionTitle(context, 'Select Date'),
+              _sectionTitle(context, 'select_date'.tr),
               const SizedBox(height: 8),
               _inputTile(
                 context,
                 text: controller.selectedDate.value.isEmpty
-                    ? 'Choose date'
+                    ? 'choose_date'.tr
                     : controller.selectedDate.value,
                 onTap: () async {
                   final pickedDate = await showDatePicker(
@@ -49,12 +49,12 @@ class BookingDetailsScreen extends GetView<BookingController> {
 
               const SizedBox(height: 20),
 
-              _sectionTitle(context, 'Select Time'),
+              _sectionTitle(context, 'select_time'.tr),
               const SizedBox(height: 8),
               _inputTile(
                 context,
                 text: controller.selectedTime.value.isEmpty
-                    ? 'Choose time'
+                    ? 'choose_time'.tr
                     : controller.selectedTime.value,
                 onTap: () async {
                   final pickedTime = await showTimePicker(
@@ -71,12 +71,12 @@ class BookingDetailsScreen extends GetView<BookingController> {
 
               const SizedBox(height: 20),
 
-              _sectionTitle(context, 'Service Location'),
+              _sectionTitle(context, 'service_location'.tr),
               const SizedBox(height: 8),
               _inputTile(
                 context,
                 text: controller.selectedAddress.value.isEmpty
-                    ? 'Select address'
+                    ? 'select_address'.tr
                     : controller.selectedAddress.value,
                 onTap: () {
                   _showAddressBottomSheet(context);
@@ -85,7 +85,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
 
               const SizedBox(height: 20),
 
-              _sectionTitle(context, 'Payment Method'),
+              _sectionTitle(context, 'payment_method'.tr),
               const SizedBox(height: 8),
 
               RadioListTile<String>(
@@ -94,7 +94,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
                 onChanged: (val) {
                   controller.paymentMethod.value = val!;
                 },
-                title: const Text('Pay Now'),
+                title: Text('pay_now'.tr),
               ),
 
               RadioListTile<String>(
@@ -103,7 +103,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
                 onChanged: (val) {
                   controller.paymentMethod.value = val!;
                 },
-                title: const Text('Pay on Completion'),
+                title: Text('pay_later'.tr),
               ),
 
               const Spacer(),
@@ -125,8 +125,8 @@ class BookingDetailsScreen extends GetView<BookingController> {
                         controller.selectedAddress.value.isEmpty) {
 
                       Get.snackbar(
-                        "Incomplete Details",
-                        "Please select date, time and address",
+                        "incomplete_details".tr,
+                        "select_all_details".tr,
                         snackPosition: SnackPosition.BOTTOM,
                       );
                       return;
@@ -134,9 +134,9 @@ class BookingDetailsScreen extends GetView<BookingController> {
 
                     Get.to(() => const BookingStatusScreen());
                   },
-                  child: const Text(
-                    'Confirm Booking',
-                    style: TextStyle(fontSize: 16),
+                  child: Text(
+                    'confirm_booking'.tr,
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
               ),
@@ -147,8 +147,6 @@ class BookingDetailsScreen extends GetView<BookingController> {
     );
   }
 
-  // ---------------- SECTION TITLE ----------------
-
   Widget _sectionTitle(BuildContext context, String text) {
     return Text(
       text,
@@ -158,8 +156,6 @@ class BookingDetailsScreen extends GetView<BookingController> {
           ?.copyWith(fontWeight: FontWeight.w600),
     );
   }
-
-  // ---------------- INPUT TILE ----------------
 
   Widget _inputTile(
     BuildContext context, {
@@ -197,8 +193,6 @@ class BookingDetailsScreen extends GetView<BookingController> {
     );
   }
 
-  // ---------------- ADDRESS BOTTOM SHEET ----------------
-
   void _showAddressBottomSheet(BuildContext context) {
     Get.bottomSheet(
       Container(
@@ -213,7 +207,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Select Address",
+              "select_address".tr,
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -238,7 +232,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
 
             ListTile(
               leading: const Icon(Icons.add),
-              title: const Text("Add New Address"),
+              title: Text("add_new_address".tr),
               onTap: () {
                 Get.back();
                 _showAddAddressDialog(context);
@@ -251,22 +245,20 @@ class BookingDetailsScreen extends GetView<BookingController> {
     );
   }
 
-  // ---------------- ADD ADDRESS DIALOG ----------------
-
   void _showAddAddressDialog(BuildContext context) {
     final TextEditingController addressController =
         TextEditingController();
 
     Get.defaultDialog(
-      title: "New Address",
+      title: "new_address".tr,
       content: TextField(
         controller: addressController,
-        decoration: const InputDecoration(
-          hintText: "Enter address",
+        decoration: InputDecoration(
+          hintText: "enter_address".tr,
         ),
       ),
-      textConfirm: "Add",
-      textCancel: "Cancel",
+      textConfirm: "add".tr,
+      textCancel: "cancel".tr,
       onConfirm: () {
         if (addressController.text.trim().isNotEmpty) {
           controller.addAddress(

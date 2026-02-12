@@ -11,9 +11,9 @@ class BookingStatusScreen extends GetView<BookingController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Service Status',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          'service_status'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: false,
         elevation: 0,
@@ -36,8 +36,6 @@ class BookingStatusScreen extends GetView<BookingController> {
     );
   }
 
-  // ---------------- STATUS CARD ----------------
-
   Widget _statusCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -59,7 +57,7 @@ class BookingStatusScreen extends GetView<BookingController> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Booking #CLN-2026-001',
+            '${'booking'.tr} #CLN-2026-001',
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -67,9 +65,7 @@ class BookingStatusScreen extends GetView<BookingController> {
           ),
           const SizedBox(height: 10),
           Text(
-            controller.bookingStatus.value
-                .replaceAll('_', ' ')
-                .toUpperCase(),
+            controller.bookingStatus.value.tr,
             style: Theme.of(context)
                 .textTheme
                 .titleSmall
@@ -82,8 +78,6 @@ class BookingStatusScreen extends GetView<BookingController> {
       ),
     );
   }
-
-  // ---------------- TIMELINE ----------------
 
   Widget _progressTimeline(BuildContext context) {
     final steps = [
@@ -110,20 +104,16 @@ class BookingStatusScreen extends GetView<BookingController> {
                 : Theme.of(context).dividerColor,
           ),
           title: Text(
-            step.replaceAll('_', ' ').toUpperCase(),
+            step.tr,
             style: Theme.of(context)
                 .textTheme
                 .bodyMedium
-                ?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                ?.copyWith(fontWeight: FontWeight.w500),
           ),
         );
       }).toList(),
     );
   }
-
-  // ---------------- BOTTOM ACTION ----------------
 
   Widget _bottomButton(BuildContext context) {
     final status = controller.bookingStatus.value;
@@ -142,14 +132,14 @@ class BookingStatusScreen extends GetView<BookingController> {
           ),
           onPressed: () {
             Get.snackbar(
-              'Service Approved',
-              'Completion has been approved.',
+              'service_approved'.tr,
+              'completion_approved'.tr,
               snackPosition: SnackPosition.BOTTOM,
             );
           },
-          child: const Text(
-            'Approve Completion',
-            style: TextStyle(fontSize: 16),
+          child: Text(
+            'approve_completion'.tr,
+            style: const TextStyle(fontSize: 16),
           ),
         ),
       );
@@ -173,9 +163,9 @@ class BookingStatusScreen extends GetView<BookingController> {
                 Get.to(() =>
                     const ChecklistProgressScreen());
               },
-              child: const Text(
-                'View Checklist Progress',
-                style: TextStyle(fontSize: 16),
+              child: Text(
+                'view_checklist_progress'.tr,
+                style: const TextStyle(fontSize: 16),
               ),
             ),
           ),
@@ -184,9 +174,7 @@ class BookingStatusScreen extends GetView<BookingController> {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: _simulateNextStatus,
-              child: const Text(
-                'Simulate Next Status',
-              ),
+              child: Text('simulate_next_status'.tr),
             ),
           ),
         ],
@@ -205,9 +193,9 @@ class BookingStatusScreen extends GetView<BookingController> {
           ),
         ),
         onPressed: _simulateNextStatus,
-        child: const Text(
-          'Simulate Next Status',
-          style: TextStyle(fontSize: 16),
+        child: Text(
+          'simulate_next_status'.tr,
+          style: const TextStyle(fontSize: 16),
         ),
       ),
     );

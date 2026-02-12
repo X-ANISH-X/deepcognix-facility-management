@@ -11,9 +11,9 @@ class ChecklistProgressScreen extends GetView<BookingController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Service Progress',
-          style: TextStyle(
+        title: Text(
+          'service_progress'.tr,
+          style: const TextStyle(
             color: AppColors.textDark,
             fontWeight: FontWeight.w600,
           ),
@@ -52,9 +52,9 @@ class ChecklistProgressScreen extends GetView<BookingController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Checklist Completion',
-            style: TextStyle(
+          Text(
+            'checklist_completion'.tr,
+            style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: AppColors.textDark,
             ),
@@ -67,7 +67,7 @@ class ChecklistProgressScreen extends GetView<BookingController> {
           ),
           const SizedBox(height: 8),
           Text(
-            '$percentage% Completed',
+            '$percentage% ${'completed'.tr}',
             style: const TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
@@ -110,9 +110,11 @@ class ChecklistProgressScreen extends GetView<BookingController> {
                         : AppColors.textLight,
                   ),
                   const SizedBox(width: 12),
+
+                  // 🔥 THE FINAL FIX
                   Expanded(
                     child: Text(
-                      task,
+                      task.tr,
                       style: TextStyle(
                         fontSize: 14,
                         decoration: isDone
@@ -150,7 +152,7 @@ class ChecklistProgressScreen extends GetView<BookingController> {
           controller.markServiceCompleted();
           Get.back();
         },
-        child: const Text('Complete Service'),
+        child: Text('complete_service'.tr),
       ),
     );
   }
