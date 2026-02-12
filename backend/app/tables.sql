@@ -106,12 +106,26 @@ CREATE TABLE IF NOT EXISTS payments (
 -- Matches: Admin Step 6 (Real-time tracking)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS technician_locations (
-    technician_id INT PRIMARY KEY,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    technician_id INT NOT NULL,
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
+    accuracy FLOAT DEFAULT NULL,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_booking_id (booking_id),
+    INDEX idx_technician_id (technician_id),
+
+    CONSTRAINT fk_location_booking
+        FOREIGN KEY (booking_id) REFERENCES bookings(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_location_technician
+        FOREIGN KEY (technician_id) REFERENCES users(id)
+        ON DELETE CASCADE
 );
+
 
 -- ==========================================
 -- 6. NOTIFICATIONS

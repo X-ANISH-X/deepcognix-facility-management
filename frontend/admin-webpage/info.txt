@@ -1,0 +1,77 @@
+Project Overview: Facility Management Service Application
+Purpose and Vision
+The primary goal of this project is to develop a comprehensive Smart Service Management ecosystem designed for modern facilities. By digitizing the end-to-end service workflow, the application aims to streamline service operations, drastically improve response times, and enhance transparency between service providers and customers.
+
+
+The system replaces manual coordination with a scalable digital framework, ensuring that facility maintenance—ranging from plumbing and electrical work to HVAC and cleaning—is handled with maximum operational efficiency. It provides real-time visibility into service statuses, creating a seamless and enhanced experience for all stakeholders involved.
+
+
+
+
+Functional Requirements
+To achieve this purpose, the project is built upon three integrated pillars with the following requirements:
+
+1. User/Customer Requirements
+
+Access & Security: Secure email-based registration and login with full profile management capabilities.
+
+
+Service Booking: A structured request form allowing users to select categories (Plumbing, Electrical, HVAC, Cleaning), describe the issue, and set preferred dates and times.
+
+
+Booking Intelligence: Integration of a "Booked Slots" visibility feature where unavailable times are highlighted in red to prevent double bookings.
+
+
+Live Tracking: Real-time arrival tracking via Google Maps integration to view the technician's live location and estimated arrival time.
+
+
+Logistics Details: Mandatory collection of building details (name, floor, apartment number) during checkout to ensure accurate delivery.
+
+
+Flexible Editing: Ability to edit service requests until they are confirmed by the admin.
+
+2. Technician Requirements
+
+Workflow Management: A dedicated interface to view assigned daily and weekly job lists and detailed customer information.
+
+
+
+
+Status Communication: Real-time updates for job stages, including "Ready to Go," "Work in Progress," and "Completed".
+
+
+Service Validation: Requirement to generate a digital job completion form that captures a customer’s digital signature for confirmation.
+
+
+Simplified Reporting: Ability to upload optional service completion notes without the mandatory requirement for on-site photo captures, simplifying the workflow.
+
+
+3. Administrative & System Requirements
+
+Control Center: A secure web panel with role-based access for managing approvals, assignments, and pricing.
+
+
+
+
+Data Oversight: Comprehensive monitoring of active jobs, completed requests, and technician activation/deactivation.
+
+
+
+Financial Enforcement: Automated system logic to enforce payment collection before a job can be marked as completed if payment wasn't made at booking.
+
+
+Analytics: A reporting module to export service-wise, technician-wise, and date-wise booking data for management purposes.
+
+
+Technical Stack Requirement (Architecture)
+Frontend: Flutter or React Native for mobile applications; Next.js or React for the Admin Web Panel.
+
+Backend: FastAPI (Python) for the core logic server.
+
+Authentication: JWT (JSON Web Token) for secure session management.
+
+Persistence: MySQL for the primary database and Redis for optional high-speed caching.
+
+Integrations: Google Maps (Tracking), Firebase Cloud Messaging (Push Notifications), and Stripe/Razorpay (Payment Processing).
+
+Would you like me to help you draft the Installation or Getting Started section for this README based on this tech stack?
