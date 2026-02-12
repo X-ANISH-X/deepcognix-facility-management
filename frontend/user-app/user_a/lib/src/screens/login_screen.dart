@@ -4,15 +4,20 @@ import 'package:get/get.dart';
 import 'register_screen.dart';
 import 'package:user_a/src/controllers/theme_controller.dart';
 import 'package:user_a/src/controllers/language_controller.dart';
+import 'package:user_a/src/controllers/auth_controller.dart';
 
 class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+  LoginScreen({super.key});
+
+  final themeController = Get.find<ThemeController>();
+  final langController = Get.find<LanguageController>();
+  final authController = Get.put(AuthController());
+
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
-    final themeController = Get.find<ThemeController>();
-    final langController = Get.find<LanguageController>();
-
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -79,6 +84,7 @@ class LoginScreen extends StatelessWidget {
                 const SizedBox(height: 40),
 
                 TextField(
+                  controller: emailController,
                   decoration: InputDecoration(
                     labelText: "email".tr,
                     border: const OutlineInputBorder(),
@@ -88,6 +94,7 @@ class LoginScreen extends StatelessWidget {
                 const SizedBox(height: 15),
 
                 TextField(
+                  controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
                     labelText: "password".tr,
@@ -97,26 +104,30 @@ class LoginScreen extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
+                // 🔥 LOGIN BUTTON WITH API CALL
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Get.snackbar(
-                        "login".tr,
-                        "login_clicked".tr,
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
-                    },
-
-                    // 🔥 THIS WAS THE PROBLEM
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      child: Text(
-                        "login".tr,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
+                  child: Obx(() => ElevatedButton(
+                        onPressed: authController.isLoading.value
+                            ? null
+                            : () {
+                                authController.login(
+                                  emailController.text.trim(),
+                                  passwordController.text.trim(),
+                                );
+                              },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: authController.isLoading.value
+                              ? const CircularProgressIndicator(
+                                  color: Colors.white,
+                                )
+                              : Text(
+                                  "login".tr,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                        ),
+                      )),
                 ),
 
                 const SizedBox(height: 20),
