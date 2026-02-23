@@ -118,6 +118,7 @@ class BookingStatusScreen extends GetView<BookingController> {
   Widget _bottomButton(BuildContext context) {
     final status = controller.bookingStatus.value;
 
+    // ✅ JOB COMPLETED
     if (status == 'completed') {
       return SizedBox(
         width: double.infinity,
@@ -145,42 +146,32 @@ class BookingStatusScreen extends GetView<BookingController> {
       );
     }
 
+    // ✅ SERVICE STARTED → SHOW PROGRESS SCREEN
     if (status == 'in_progress') {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(16),
-                ),
-              ),
-              onPressed: () {
-                Get.to(() =>
-                    const ChecklistProgressScreen());
-              },
-              child: Text(
-                'view_checklist_progress'.tr,
-                style: const TextStyle(fontSize: 16),
-              ),
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            padding:
+                const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.circular(16),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _simulateNextStatus,
-              child: Text('simulate_next_status'.tr),
-            ),
+          onPressed: () {
+            Get.to(() =>
+                const ChecklistProgressScreen());
+          },
+          child: Text(
+            'view_checklist_progress'.tr,
+            style: const TextStyle(fontSize: 16),
           ),
-        ],
+        ),
       );
     }
 
+    // ⏭️ DEMO PURPOSE STATUS SIMULATION
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(

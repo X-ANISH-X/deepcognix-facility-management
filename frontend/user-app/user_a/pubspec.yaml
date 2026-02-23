@@ -14,11 +14,10 @@ dependencies:
   get: ^4.6.6
   get_storage: ^2.1.1
 
-
-  # 🔥 REQUIRED FOR DATE PICKER + RTL + MATERIAL LOCALIZATION
   flutter_localizations:
     sdk: flutter
 
+  http: ^1.2.2
 
   cupertino_icons: ^1.0.8
 
@@ -31,5 +30,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-http: ^1.2.2
-
+  assets:
+    - assets/map.png

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:user_a/src/controllers/booking_controller.dart';
-import 'package:user_a/src/screens/booking_status_screen.dart';
+import 'package:user_a/src/screens/live_tracking_screen.dart';
 
 class BookingDetailsScreen extends GetView<BookingController> {
   const BookingDetailsScreen({super.key});
@@ -120,6 +120,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
                     ),
                   ),
                   onPressed: () {
+
                     if (controller.selectedDate.value.isEmpty ||
                         controller.selectedTime.value.isEmpty ||
                         controller.selectedAddress.value.isEmpty) {
@@ -132,7 +133,8 @@ class BookingDetailsScreen extends GetView<BookingController> {
                       return;
                     }
 
-                    Get.to(() => const BookingStatusScreen());
+                    // 🔥 GO TO LIVE TRACKING NOW
+                    Get.to(() => LiveTrackingScreen());
                   },
                   child: Text(
                     'confirm_booking'.tr,

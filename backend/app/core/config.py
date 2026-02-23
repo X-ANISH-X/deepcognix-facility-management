@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Database
     DB_HOST: str = "localhost"
-    DB_USER: str = "deepcognix"
-    DB_PASSWORD: str = "deepcognixai"
+    DB_USER: str = "root"
+    DB_PASSWORD: str = "1234"
     DB_NAME: str = "deepcognix_db"
     DB_PORT: int = 3306
     

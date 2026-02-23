@@ -5,23 +5,19 @@ import 'package:flutter/material.dart';
 class LanguageController extends GetxController {
   final box = GetStorage();
 
-  // 🔥 Single source of truth
-  final locale = const Locale('en').obs;
+  Rx<Locale> locale = const Locale('en').obs;
 
   @override
   void onInit() {
+    final savedLang = box.read('lang') ?? 'en';
+    locale.value = Locale(savedLang);
+    Get.updateLocale(locale.value);
     super.onInit();
-
-    final savedLang = box.read('lang');
-
-    if (savedLang != null) {
-      locale.value = Locale(savedLang);
-    }
   }
 
-  // 🔥 Change language
   void changeLanguage(String langCode) {
     locale.value = Locale(langCode);
     box.write('lang', langCode);
+    Get.updateLocale(locale.value);
   }
 }
