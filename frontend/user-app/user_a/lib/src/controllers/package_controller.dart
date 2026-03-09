@@ -1,47 +1,151 @@
 import 'package:get/get.dart';
 import 'package:user_a/src/models/package_model.dart';
+import 'package:user_a/src/services/api_client.dart';
 
 class PackageController extends GetxController {
-  final packages = <PackageModel>[
-    PackageModel(
-      id: 'basic',
-      name: 'pkg_basic',
-      description: 'pkg_basic_desc',
-      price: 99,
-      checklist: [
-        'task_dusting',
-        'task_vacuuming',
-        'task_trash',
-      ],
-    ),
-    PackageModel(
-      id: 'standard',
-      name: 'pkg_standard',
-      description: 'pkg_standard_desc',
-      price: 149,
-      checklist: [
-        'task_dusting',
-        'task_vacuuming',
-        'task_mopping',
-        'task_restroom',
-      ],
-    ),
-    PackageModel(
-      id: 'premium',
-      name: 'pkg_premium',
-      description: 'pkg_premium_desc',
-      price: 249,
-      checklist: [
-        'task_all_standard',
-        'task_deep_cleaning',
-        'task_carpet_cleaning',
-      ],
-    ),
-  ].obs;
+
+  final ApiClient _api = ApiClient();
+
+  final packages = <PackageModel>[].obs;
+  final isLoading = false.obs;
 
   final selectedPackage = Rxn<PackageModel>();
 
   void selectPackage(PackageModel package) {
     selectedPackage.value = package;
+  }
+
+  /// ================= LOAD PACKAGES =================
+  Future<void> loadPackages(String categoryId) async {
+
+    try {
+
+      isLoading.value = true;
+
+      /// backend endpoint
+      final response = await _api.get(
+        "/services/category/$categoryId"
+      );
+
+      /// If backend later returns packages we map them here
+      if (response is List && response.isNotEmpty) {
+
+        packages.value = response.map((s) {
+
+          return PackageModel(
+            id: s['id'].toString(),
+            name: s['name'] ?? "Cleaning Package",
+            description: s['description'] ?? "",
+            price: (s['price'] ?? 0).toDouble(),
+            checklist: List<String>.from(s['checklist'] ?? []),
+            durationByApartment:
+                Map<String, String>.from(s['durationByApartment'] ?? {}),
+          );
+
+        }).toList();
+
+      } else {
+
+        _loadClientPackages();
+
+      }
+
+    } catch (e) {
+
+      /// backend may not provide packages yet
+      _loadClientPackages();
+
+    } finally {
+
+      isLoading.value = false;
+
+    }
+  }
+
+  /// ================= CLIENT SPEC PACKAGES =================
+  void _loadClientPackages() {
+
+    packages.value = [
+
+      /// SILVER
+      PackageModel(
+        id: 'silver',
+        name: 'Silver Package',
+        description: 'Basic apartment cleaning service',
+        price: 99,
+        checklist: [
+          'Dusting furniture and shelves',
+          'Sweeping and mopping floors',
+          'Cleaning kitchen countertop and sink',
+          'Wiping cabinet exteriors',
+          'Cleaning bathroom basin, mirror and toilet',
+          'Garbage collection and disposal',
+          'Dusting window sills and frames',
+          'Cleaning door handles',
+          'Basic balcony sweeping and mopping',
+        ],
+        durationByApartment: {
+          "Studio": "2-3 hours",
+          "1 BHK": "3-4 hours",
+          "2 BHK": "4-5 hours",
+          "3 BHK": "5-6 hours",
+        },
+      ),
+
+      /// GOLD
+      PackageModel(
+        id: 'gold',
+        name: 'Gold Package',
+        description: 'Comprehensive deep cleaning service',
+        price: 149,
+        checklist: [
+          'All Silver package services',
+          'Deep cleaning kitchen cabinets',
+          'Degreasing kitchen wall tiles',
+          'Cleaning kitchen appliance exteriors',
+          'Deep cleaning bathroom tiles and shower',
+          'Glass and mirror polishing',
+          'Vacuum cleaning sofas and cushions',
+          'Detailed dusting doors and wardrobes',
+          'Interior window glass cleaning',
+          'Balcony washing and cleaning',
+          'Deep floor cleaning and mopping',
+        ],
+        durationByApartment: {
+          "Studio": "3-4 hours",
+          "1 BHK": "4-5 hours",
+          "2 BHK": "5-6 hours",
+          "3 BHK": "6-7 hours",
+        },
+      ),
+
+      /// PLATINUM
+      PackageModel(
+        id: 'platinum',
+        name: 'Platinum Package',
+        description: 'Premium deep cleaning and sanitization',
+        price: 249,
+        checklist: [
+          'All Gold package services',
+          'Steam sanitization of kitchen and bathrooms',
+          'Deep vacuum cleaning carpets and sofas',
+          'Mattress vacuum cleaning',
+          'Cleaning behind accessible furniture',
+          'Cleaning AC vents',
+          'Interior window glass streak-free cleaning',
+          'Wall spot cleaning',
+          'Wardrobe internal cleaning',
+          'Interior fridge cleaning',
+          'Premium floor polishing',
+          'Balcony pressure cleaning',
+        ],
+        durationByApartment: {
+          "Studio": "4-5 hours",
+          "1 BHK": "5-6 hours",
+          "2 BHK": "6-7 hours",
+          "3 BHK": "7-8 hours",
+        },
+      ),
+    ];
   }
 }

@@ -4,19 +4,35 @@ import 'package:get_storage/get_storage.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'src/screens/home_screen.dart';
+import 'src/screens/splash_screen.dart';
+
+import 'src/controllers/auth_controller.dart';
 import 'src/controllers/register_controller.dart';
 import 'src/controllers/home_controller.dart';
 import 'src/controllers/package_controller.dart';
 import 'src/controllers/booking_controller.dart';
 import 'src/controllers/theme_controller.dart';
-import 'src/translations/app_translations.dart';
 import 'src/controllers/language_controller.dart';
+
+import 'src/translations/app_translations.dart';
 import 'src/services/auth_service.dart';
-import 'src/screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await GetStorage.init();
+
+  /// Core controllers
+  Get.put(AuthController(), permanent: true);
+  Get.put(ThemeController(), permanent: true);
+  Get.put(LanguageController(), permanent: true);
+
+  /// Lazy controllers (loaded when needed)
+  Get.lazyPut(() => RegisterController());
+  Get.lazyPut(() => HomeController());
+  Get.lazyPut(() => PackageController());
+  Get.lazyPut(() => BookingController());
+
   runApp(const MyApp());
 }
 
@@ -26,29 +42,31 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    final themeController = Get.put(ThemeController());
-    final languageController = Get.put(LanguageController());
-
-    final bool isLoggedIn = AuthService().isLoggedIn;
+    final themeController = Get.find<ThemeController>();
+    final languageController = Get.find<LanguageController>();
 
     return Obx(() {
 
       final locale = languageController.locale.value;
+      final bool isLoggedIn = AuthService().isLoggedIn;
 
       return GetMaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'User App',
 
+        debugShowCheckedModeBanner: false,
+
+        title: "DeepCognix User App",
+
+        /// ---------------- TRANSLATIONS ----------------
         translations: AppTranslations(),
         locale: locale,
         fallbackLocale: const Locale('en'),
 
-        // 🔥 THIS is what makes Arabic flip the UI
         builder: (context, child) {
           return Directionality(
-            textDirection: locale.languageCode == 'ar'
-                ? TextDirection.rtl
-                : TextDirection.ltr,
+            textDirection:
+                locale.languageCode == "ar"
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
             child: child!,
           );
         },
@@ -64,6 +82,7 @@ class MyApp extends StatelessWidget {
           Locale('ar'),
         ],
 
+        /// ---------------- THEMES ----------------
         theme: ThemeData.light().copyWith(
           primaryColor: Colors.teal,
           scaffoldBackgroundColor: Colors.white,
@@ -77,16 +96,10 @@ class MyApp extends StatelessWidget {
             ? ThemeMode.dark
             : ThemeMode.light,
 
-        initialBinding: BindingsBuilder(() {
-          Get.put(RegisterController());
-          Get.put(HomeController());
-          Get.put(PackageController());
-          Get.put(BookingController());
-        }),
-
+        /// ---------------- INITIAL SCREEN ----------------
         home: isLoggedIn
-            ? const HomeScreen()
-            : const SplashScreen(),
+            ? HomeScreen()
+            : SplashScreen(),
       );
     });
   }

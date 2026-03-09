@@ -1,208 +1,212 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import 'package:user_a/src/controllers/booking_controller.dart';
 import 'package:user_a/src/screens/checklist_progress_screen.dart';
+import 'package:user_a/src/screens/tracking_screen.dart';
 
 class BookingStatusScreen extends GetView<BookingController> {
   const BookingStatusScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'service_status'.tr,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        centerTitle: false,
+        title: const Text("Service Status"),
         elevation: 0,
       ),
-      body: Obx(
-        () => Padding(
+
+      body: Obx(() {
+
+        final status = controller.bookingStatus.value;
+
+        return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _statusCard(context),
-              const SizedBox(height: 24),
-              _progressTimeline(context),
-              const Spacer(),
-              _bottomButton(context),
+
+              /// Booking card
+              _bookingCard(context),
+
+              const SizedBox(height: 20),
+
+              /// Status content
+              Expanded(
+                child: _statusContent(context, status),
+              ),
+
+              /// Action button
+              _actionButton(context, status),
             ],
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 
-  Widget _statusCard(BuildContext context) {
+  /// BOOKING CARD
+  Widget _bookingCard(BuildContext context) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Theme.of(context).cardColor,
+      ),
+      child: Obx(() {
+        return Text(
+          "Booking #${controller.bookingId.value}",
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      }),
+    );
+  }
+
+  /// STATUS CONTENT
+  Widget _statusContent(BuildContext context, String status) {
+
+    switch (status) {
+
+      case "requested":
+        return _statusCard(
+          "Finding Technician",
+          "Searching nearby technicians...",
+        );
+
+      case "technician_assigned":
+        return _statusCard(
+          "Technician Assigned",
+          "${controller.technicianName.value}\n⭐ ${controller.technicianRating.value}",
+        );
+
+      case "on_the_way":
+        return _statusCard(
+          "Technician On The Way",
+          "You can track technician live on map",
+        );
+
+      case "arrival_approval_pending":
+        return _statusCard(
+          "Technician Arrived",
+          "Please confirm technician arrival",
+        );
+
+      case "in_progress":
+        return _statusCard(
+          "Service In Progress",
+          "Cleaning service currently ongoing",
+        );
+
+      case "completion_approval_pending":
+        return _statusCard(
+          "Service Completed",
+          "Review checklist before approving completion",
+        );
+
+      case "payment_pending":
+        return _statusCard(
+          "Payment Pending",
+          "Please complete payment",
+        );
+
+      case "completed":
+        return _statusCard(
+          "Service Completed",
+          "Invoice generated successfully",
+        );
+
+      default:
+        return const SizedBox();
+    }
+  }
+
+  Widget _statusCard(String title, String subtitle) {
+    return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(
-                Theme.of(context).brightness == Brightness.dark
-                    ? 0.2
-                    : 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: Get.theme.cardColor,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+
           Text(
-            '${'booking'.tr} #CLN-2026-001',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w600),
+            title,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
+
           const SizedBox(height: 10),
-          Text(
-            controller.bookingStatus.value.tr,
-            style: Theme.of(context)
-                .textTheme
-                .titleSmall
-                ?.copyWith(
-                  color: Theme.of(context).primaryColor,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
+
+          Text(subtitle),
         ],
       ),
     );
   }
 
-  Widget _progressTimeline(BuildContext context) {
-    final steps = [
-      'submitted',
-      'approved',
-      'in_progress',
-      'completed',
-    ];
+  /// ACTION BUTTON
+  Widget _actionButton(BuildContext context, String status) {
 
-    return Column(
-      children: steps.map((step) {
-        final isActive =
-            steps.indexOf(controller.bookingStatus.value) >=
-                steps.indexOf(step);
+    if (status == "on_the_way") {
+      return _button("Track Technician", () {
+        Get.to(() => const TrackingScreen());
+      });
+    }
 
-        return ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(
-            isActive
-                ? Icons.check_circle
-                : Icons.radio_button_unchecked,
-            color: isActive
-                ? Theme.of(context).primaryColor
-                : Theme.of(context).dividerColor,
-          ),
-          title: Text(
-            step.tr,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w500),
-          ),
-        );
-      }).toList(),
-    );
+    if (status == "arrival_approval_pending") {
+      return _button("Confirm Arrival", () {
+        controller.approveArrival();
+      });
+    }
+
+    if (status == "in_progress") {
+      return _button("View Checklist", () {
+        Get.to(() => const ChecklistProgressScreen());
+      });
+    }
+
+    if (status == "completion_approval_pending") {
+      return _button("Approve Completion", () {
+        controller.completeBooking();
+      });
+    }
+
+    if (status == "payment_pending") {
+      return _button("Pay Now", () {
+        controller.updateBookingStatus("completed");
+      });
+    }
+
+    if (status == "completed") {
+      return _button("Done", () {
+        Get.back();
+      });
+    }
+
+    return const SizedBox();
   }
 
-  Widget _bottomButton(BuildContext context) {
-    final status = controller.bookingStatus.value;
+  Widget _button(String text, VoidCallback onPressed) {
 
-    // ✅ JOB COMPLETED
-    if (status == 'completed') {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(16),
-            ),
-          ),
-          onPressed: () {
-            Get.snackbar(
-              'service_approved'.tr,
-              'completion_approved'.tr,
-              snackPosition: SnackPosition.BOTTOM,
-            );
-          },
-          child: Text(
-            'approve_completion'.tr,
-            style: const TextStyle(fontSize: 16),
-          ),
-        ),
-      );
-    }
-
-    // ✅ SERVICE STARTED → SHOW PROGRESS SCREEN
-    if (status == 'in_progress') {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(16),
-            ),
-          ),
-          onPressed: () {
-            Get.to(() =>
-                const ChecklistProgressScreen());
-          },
-          child: Text(
-            'view_checklist_progress'.tr,
-            style: const TextStyle(fontSize: 16),
-          ),
-        ),
-      );
-    }
-
-    // ⏭️ DEMO PURPOSE STATUS SIMULATION
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
+        onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          padding:
-              const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-        onPressed: _simulateNextStatus,
-        child: Text(
-          'simulate_next_status'.tr,
-          style: const TextStyle(fontSize: 16),
-        ),
+        child: Text(text),
       ),
     );
-  }
-
-  void _simulateNextStatus() {
-    switch (controller.bookingStatus.value) {
-      case 'submitted':
-        controller.bookingStatus.value = 'approved';
-        break;
-      case 'approved':
-        controller.bookingStatus.value = 'in_progress';
-        break;
-      case 'in_progress':
-        controller.bookingStatus.value = 'completed';
-        break;
-    }
   }
 }

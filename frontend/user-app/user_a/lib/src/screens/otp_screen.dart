@@ -1,20 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-import 'home_screen.dart';
 import 'package:user_a/src/controllers/theme_controller.dart';
+import 'package:user_a/src/controllers/auth_controller.dart';
 
-class OtpScreen extends StatelessWidget {
-  const OtpScreen({super.key});
+class OtpScreen extends StatefulWidget {
+  OtpScreen({super.key});
+
+  @override
+  State<OtpScreen> createState() => _OtpScreenState();
+}
+
+class _OtpScreenState extends State<OtpScreen> {
+
+  final ThemeController themeController = Get.find<ThemeController>();
+  final AuthController authController = Get.find<AuthController>();
+  final TextEditingController otpController = TextEditingController();
+
+  @override
+  void dispose() {
+    otpController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final themeController = Get.find<ThemeController>();
-
     return Scaffold(
       appBar: AppBar(
         title: Text("otp_verification".tr),
-        centerTitle: false,
         elevation: 0,
         actions: [
           Obx(
@@ -56,6 +68,7 @@ class OtpScreen extends StatelessWidget {
               const SizedBox(height: 30),
 
               TextField(
+                controller: otpController,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
                 decoration: InputDecoration(
@@ -69,30 +82,43 @@ class OtpScreen extends StatelessWidget {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Get.offAll(() => const HomeScreen());
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(
-                      "verify_otp".tr,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
+                child: Obx(() => ElevatedButton(
+                      onPressed: authController.isLoading.value
+                          ? null
+                          : () {
+                              authController.verifyOtp(
+                                  otpController.text.trim());
+                            },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: authController.isLoading.value
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : Text(
+                                "verify_otp".tr,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                      ),
+                    )),
               ),
 
               const SizedBox(height: 20),
 
               Center(
                 child: TextButton(
-                  onPressed: () {
+                  onPressed: () async {
+
                     Get.snackbar(
-                      "otp_sent".tr,
-                      "otp_resent".tr,
+                      "OTP Sent",
+                      "A new OTP has been generated",
                       snackPosition: SnackPosition.BOTTOM,
                     );
+
+                    await Future.delayed(
+                      const Duration(seconds: 1),
+                    );
+
                   },
                   child: Text("resend_code".tr),
                 ),

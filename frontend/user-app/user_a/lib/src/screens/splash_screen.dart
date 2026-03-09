@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'login_screen.dart';
+import 'package:user_a/src/screens/login_screen.dart';
+import 'package:user_a/src/screens/home_screen.dart';
+import 'package:user_a/src/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -14,10 +16,22 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    _navigateUser();
+  }
 
-    Future.delayed(const Duration(seconds: 2), () {
-      Get.off(() => LoginScreen());
-    });
+  void _navigateUser() async {
+
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    final bool isLoggedIn = AuthService().isLoggedIn;
+
+    if (isLoggedIn) {
+      Get.offAll(() => HomeScreen());
+    } else {
+      Get.offAll(() => LoginScreen());
+    }
   }
 
   @override
@@ -35,10 +49,10 @@ class _SplashScreenState extends State<SplashScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: Center(
+        child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
+            children: [
 
               Icon(
                 Icons.cleaning_services,

@@ -5,16 +5,16 @@ import 'package:user_a/src/controllers/register_controller.dart';
 import 'package:user_a/src/controllers/theme_controller.dart';
 
 class RegisterScreen extends GetView<RegisterController> {
-  const RegisterScreen({super.key});
+  RegisterScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+
     final themeController = Get.find<ThemeController>();
 
     return Scaffold(
       appBar: AppBar(
         title: Text("register".tr),
-        centerTitle: false,
         elevation: 0,
         actions: [
           Obx(
@@ -75,6 +75,18 @@ class RegisterScreen extends GetView<RegisterController> {
 
               const SizedBox(height: 15),
 
+              TextField(
+                controller: controller.phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  labelText: "phone_number".tr,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+
+              const SizedBox(height: 15),
+
+              // 🔥 THIS WAS MISSING
               TextField(
                 controller: controller.passwordController,
                 obscureText: true,

@@ -11,7 +11,7 @@ class LoginScreen extends StatelessWidget {
 
   final themeController = Get.find<ThemeController>();
   final langController = Get.find<LanguageController>();
-  final authController = Get.put(AuthController());
+  final authController = Get.find<AuthController>();
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -23,7 +23,6 @@ class LoginScreen extends StatelessWidget {
         elevation: 0,
         actions: [
 
-          // 🌙 Dark Mode Toggle
           Obx(
             () => IconButton(
               icon: Icon(
@@ -35,7 +34,6 @@ class LoginScreen extends StatelessWidget {
             ),
           ),
 
-          // 🌐 Language Toggle
           Obx(
             () => TextButton(
               onPressed: () {
@@ -104,7 +102,6 @@ class LoginScreen extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
-                // 🔥 LOGIN BUTTON WITH API CALL
                 SizedBox(
                   width: double.infinity,
                   child: Obx(() => ElevatedButton(
@@ -135,7 +132,7 @@ class LoginScreen extends StatelessWidget {
                 Center(
                   child: TextButton(
                     onPressed: () {
-                      Get.to(() => const RegisterScreen());
+                      Get.to(() => RegisterScreen());
                     },
                     child: Text("no_account_register".tr),
                   ),
