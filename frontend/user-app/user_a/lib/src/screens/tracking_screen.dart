@@ -17,7 +17,11 @@ class TrackingScreen extends StatelessWidget {
 
       body: Obx(() {
 
-        final status = controller.bookingStatus.value; // ✅ FIX
+        final rawStatus = controller.bookingStatus.value;
+        final normalizedStatus = rawStatus.trim().toLowerCase();
+        final mappedStatus = controller.mapStatus(normalizedStatus);
+
+        debugPrint("TRACKING SCREEN STATUS → raw='$rawStatus', normalized='$normalizedStatus', mapped='$mappedStatus'");
 
         return Center(
           child: Column(
@@ -29,9 +33,9 @@ class TrackingScreen extends StatelessWidget {
               const SizedBox(height: 20),
 
               Text(
-                status.isEmpty
+                mappedStatus.isEmpty
                     ? "Waiting for technician..."
-                    : status,
+                    : mappedStatus.tr,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -44,6 +48,23 @@ class TrackingScreen extends StatelessWidget {
               const Text(
                 "Tracking will be available soon",
                 style: TextStyle(color: Colors.grey),
+              ),
+
+              const SizedBox(height: 40),
+
+              /// ✅ BUTTON TO VIEW FULL STATUS SCREEN
+              ElevatedButton.icon(
+                onPressed: () {
+                  Get.toNamed('/booking-status');
+                },
+                icon: const Icon(Icons.arrow_forward),
+                label: const Text('View Full Status'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
               ),
             ],
           ),

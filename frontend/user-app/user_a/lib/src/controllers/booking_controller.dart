@@ -134,11 +134,41 @@ class BookingController extends GetxController {
   }
 
   // ================= STATUS =================
+  String normalizeStatus(String status) {
+    return status.trim().toLowerCase();
+  }
+
+  String mapStatus(String status) {
+    final normalized = normalizeStatus(status);
+
+    switch (normalized) {
+      case 'submitted':
+        return 'requested';
+      case 'assigned':
+        return 'technician_assigned';
+      case 'in_progress':
+      case 'in progress':
+        return 'in_progress';
+      case 'completed':
+        return 'completed';
+      case 'payment_pending':
+      case 'payment pending':
+        return 'payment_pending';
+      default:
+        return normalized;
+    }
+  }
+
   Future<void> fetchStatus() async {
     try {
       final res = await _api.get("/bookings/${bookingId.value}");
 
-      bookingStatus.value = res["status"] ?? "";
+      final rawStatus = (res["status"] ?? "").toString();
+      final mappedStatus = mapStatus(rawStatus);
+
+      debugPrint("STATUS FETCH → raw='$rawStatus' mapped='$mappedStatus'");
+
+      bookingStatus.value = mappedStatus;
 
       final tech = res["technician"];
       if (tech != null) {

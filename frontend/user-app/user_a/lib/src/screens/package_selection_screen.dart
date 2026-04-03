@@ -1,3 +1,4 @@
+// SAME IMPORTS — untouched
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:user_a/src/controllers/package_controller.dart';
@@ -18,35 +19,31 @@ class _PackageSelectionScreenState
   final PackageController _pkgCtrl     = Get.find();
   final BookingController _bookingCtrl = Get.find();
 
-  // Apartment type is selected ON this screen, not passed from HomeScreen
   final _apartmentTypes = ["Studio", "1 BHK", "2 BHK", "3 BHK"];
   String _selectedApartment = "1 BHK";
 
-  // Service title passed as route argument from HomeScreen
   String get _serviceTitle =>
       (Get.arguments?['serviceTitle'] as String?) ?? "Service";
 
   @override
-  void initState() {
-    super.initState();
-    // Packages are already loading — triggered by HomeScreen before navigation
-    // No need to call loadPackages() again here
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FB), // 🔥 soft background
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: Text(
           _serviceTitle,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
         ),
-        elevation: 0,
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Apartment type selector ──────────────────────────────────
+
           _ApartmentSelector(
             types: _apartmentTypes,
             selected: _selectedApartment,
@@ -55,17 +52,16 @@ class _PackageSelectionScreenState
           ),
 
           const Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
             child: Text(
               "Choose a Package",
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
 
-          // ── Package list ─────────────────────────────────────────────
           Expanded(
             child: Obx(() {
               if (_pkgCtrl.isLoading.value) {
@@ -73,22 +69,7 @@ class _PackageSelectionScreenState
               }
 
               if (_pkgCtrl.packages.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.inbox, size: 48, color: Colors.grey),
-                      const SizedBox(height: 12),
-                      const Text("No packages available"),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => _pkgCtrl
-                            .loadPackages(_bookingCtrl.serviceId.value),
-                        child: const Text("Retry"),
-                      ),
-                    ],
-                  ),
-                );
+                return const Center(child: Text("No packages available"));
               }
 
               return ListView.separated(
@@ -112,22 +93,19 @@ class _PackageSelectionScreenState
   }
 
   void _onContinue(PackageModel pkg) {
-    // selectPackage() already syncs packageId + price into BookingController
     _pkgCtrl.selectPackage(pkg);
-
-    // Also store the checklist in BookingController for the status screen
     _bookingCtrl.checklist.value = List<String>.from(pkg.checklist);
 
     Get.toNamed('/checklist', arguments: {
-      'package':       pkg,
+      'package': pkg,
       'apartmentType': _selectedApartment,
     });
   }
 }
 
-// ====================================================================== //
-//  APARTMENT TYPE SELECTOR
-// ====================================================================== //
+// =======================================================
+// APARTMENT SELECTOR (clean pill UI)
+// =======================================================
 class _ApartmentSelector extends StatelessWidget {
   final List<String> types;
   final String selected;
@@ -141,50 +119,38 @@ class _ApartmentSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Apartment Type",
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 40,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: types.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final type = types[index];
-                final isSelected = type == selected;
-                return ChoiceChip(
-                  label: Text(type),
-                  selected: isSelected,
-                  onSelected: (_) => onSelected(type),
-                  selectedColor:
-                      Theme.of(context).primaryColor.withOpacity(0.2),
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : null,
-                  ),
-                );
-              },
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Wrap(
+        spacing: 10,
+        children: types.map((type) {
+          final isSelected = type == selected;
+
+          return ChoiceChip(
+            label: Text(type),
+            selected: isSelected,
+            onSelected: (_) => onSelected(type),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-        ],
+            selectedColor: const Color(0xFFE6F4F1),
+            backgroundColor: Colors.white,
+            labelStyle: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: isSelected
+                  ? const Color(0xFF0F9D8A)
+                  : Colors.black87,
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 }
 
-// ====================================================================== //
-//  PACKAGE CARD
-// ====================================================================== //
+// =======================================================
+// PACKAGE CARD (THIS IS THE REAL GLOW UP)
+// =======================================================
 class _PackageCard extends StatefulWidget {
   final PackageModel package;
   final String apartmentType;
@@ -205,138 +171,140 @@ class _PackageCardState extends State<_PackageCard> {
 
   @override
   Widget build(BuildContext context) {
-    final pkg      = widget.package;
+    final pkg = widget.package;
     final duration =
         pkg.durationByApartment[widget.apartmentType] ?? "N/A";
-    final isDark   =
-        Theme.of(context).brightness == Brightness.dark;
 
-    // Show 3 items collapsed, all when expanded
     final visibleItems =
         _expanded ? pkg.checklist : pkg.checklist.take(3).toList();
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-            blurRadius: 12,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Title + price ────────────────────────────────────────────
+
+          /// TITLE + PRICE
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 pkg.name,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               Text(
                 '\$${pkg.price.toInt()}',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F9D8A),
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
 
           const SizedBox(height: 6),
-          Text(pkg.description,
-              style: Theme.of(context).textTheme.bodySmall),
+
+          Text(
+            pkg.description,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black54,
+            ),
+          ),
 
           const SizedBox(height: 10),
 
-          // ── Duration ─────────────────────────────────────────────────
+          /// DURATION
           Row(
             children: [
-              const Icon(Icons.access_time, size: 16),
+              const Icon(Icons.access_time, size: 15),
               const SizedBox(width: 6),
               Text(
                 "Est. time: $duration",
-                style: Theme.of(context).textTheme.bodySmall,
+                style: const TextStyle(fontSize: 12),
               ),
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // ── Checklist items ──────────────────────────────────────────
+          /// CHECKLIST
           ...visibleItems.map(
             (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 6),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle,
-                      size: 16,
-                      color: Theme.of(context).primaryColor),
+                  const Icon(Icons.check, size: 16, color: Color(0xFF0F9D8A)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(item,
-                        style: Theme.of(context).textTheme.bodySmall),
+                    child: Text(
+                      item,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   ),
                 ],
               ),
             ),
           ),
 
-          // ── Expand / Collapse toggle ─────────────────────────────────
           if (pkg.checklist.length > 3)
             GestureDetector(
               onTap: () => setState(() => _expanded = !_expanded),
               child: Padding(
-                padding: const EdgeInsets.only(top: 4, bottom: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      size: 18,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _expanded
-                          ? "Show less"
-                          : "View all ${pkg.checklist.length} items",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  _expanded
+                      ? "Show less"
+                      : "View all ${pkg.checklist.length} items",
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF0F9D8A),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
 
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
 
-          // ── Continue button ──────────────────────────────────────────
+          /// BUTTON
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: widget.onContinue,
               style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F9D8A),
+                elevation: 0,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               child: const Text(
                 "Continue",
-                style: TextStyle(fontSize: 15),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

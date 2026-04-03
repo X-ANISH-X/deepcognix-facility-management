@@ -24,11 +24,14 @@ class BookingStatusScreen extends GetView<BookingController> {
 
       body: Obx(() {
 
-        final status = controller.bookingStatus.value;
+        final rawStatus = controller.bookingStatus.value;
 
-        if (status.isEmpty) {
+        if (rawStatus.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
+
+        /// 🔥 ONLY CHANGE: STATUS MAPPING
+        final status = _mapStatus(rawStatus);
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -52,6 +55,21 @@ class BookingStatusScreen extends GetView<BookingController> {
         );
       }),
     );
+  }
+
+  /// 🔥 STATUS MAPPING FUNCTION (ONLY ADDITION)
+  String _mapStatus(String status) {
+    final normalized = status.trim().toLowerCase();
+
+    debugPrint("STATUS MAP IN/OUT → raw='$status', normalized='$normalized'");
+
+    if (normalized == "submitted") return "requested";
+    if (normalized == "assigned") return "technician_assigned";
+    if (normalized == "in_progress" || normalized == "in progress") return "in_progress";
+    if (normalized == "completed") return "completed";
+    if (normalized == "payment_pending" || normalized == "payment pending") return "payment_pending";
+
+    return normalized;
   }
 
   /// ---------------- BOOKING CARD ----------------

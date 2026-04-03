@@ -22,9 +22,12 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FB), // ✅ soft background
+
       appBar: AppBar(
         title: const Text("Our Services"),
         elevation: 0,
+        backgroundColor: Colors.transparent,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -51,25 +54,57 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            /// Welcome
+            /// 🔹 WELCOME CARD (UPGRADED LOOK)
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    "Welcome back, ${_auth.fullName ?? ""} 👋",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+
+                  /// ICON (NEW)
+                  Container(
+                    height: 45,
+                    width: 45,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6F4F1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.cleaning_services,
+                      color: Color(0xFF0F9D8A),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text("What would you like cleaned today?"),
+
+                  const SizedBox(width: 12),
+
+                  /// TEXT (UNCHANGED)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Welcome back, ${_auth.fullName ?? ""} 👋",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text("What would you like cleaned today?"),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -83,7 +118,7 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            /// GRID
+            /// 🔹 GRID WITH ICONS (MAIN UPGRADE)
             Expanded(
               child: GridView.builder(
                 itemCount: apartmentTypes.length,
@@ -100,31 +135,56 @@ class HomeScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(18),
                     onTap: () {
 
-                      /// 🔥 CRITICAL FIX
+                      /// 🔥 SAME LOGIC (UNTOUCHED)
                       _booking.serviceId.value = item["id"];
 
-                      /// navigate
                       Get.toNamed('/booking');
                     },
                     child: Container(
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: Colors.grey.shade200),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withOpacity(0.04),
                             blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Text(
-                          item["title"],
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+
+                          /// ICON (NEW)
+                          Container(
+                            height: 50,
+                            width: 50,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6F4F1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              _getIcon(item["title"]),
+                              color: const Color(0xFF0F9D8A),
+                              size: 26,
+                            ),
                           ),
-                        ),
+
+                          const SizedBox(height: 12),
+
+                          /// TEXT (UNCHANGED)
+                          Text(
+                            item["title"],
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -135,5 +195,17 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 🔹 ICON MAPPING (UI ONLY)
+  IconData _getIcon(String title) {
+    final t = title.toLowerCase();
+
+    if (t.contains("studio")) return Icons.apartment;
+    if (t.contains("1")) return Icons.home;
+    if (t.contains("2")) return Icons.meeting_room;
+    if (t.contains("3")) return Icons.villa;
+
+    return Icons.home_work;
   }
 }
