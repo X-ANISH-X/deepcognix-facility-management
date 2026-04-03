@@ -16,14 +16,15 @@ dependencies:
   get: ^4.6.6
   get_storage: ^2.1.1
 
-  # MAPS
-  google_maps_flutter: ^2.6.1
 
   # LOCATION PERMISSION
   permission_handler: ^11.3.1
 
   # HTTP API
   http: ^1.2.2
+
+  # OPEN PHONE / URL
+  url_launcher: ^6.3.0
 
   # LOCALIZATION
   flutter_localizations:

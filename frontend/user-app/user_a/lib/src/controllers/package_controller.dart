@@ -1,75 +1,76 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:user_a/src/models/package_model.dart';
+import 'package:user_a/src/controllers/booking_controller.dart';
 import 'package:user_a/src/services/api_client.dart';
 
 class PackageController extends GetxController {
-
   final ApiClient _api = ApiClient();
 
-  final packages = <PackageModel>[].obs;
-  final isLoading = false.obs;
-
+  final packages        = <PackageModel>[].obs;
+  final isLoading       = false.obs;
   final selectedPackage = Rxn<PackageModel>();
 
+  // ================================================================== //
+  //  SELECT PACKAGE  — syncs into BookingController immediately
+  // ================================================================== //
   void selectPackage(PackageModel package) {
     selectedPackage.value = package;
+
+    // Push packageId + price into BookingController (single source of truth)
+    final bookingCtrl = Get.find<BookingController>();
+    bookingCtrl.packageId.value = package.id;
+    bookingCtrl.price.value     = package.price;
+
+    debugPrint("Package selected → id=${package.id}, price=${package.price}");
   }
 
-  /// ================= LOAD PACKAGES =================
-  Future<void> loadPackages(String categoryId) async {
-
+  // ================================================================== //
+  //  LOAD PACKAGES  (categoryId is now int)
+  // ================================================================== //
+  Future<void> loadPackages(int categoryId) async {
     try {
-
       isLoading.value = true;
+      selectedPackage.value = null; // reset on every new category
 
-      /// backend endpoint
-      final response = await _api.get(
-        "/services/category/$categoryId"
-      );
+      final response = await _api.get("/services/category/$categoryId");
 
-      /// If backend later returns packages we map them here
+      debugPrint("Packages API response → $response");
+
       if (response is List && response.isNotEmpty) {
-
-        packages.value = response.map((s) {
-
+        packages.value = response.map<PackageModel>((s) {
           return PackageModel(
-            id: s['id'].toString(),
-            name: s['name'] ?? "Cleaning Package",
+            id:          _parseInt(s['id']),
+            name:        s['name']        ?? "Cleaning Package",
             description: s['description'] ?? "",
-            price: (s['price'] ?? 0).toDouble(),
-            checklist: List<String>.from(s['checklist'] ?? []),
-            durationByApartment:
-                Map<String, String>.from(s['durationByApartment'] ?? {}),
+            price:       (s['price']      ?? 0).toDouble(),
+            checklist: s['checklist'] != null
+                ? List<String>.from(s['checklist'])
+                : [],
+            durationByApartment: s['durationByApartment'] != null
+                ? Map<String, String>.from(s['durationByApartment'])
+                : {},
           );
-
         }).toList();
-
       } else {
-
-        _loadClientPackages();
-
+        debugPrint("Backend returned empty packages → using fallback");
+        _loadFallbackPackages();
       }
-
     } catch (e) {
-
-      /// backend may not provide packages yet
-      _loadClientPackages();
-
+      debugPrint("Package API FAILED → $e");
+      _loadFallbackPackages();
     } finally {
-
       isLoading.value = false;
-
     }
   }
 
-  /// ================= CLIENT SPEC PACKAGES =================
-  void _loadClientPackages() {
-
+  // ================================================================== //
+  //  FALLBACK PACKAGES  (used when API fails or returns empty)
+  // ================================================================== //
+  void _loadFallbackPackages() {
     packages.value = [
-
-      /// SILVER
       PackageModel(
-        id: 'silver',
+        id: 1,
         name: 'Silver Package',
         description: 'Basic apartment cleaning service',
         price: 99,
@@ -86,15 +87,13 @@ class PackageController extends GetxController {
         ],
         durationByApartment: {
           "Studio": "2-3 hours",
-          "1 BHK": "3-4 hours",
-          "2 BHK": "4-5 hours",
-          "3 BHK": "5-6 hours",
+          "1 BHK":  "3-4 hours",
+          "2 BHK":  "4-5 hours",
+          "3 BHK":  "5-6 hours",
         },
       ),
-
-      /// GOLD
       PackageModel(
-        id: 'gold',
+        id: 2,
         name: 'Gold Package',
         description: 'Comprehensive deep cleaning service',
         price: 149,
@@ -113,15 +112,13 @@ class PackageController extends GetxController {
         ],
         durationByApartment: {
           "Studio": "3-4 hours",
-          "1 BHK": "4-5 hours",
-          "2 BHK": "5-6 hours",
-          "3 BHK": "6-7 hours",
+          "1 BHK":  "4-5 hours",
+          "2 BHK":  "5-6 hours",
+          "3 BHK":  "6-7 hours",
         },
       ),
-
-      /// PLATINUM
       PackageModel(
-        id: 'platinum',
+        id: 3,
         name: 'Platinum Package',
         description: 'Premium deep cleaning and sanitization',
         price: 249,
@@ -141,11 +138,19 @@ class PackageController extends GetxController {
         ],
         durationByApartment: {
           "Studio": "4-5 hours",
-          "1 BHK": "5-6 hours",
-          "2 BHK": "6-7 hours",
-          "3 BHK": "7-8 hours",
+          "1 BHK":  "5-6 hours",
+          "2 BHK":  "6-7 hours",
+          "3 BHK":  "7-8 hours",
         },
       ),
     ];
+  }
+
+  // ================================================================== //
+  //  HELPER
+  // ================================================================== //
+  int _parseInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value.toString()) ?? 0;
   }
 }

@@ -9,8 +9,14 @@ router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
 @router.post("/", response_model=dict, status_code=201)
 def create_booking(booking: BookingCreate, db=Depends(get_db_connection)):
-    booking_id = booking_logic.create_booking(db, booking)
-    return {"message": "Booking created", "booking_id": booking_id}
+    try:
+        booking_id = booking_logic.create_booking(db, booking)
+        return {"message": "Booking created", "booking_id": booking_id}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        print("❌ CREATE BOOKING API ERROR:", e)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.get("/", response_model=list[dict])

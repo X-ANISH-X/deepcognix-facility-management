@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.transport import auth, category, service, booking, location
+from app.init_db import init_db
 
 app = FastAPI(title="DeepCognix Facility Management API")
+
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 # Allow Frontend to talk to Backend (CORS)
 app.add_middleware(

@@ -1,60 +1,84 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class MapPickerScreen extends StatefulWidget {
-  const MapPickerScreen({super.key});
+import 'package:user_a/src/controllers/booking_controller.dart';
 
-  @override
-  State<MapPickerScreen> createState() => _MapPickerScreenState();
-}
+class MapPickerScreen extends StatelessWidget {
+  MapPickerScreen({super.key});
 
-class _MapPickerScreenState extends State<MapPickerScreen> {
-  LatLng? _picked;
-  late GoogleMapController _mapController;
+  final BookingController controller = Get.find<BookingController>();
+  final TextEditingController addressController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
+
+    /// Pre-fill if already selected
+    addressController.text = controller.selectedAddress.value;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('select_location'.tr),
         elevation: 0,
       ),
-      body: Stack(
-        children: [
-          GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(20.5937, 78.9629), // india center default
-              zoom: 5,
+
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+
+            const Text(
+              "Enter your address",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            onMapCreated: (c) => _mapController = c,
-            onTap: (pos) {
-              setState(() {
-                _picked = pos;
-              });
-            },
-            markers: _picked == null
-                ? {}
-                : {
-                    Marker(
-                      markerId: const MarkerId('picked'),
-                      position: _picked!,
-                    )
-                  },
-          ),
-          if (_picked != null)
-            Positioned(
-              bottom: 20,
-              left: 20,
-              right: 20,
+
+            const SizedBox(height: 20),
+
+            TextField(
+              controller: addressController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: "Flat / Building / Area / Landmark",
+                border: OutlineInputBorder(),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Get.back(result: _picked);
+
+                  final address = addressController.text.trim();
+
+                  if (address.isEmpty) {
+                    Get.snackbar(
+                      "Error",
+                      "Please enter address",
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                    return;
+                  }
+
+                  /// 🔥 SAVE ADDRESS
+                  controller.selectedAddress.value = address;
+
+                  if (!controller.addresses.contains(address)) {
+                    controller.addresses.add(address);
+                  }
+
+                  Get.back();
                 },
                 child: Text('confirm_location'.tr),
               ),
-            )
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

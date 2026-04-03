@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:user_a/src/controllers/booking_controller.dart';
-import 'package:user_a/src/screens/checklist_progress_screen.dart';
-import 'package:user_a/src/screens/tracking_screen.dart';
 
 class BookingStatusScreen extends GetView<BookingController> {
   const BookingStatusScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+
+    /// ✅ SAFE POLLING (RUNS ONCE)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!controller.isPolling.value) {
+        controller.startPolling();
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -20,23 +26,27 @@ class BookingStatusScreen extends GetView<BookingController> {
 
         final status = controller.bookingStatus.value;
 
+        if (status.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
 
-              /// Booking card
+              /// BOOKING CARD
               _bookingCard(context),
 
               const SizedBox(height: 20),
 
-              /// Status content
+              /// STATUS CONTENT
               Expanded(
-                child: _statusContent(context, status),
+                child: _statusContent(status),
               ),
 
-              /// Action button
-              _actionButton(context, status),
+              /// ACTION BUTTON
+              _actionButton(status),
             ],
           ),
         );
@@ -44,7 +54,7 @@ class BookingStatusScreen extends GetView<BookingController> {
     );
   }
 
-  /// BOOKING CARD
+  /// ---------------- BOOKING CARD ----------------
   Widget _bookingCard(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -65,8 +75,8 @@ class BookingStatusScreen extends GetView<BookingController> {
     );
   }
 
-  /// STATUS CONTENT
-  Widget _statusContent(BuildContext context, String status) {
+  /// ---------------- STATUS CONTENT ----------------
+  Widget _statusContent(String status) {
 
     switch (status) {
 
@@ -85,41 +95,41 @@ class BookingStatusScreen extends GetView<BookingController> {
       case "on_the_way":
         return _statusCard(
           "Technician On The Way",
-          "You can track technician live on map",
+          "You can track technician live",
         );
 
       case "arrival_approval_pending":
         return _statusCard(
           "Technician Arrived",
-          "Please confirm technician arrival",
+          "Please confirm arrival",
         );
 
       case "in_progress":
         return _statusCard(
           "Service In Progress",
-          "Cleaning service currently ongoing",
+          "Cleaning is ongoing",
         );
 
       case "completion_approval_pending":
         return _statusCard(
           "Service Completed",
-          "Review checklist before approving completion",
+          "Review checklist before approval",
         );
 
       case "payment_pending":
         return _statusCard(
           "Payment Pending",
-          "Please complete payment",
+          "Pay technician directly (Cash)",
         );
 
       case "completed":
         return _statusCard(
-          "Service Completed",
-          "Invoice generated successfully",
+          "Completed",
+          "Thank you! Service finished.",
         );
 
       default:
-        return const SizedBox();
+        return const Center(child: Text("Updating status..."));
     }
   }
 
@@ -151,61 +161,84 @@ class BookingStatusScreen extends GetView<BookingController> {
     );
   }
 
-  /// ACTION BUTTON
-  Widget _actionButton(BuildContext context, String status) {
+  /// ---------------- ACTION BUTTONS ----------------
+  Widget _actionButton(String status) {
 
     if (status == "on_the_way") {
-      return _button("Track Technician", () {
-        Get.to(() => const TrackingScreen());
-      });
+      return Column(
+        children: [
+          _button("Track Technician", () {
+            Get.toNamed('/tracking');
+          }),
+          const SizedBox(height: 10),
+          _button("Call Technician", _callTechnician),
+        ],
+      );
+    }
+
+    if (status == "technician_assigned") {
+      return _button("Call Technician", _callTechnician);
     }
 
     if (status == "arrival_approval_pending") {
-      return _button("Confirm Arrival", () {
-        controller.approveArrival();
+      return _button("Confirm Arrival", () async {
+        await controller.approveArrival();
       });
     }
 
     if (status == "in_progress") {
       return _button("View Checklist", () {
-        Get.to(() => const ChecklistProgressScreen());
+        Get.toNamed('/checklist-progress');
       });
     }
 
     if (status == "completion_approval_pending") {
-      return _button("Approve Completion", () {
-        controller.completeBooking();
+      return _button("Approve Completion", () async {
+        await controller.completeBooking();
       });
     }
 
     if (status == "payment_pending") {
-      return _button("Pay Now", () {
-        controller.updateBookingStatus("completed");
-      });
+      return _button("Payment Pending", () {});
     }
 
     if (status == "completed") {
       return _button("Done", () {
-        Get.back();
+        Get.offAllNamed('/home');
       });
     }
 
     return const SizedBox();
   }
 
-  Widget _button(String text, VoidCallback onPressed) {
+  /// ---------------- CALL ----------------
+  Future<void> _callTechnician() async {
 
+    final phone = controller.technicianPhone.value;
+
+    if (phone.isEmpty) {
+      Get.snackbar("Unavailable", "No phone number");
+      return;
+    }
+
+    final uri = Uri.parse("tel:$phone");
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      Get.snackbar("Error", "Cannot open dialer");
+    }
+  }
+
+  Widget _button(String text, VoidCallback onPressed) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Text(text),
         ),
-        child: Text(text),
       ),
     );
   }

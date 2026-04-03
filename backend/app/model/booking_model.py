@@ -17,6 +17,8 @@ class BookingCreate(BaseModel):
 
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    final_price: Optional[float] = None
+    package_id: Optional[int] = None
     customer_notes: Optional[str] = None
 
 

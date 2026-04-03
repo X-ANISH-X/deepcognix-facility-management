@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:user_a/src/screens/login_screen.dart';
-import 'package:user_a/src/screens/home_screen.dart';
 import 'package:user_a/src/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
-  SplashScreen({super.key});
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+
+  final AuthService authService = Get.find<AuthService>();
 
   @override
   void initState() {
@@ -21,21 +21,23 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _navigateUser() async {
 
+    /// splash delay (UI only)
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
-    final bool isLoggedIn = AuthService().isLoggedIn;
+    final bool isLoggedIn = authService.isLoggedIn;
 
     if (isLoggedIn) {
-      Get.offAll(() => HomeScreen());
+      Get.offAllNamed('/home');
     } else {
-      Get.offAll(() => LoginScreen());
+      Get.offAllNamed('/login');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -49,6 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
             end: Alignment.bottomRight,
           ),
         ),
+
         child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -63,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
               SizedBox(height: 20),
 
               Text(
-                "DEEPCOGNIX",
+                "CARTEL STAR BUILDING",
                 style: TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.bold,
@@ -75,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
               SizedBox(height: 8),
 
               Text(
-                "Facility Management",
+                "CLEANING SERVICES LLC",
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.white70,
