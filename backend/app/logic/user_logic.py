@@ -28,3 +28,17 @@ def create_user(conn, user: UserRegister):
         raise err
     finally:
         cursor.close()
+
+
+def get_user_by_id(conn, user_id: int):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        query = """
+        SELECT id, full_name, email, phone_number, role, is_active
+        FROM users
+        WHERE id = %s
+        """
+        cursor.execute(query, (user_id,))
+        return cursor.fetchone()
+    finally:
+        cursor.close()

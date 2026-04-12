@@ -1,25 +1,37 @@
-# this file is for login/register request bodies
+from typing import Literal
 
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
 
-# What the User sends during Registration
+
+UserRole = Literal["admin", "customer", "technician"]
+SelfRegisterRole = Literal["customer", "technician"]
+
+
 class UserRegister(BaseModel):
-    full_name: str
+    full_name: str = Field(min_length=2, max_length=100)
     email: EmailStr
-    password: str
-    phone_number: str
-    role: str = "customer" # Default to customer, can be 'technician' ( might need to change this, not sure if this is correct )
+    password: str = Field(min_length=6, max_length=128)
+    phone_number: str | None = Field(default=None, max_length=20)
+    role: SelfRegisterRole = "customer"
 
-# What the User sends during Login
+
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1)
 
-# What the API returns (The Token)
+
 class Token(BaseModel):
     access_token: str
     token_type: str
     user_id: int
-    role: str
+    role: UserRole
     full_name: str
+
+
+class CurrentUserResponse(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
+    phone_number: str | None = None
+    role: UserRole
+    is_active: bool

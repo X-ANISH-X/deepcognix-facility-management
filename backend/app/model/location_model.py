@@ -1,13 +1,13 @@
-from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class LocationCreate(BaseModel):
     booking_id: int
     latitude: float
     longitude: float
-    accuracy: Optional[float] = None
+    accuracy: float | None = None
 
 
 class LocationResponse(BaseModel):
@@ -15,5 +15,5 @@ class LocationResponse(BaseModel):
     technician_id: int
     latitude: float
     longitude: float
-    accuracy: Optional[float]
+    accuracy: float | None = None
     recorded_at: datetime
