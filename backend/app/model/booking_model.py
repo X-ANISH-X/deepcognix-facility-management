@@ -1,30 +1,62 @@
+from datetime import date
+from typing import Literal
+
 from pydantic import BaseModel
-from typing import Optional
-from datetime import date, time
 
-# What client sends when creating a booking
+
+TimeSlot = Literal["morning", "afternoon", "evening"]
+
+
 class BookingCreate(BaseModel):
-    customer_id: int
+    customer_id: int | None = None
     service_id: int
-
+    package_id: int
     scheduled_date: date
-    scheduled_time_slot: time
-
+    scheduled_time_slot: TimeSlot
     address_line: str
-    building_name: str
-    floor_number: str
-    apartment_number: str
+    building_name: str | None = None
+    floor_number: str | None = None
+    apartment_number: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    customer_notes: str | None = None
 
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    customer_notes: Optional[str] = None
 
-
-# What API returns
 class BookingResponse(BaseModel):
     id: int
     customer_id: int
     service_id: int
+    package_id: int
+    technician_id: int | None = None
     status: str
+    final_price: float | None = None
     scheduled_date: date
-    scheduled_time_slot: time
+    scheduled_time_slot: TimeSlot
+    address_line: str
+    building_name: str | None = None
+    floor_number: str | None = None
+    apartment_number: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    customer_notes: str | None = None
+    technician_notes: str | None = None
+
+
+class AssignTechnicianRequest(BaseModel):
+    technician_id: int
+
+
+class BookingChecklistItemResponse(BaseModel):
+    id: int
+    booking_id: int
+    task_name: str
+    order_index: int | None = None
+    is_completed: bool
+
+
+class BookingChecklistTaskUpdate(BaseModel):
+    is_completed: bool
+
+
+class RejectBookingRequest(BaseModel):
+    reason: str

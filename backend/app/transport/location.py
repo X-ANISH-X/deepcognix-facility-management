@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.core.security import get_current_user_payload
 from app.database import get_db_connection
+from app.logic.booking_logic import get_booking_by_id
+from app.logic.location_logic import get_latest_location, save_location
 from app.model.location_model import LocationCreate, LocationResponse
-from app.logic.location_logic import save_location, get_latest_location
 
 router = APIRouter(prefix="/location", tags=["Location"])
 
@@ -9,22 +12,32 @@ router = APIRouter(prefix="/location", tags=["Location"])
 @router.post("/", status_code=200)
 def post_location(
     data: LocationCreate,
-    conn=Depends(get_db_connection)
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
 ):
-    # TODO later:
-    # - check booking exists
-    # - check technician assigned
-    # - check booking is in_progress
+    if current_user["role"] != "technician":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only technicians can post live location",
+        )
 
-    technician_id = 1  # TEMP: replace later with JWT-based technician ID
+    booking = get_booking_by_id(conn, data.booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if booking["technician_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Booking is not assigned to you")
+
+    if booking["status"] not in {"assigned", "in_progress"}:
+        raise HTTPException(status_code=400, detail="Live tracking is available for assigned jobs only")
 
     save_location(
         conn=conn,
         booking_id=data.booking_id,
-        technician_id=technician_id,
+        technician_id=current_user["id"],
         latitude=data.latitude,
         longitude=data.longitude,
-        accuracy=data.accuracy
+        accuracy=data.accuracy,
     )
 
     return {"message": "Location recorded"}
@@ -33,8 +46,19 @@ def post_location(
 @router.get("/{booking_id}", response_model=LocationResponse)
 def get_location(
     booking_id: int,
-    conn=Depends(get_db_connection)
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
 ):
+    booking = get_booking_by_id(conn, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    if current_user["role"] == "customer" and booking["customer_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="You cannot view this live location")
+
+    if current_user["role"] == "technician" and booking["technician_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="You cannot view this live location")
+
     location = get_latest_location(conn, booking_id)
 
     if not location:

@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.core.security import get_current_user_payload
 from app.database import get_db_connection
-from app.model.service_model import ServiceCreate
 from app.logic import service_logic
+from app.model.service_model import ServiceCreate
 
 router = APIRouter(
     prefix="/services",
@@ -9,8 +11,20 @@ router = APIRouter(
 )
 
 @router.post("/")
-def create_service(service: ServiceCreate, db=Depends(get_db_connection)):
-    service_id = service_logic.create_service(db, service)
+def create_service(
+    service: ServiceCreate,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    if current_user["role"] != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can create services",
+        )
+    try:
+        service_id = service_logic.create_service(db, service)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "message": "Service created successfully",
         "service_id": service_id
