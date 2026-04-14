@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import '../screens/home_screen.dart';
 import '../services/auth_service.dart';
 
 class AuthController extends GetxController {
@@ -13,9 +14,9 @@ class AuthController extends GetxController {
       await _authService.login(email, password);
 
       Get.snackbar("Success", "Login successful");
-      Get.offAllNamed("/home");
+      Get.offAll(() => const HomeScreen());
     } catch (e) {
-      Get.snackbar("Error", e.toString());
+      Get.snackbar("Error", e.toString().replaceFirst("Exception: ", ""));
     } finally {
       isLoading.value = false;
     }

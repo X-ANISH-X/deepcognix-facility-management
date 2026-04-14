@@ -41,8 +41,7 @@ class BookingDetailsScreen extends GetView<BookingController> {
                   );
 
                   if (pickedDate != null) {
-                    controller.selectedDate.value =
-                        "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
+                    controller.setDate(pickedDate);
                   }
                 },
               ),
@@ -51,22 +50,20 @@ class BookingDetailsScreen extends GetView<BookingController> {
 
               _sectionTitle(context, 'select_time'.tr),
               const SizedBox(height: 8),
-              _inputTile(
-                context,
-                text: controller.selectedTime.value.isEmpty
-                    ? 'choose_time'.tr
-                    : controller.selectedTime.value,
-                onTap: () async {
-                  final pickedTime = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.now(),
+              Wrap(
+                spacing: 8,
+                children: ['morning', 'afternoon', 'evening'].map((slot) {
+                  final isSelected = controller.selectedTimeSlot.value == slot;
+                  return ChoiceChip(
+                    label: Text(slot.tr),
+                    selected: isSelected,
+                    onSelected: (_) {
+                      controller.selectedTimeSlot.value = slot;
+                    },
+                    selectedColor:
+                        Theme.of(context).primaryColor.withOpacity(0.2),
                   );
-
-                  if (pickedTime != null) {
-                    controller.selectedTime.value =
-                        pickedTime.format(context);
-                  }
-                },
+                }).toList(),
               ),
 
               const SizedBox(height: 20),
@@ -119,24 +116,39 @@ class BookingDetailsScreen extends GetView<BookingController> {
                           BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: () {
-                    if (controller.selectedDate.value.isEmpty ||
-                        controller.selectedTime.value.isEmpty ||
-                        controller.selectedAddress.value.isEmpty) {
-
-                      Get.snackbar(
-                        "incomplete_details".tr,
-                        "select_all_details".tr,
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
-                      return;
-                    }
-
-                    Get.to(() => const BookingStatusScreen());
-                  },
-                  child: Text(
-                    'confirm_booking'.tr,
-                    style: const TextStyle(fontSize: 16),
+                  onPressed: controller.isConfirming.value
+                      ? null
+                      : () async {
+                          if (controller.selectedDate.value.isEmpty ||
+                              controller.selectedTimeSlot.value.isEmpty ||
+                              controller.selectedAddress.value.isEmpty) {
+                            Get.snackbar(
+                              "incomplete_details".tr,
+                              "select_all_details".tr,
+                              snackPosition: SnackPosition.BOTTOM,
+                            );
+                            return;
+                          }
+                          final success = await controller.confirmBooking();
+                          if (success) {
+                            Get.to(() => const BookingStatusScreen());
+                          }
+                        },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: controller.isConfirming.value
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'confirm_booking'.tr,
+                            style: const TextStyle(fontSize: 16),
+                          ),
                   ),
                 ),
               ),

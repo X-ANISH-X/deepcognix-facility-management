@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:user_a/src/controllers/booking_controller.dart';
 import 'package:user_a/src/controllers/package_controller.dart';
 import 'package:user_a/src/screens/checklist_preview_screen.dart';
 
@@ -20,8 +21,14 @@ class PackageSelectionScreen extends GetView<PackageController> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => ListView.separated(
+        child: Obx(() {
+          if (controller.isLoading.value) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (controller.packages.isEmpty) {
+            return const Center(child: Text('No packages available'));
+          }
+          return ListView.separated(
             itemCount: controller.packages.length,
             separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
@@ -30,6 +37,9 @@ class PackageSelectionScreen extends GetView<PackageController> {
               return InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
+                  final bc = Get.find<BookingController>();
+                  bc.selectedServiceId = Get.find<PackageController>().selectedServiceId;
+                  bc.selectedPackageId = pkg.id;
                   Get.to(() => ChecklistPreviewScreen(package: pkg));
                 },
                 child: Container(
@@ -128,6 +138,9 @@ class PackageSelectionScreen extends GetView<PackageController> {
                                     vertical: 14),
                           ),
                           onPressed: () {
+                            final bc = Get.find<BookingController>();
+                            bc.selectedServiceId = Get.find<PackageController>().selectedServiceId;
+                            bc.selectedPackageId = pkg.id;
                             Get.to(() =>
                                 ChecklistPreviewScreen(package: pkg));
                           },
@@ -142,8 +155,8 @@ class PackageSelectionScreen extends GetView<PackageController> {
                 ),
               );
             },
-          ),
-        ),
+          );
+        }),
       ),
     );
   }

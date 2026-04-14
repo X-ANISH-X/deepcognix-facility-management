@@ -88,16 +88,27 @@ class RegisterScreen extends GetView<RegisterController> {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: controller.onRegisterPressed,
+                child: Obx(() => ElevatedButton(
+                  onPressed: controller.isLoading.value
+                      ? null
+                      : () => controller.onRegisterPressed(),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Text(
-                      "create_account".tr,
-                      style: const TextStyle(fontSize: 16),
-                    ),
+                    child: controller.isLoading.value
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            "create_account".tr,
+                            style: const TextStyle(fontSize: 16),
+                          ),
                   ),
-                ),
+                )),
               ),
             ],
           ),

@@ -1,32 +1,32 @@
 import 'package:get/get.dart';
-import 'package:flutter/material.dart';
 import 'package:user_a/src/models/service_model.dart';
+import 'package:user_a/src/services/api_client.dart';
 
 class HomeController extends GetxController {
-  final services = <ServiceModel>[
-    ServiceModel(
-      id: 'office',
-      title: 'service_office',
-      subtitle: 'service_office_desc',
-      icon: Icons.business,
-    ),
-    ServiceModel(
-      id: 'mall',
-      title: 'service_mall',
-      subtitle: 'service_mall_desc',
-      icon: Icons.store_mall_directory,
-    ),
-    ServiceModel(
-      id: 'theater',
-      title: 'service_theater',
-      subtitle: 'service_theater_desc',
-      icon: Icons.theaters,
-    ),
-    ServiceModel(
-      id: 'glass',
-      title: 'service_glass',
-      subtitle: 'service_glass_desc',
-      icon: Icons.window,
-    ),
-  ].obs;
+  final _api = ApiClient();
+
+  final services = <ServiceModel>[].obs;
+  final isLoading = false.obs;
+  final errorMessage = ''.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchServices();
+  }
+
+  Future<void> fetchServices() async {
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      final data = await _api.get('/services') as List;
+      services.value = data
+          .map((e) => ServiceModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      errorMessage.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }

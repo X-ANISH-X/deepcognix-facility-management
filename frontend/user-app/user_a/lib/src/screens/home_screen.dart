@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:user_a/src/controllers/home_controller.dart';
+import 'package:user_a/src/controllers/package_controller.dart';
 import 'package:user_a/src/controllers/theme_controller.dart';
 import 'package:user_a/src/screens/package_selection_screen.dart';
 
@@ -35,8 +36,30 @@ class HomeScreen extends GetView<HomeController> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Obx(
-          () => GridView.builder(
+        child: Obx(() {
+          if (controller.isLoading.value) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (controller.errorMessage.value.isNotEmpty) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(controller.errorMessage.value,
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: controller.fetchServices,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (controller.services.isEmpty) {
+            return const Center(child: Text('No services available'));
+          }
+          return GridView.builder(
             itemCount: controller.services.length,
             gridDelegate:
                 const SliverGridDelegateWithFixedCrossAxisCount(
@@ -51,6 +74,7 @@ class HomeScreen extends GetView<HomeController> {
               return InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onTap: () {
+                  Get.find<PackageController>().selectedServiceId = service.id;
                   Get.to(() => const PackageSelectionScreen());
                 },
                 child: Container(
@@ -78,9 +102,8 @@ class HomeScreen extends GetView<HomeController> {
                       ),
                       const SizedBox(height: 20),
 
-                      // 🔥 FIXED HERE
                       Text(
-                        service.title.tr,
+                        service.name,
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium
@@ -89,18 +112,19 @@ class HomeScreen extends GetView<HomeController> {
 
                       const SizedBox(height: 6),
 
-                      // 🔥 FIXED HERE
                       Text(
-                        service.subtitle.tr,
+                        service.description,
                         style: Theme.of(context).textTheme.bodySmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
               );
             },
-          ),
-        ),
+          );
+        }),
       ),
     );
   }
