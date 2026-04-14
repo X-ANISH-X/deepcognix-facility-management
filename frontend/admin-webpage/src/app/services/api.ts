@@ -433,6 +433,22 @@ export const api = {
     return patch<{ service_id: number; is_active: boolean }>(`/services/${rawId}/toggle-active`);
   },
 
+  // Technician management
+  createTechnician: async (data: {
+    full_name: string;
+    email: string;
+    password: string;
+    phone_number: string;
+  }): Promise<{ user_id: number; message: string }> => {
+    return post<{ user_id: number; message: string }>('/auth/admin/create-user', {
+      full_name: data.full_name,
+      email: data.email,
+      password: data.password,
+      phone_number: data.phone_number || null,
+      role: 'technician',
+    });
+  },
+
   // KPIs
   getKPIs: async (): Promise<KPIData> => {
     const [orders, techs] = await Promise.all([

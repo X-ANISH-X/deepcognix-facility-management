@@ -122,6 +122,25 @@ def list_users(
         cursor.close()
 
 
+@router.post("/admin/create-user", response_model=dict, status_code=201)
+def admin_create_user(
+    user: UserRegister,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    """Admin-only: create a user with any role (including technician/admin)."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    existing = user_logic.get_user_by_email(db, user.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    try:
+        user_id = user_logic.create_user(db, user)
+        return {"message": "User created successfully", "user_id": user_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unable to create user") from exc
+
+
 @router.patch("/users/{user_id}/toggle-active", response_model=dict)
 def toggle_user_active(
     user_id: int,

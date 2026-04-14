@@ -12,7 +12,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
     phone_number: str | None = Field(default=None, max_length=20)
-    role: SelfRegisterRole = "customer"
+    role: UserRole = "customer"
 
 
 class UserLogin(BaseModel):

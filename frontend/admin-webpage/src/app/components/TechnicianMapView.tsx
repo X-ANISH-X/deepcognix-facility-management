@@ -2,28 +2,62 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
+import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { getServiceColor } from '@/app/utils/serviceColors';
 import { api, type Technician } from '@/app/services/api';
-import { MapPin, Phone, Mail, Navigation, User } from 'lucide-react';
+import { MapPin, Phone, Mail, Navigation, User, UserPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function TechnicianMapView() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadTechnicians = async () => {
+    setIsLoading(true);
+    const data = await api.getTechnicians();
+    setTechnicians(data);
+    if (data.length > 0 && !selectedTech) setSelectedTech(data[0]);
+    setIsLoading(false);
+  };
 
   useEffect(() => {
-    const loadTechnicians = async () => {
-      setIsLoading(true);
-      const data = await api.getTechnicians();
-      setTechnicians(data);
-      if (data.length > 0) {
-        setSelectedTech(data[0]);
-      }
-      setIsLoading(false);
-    };
     loadTechnicians();
   }, []);
+
+  const handleAddTechnician = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const password = fd.get('password') as string;
+    const confirm = fd.get('confirm_password') as string;
+    if (password !== confirm) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await api.createTechnician({
+        full_name: fd.get('full_name') as string,
+        email: fd.get('email') as string,
+        password,
+        phone_number: fd.get('phone_number') as string,
+      });
+      toast.success('Technician account created successfully');
+      setIsAddDialogOpen(false);
+      form.reset();
+      await loadTechnicians();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create technician');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -50,10 +84,67 @@ export function TechnicianMapView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Technician Tracking</h1>
-        <p className="text-gray-500 mt-1">Real-time location and status monitoring</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Technician Tracking</h1>
+          <p className="text-gray-500 mt-1">Real-time location and status monitoring</p>
+        </div>
+        <Button
+          onClick={() => setIsAddDialogOpen(true)}
+          className="rounded-full bg-teal-600 hover:bg-teal-700"
+        >
+          <UserPlus className="w-4 h-4 mr-2" />
+          Add Technician
+        </Button>
       </div>
+
+      {/* Add Technician Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Add New Technician</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddTechnician} className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="full_name">Full Name</Label>
+              <Input id="full_name" name="full_name" required className="rounded-xl" placeholder="e.g. Rahul Sharma" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" required className="rounded-xl" placeholder="rahul@example.com" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="phone_number">Phone Number</Label>
+              <Input id="phone_number" name="phone_number" className="rounded-xl" placeholder="+91 98765 00000" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" required minLength={6} className="rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="confirm_password">Confirm Password</Label>
+              <Input id="confirm_password" name="confirm_password" type="password" required minLength={6} className="rounded-xl" />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddDialogOpen(false)}
+                className="flex-1 rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex-1 rounded-full bg-teal-600 hover:bg-teal-700"
+              >
+                {isSubmitting ? 'Creating...' : 'Create Account'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Map Area - Mock Map */}

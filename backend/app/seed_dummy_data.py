@@ -364,6 +364,9 @@ def seed_dummy_data():
     try:
         users = {
             "admin": SeedUser("Priya Nair", "admin.demo@deepcognix.com", "9876500001", "admin", "Admin@123"),
+            # Quick-test accounts — same password as admin for easy local testing
+            "user_demo": SeedUser("Demo User", "user.demo@deepcognix.com", "9876500002", "customer", "Admin@123"),
+            "tech_demo": SeedUser("Demo Technician", "technician.demo@deepcognix.com", "9876500003", "technician", "Admin@123"),
             "customer_1": SeedUser("Aisha Malhotra", "aisha.demo@deepcognix.com", "9876501001", "customer", "Customer@123"),
             "customer_2": SeedUser("Rohan Mehta", "rohan.demo@deepcognix.com", "9876501002", "customer", "Customer@123"),
             "tech_1": SeedUser("Samarth Vasisht", "sam123@gmail.com", "9876502001", "technician", "test123"),
@@ -574,12 +577,14 @@ def seed_dummy_data():
         print("Seeded realistic demo data successfully.")
         print("")
         print("Demo login credentials:")
-        print("  Admin      -> admin.demo@deepcognix.com / Admin@123")
-        print("  Customer 1 -> aisha.demo@deepcognix.com / Customer@123")
-        print("  Customer 2 -> rohan.demo@deepcognix.com / Customer@123")
-        print("  Tech 1     -> sam123@gmail.com / test123")
-        print("  Tech 2     -> neeraj.tech@deepcognix.com / Tech@123")
-        print("  Tech 3     -> kavya.tech@deepcognix.com / Tech@123")
+        print("  Admin           -> admin.demo@deepcognix.com / Admin@123")
+        print("  [User App]      -> user.demo@deepcognix.com / Admin@123")
+        print("  [Tech App]      -> technician.demo@deepcognix.com / Admin@123")
+        print("  Customer 1      -> aisha.demo@deepcognix.com / Customer@123")
+        print("  Customer 2      -> rohan.demo@deepcognix.com / Customer@123")
+        print("  Tech 1          -> sam123@gmail.com / test123")
+        print("  Tech 2          -> neeraj.tech@deepcognix.com / Tech@123")
+        print("  Tech 3          -> kavya.tech@deepcognix.com / Tech@123")
         print("")
         print("Seeded data includes:")
         print("  - Active categories and services")
