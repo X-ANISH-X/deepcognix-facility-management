@@ -13,11 +13,42 @@ router = APIRouter()
 
 @router.post("/register", response_model=dict, status_code=201)
 def register(user: UserRegister, db = Depends(get_db_connection)):
+
+    # 🔥 CLEAN PASSWORD (THIS IS THE FIX)
+    raw_password = user.password
+
+    # remove invisible / unicode / whitespace junk
+    clean_password = (
+        raw_password.strip()
+        .encode("ascii", "ignore")   # removes weird unicode
+        .decode()
+    )
+
+    # 🔍 DEBUG (you’ll see truth)
+    print("RAW LENGTH:", len(raw_password))
+    print("CLEAN LENGTH:", len(clean_password))
+
+    # 🚫 VALIDATION
+    if len(clean_password) > 72:
+        raise HTTPException(
+            status_code=400,
+            detail="Password too long (max 72 characters)"
+        )
+
+    if len(clean_password) < 6:
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 6 characters"
+        )
+
+    # replace password with clean one
+    user.password = clean_password
+
     # 1. Check if email already exists
     existing_user = user_logic.get_user_by_email(db, user.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     # 2. Create new user
     try:
         user_id = user_logic.create_user(db, user)

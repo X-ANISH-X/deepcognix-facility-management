@@ -14,7 +14,6 @@ class AppTranslations extends Translations {
       'create_account': 'Create Account',
       'verification': 'Verification',
       'enter_otp': 'Enter OTP',
-
       'email': 'Email',
       'password': 'Password',
       'login': 'Login',
@@ -23,6 +22,7 @@ class AppTranslations extends Translations {
       'register_subtitle': 'Join us today',
       'name': 'Name',
 
+      // OTP
       'otp_verification': 'OTP Verification',
       'otp_instruction': 'Enter the code sent to your email and phone',
       'verify_otp': 'Verify OTP',
@@ -30,7 +30,7 @@ class AppTranslations extends Translations {
       'otp_sent': 'OTP Sent',
       'otp_resent': 'A new OTP has been sent',
 
-      // HOME SERVICES
+      // HOME
       'choose_service': 'Choose Service',
 
       'service_office': 'Office Cleaning',
@@ -45,13 +45,12 @@ class AppTranslations extends Translations {
       'service_glass': 'Glass Cleaning',
       'service_glass_desc': 'Exterior & interior',
 
-      // PACKAGE FLOW
+      // PACKAGE
       'select_package': 'Select Package',
       'continue': 'Continue',
       'service_checklist': 'Service Checklist',
       'tasks_included': 'Tasks included in this package',
 
-      // PACKAGE DATA
       'pkg_basic': 'Basic',
       'pkg_basic_desc': 'Essential cleaning',
 
@@ -83,6 +82,7 @@ class AppTranslations extends Translations {
       'pay_now': 'Pay Now',
       'pay_later': 'Pay on Completion',
       'confirm_booking': 'Confirm Booking',
+      'no_slots': 'No available time slots',
       'incomplete_details': 'Incomplete Details',
       'select_all_details': 'Please select date, time and address',
       'add_new_address': 'Add New Address',
@@ -90,25 +90,64 @@ class AppTranslations extends Translations {
       'enter_address': 'Enter address',
       'add': 'Add',
       'cancel': 'Cancel',
+      'upcoming_bookings': 'Upcoming Bookings',
+      'no_bookings': 'No upcoming bookings',
+
+      // TRACKING
+      'live_tracking': 'Live Service Tracking',
+      'technician_assigned': 'Technician Assigned',
+      'professional_on_way': 'Your service professional is on the way',
+      'view_service_progress': 'View Service Progress',
 
       // STATUS
       'service_status': 'Service Status',
       'booking': 'Booking',
       'submitted': 'Submitted',
       'approved': 'Approved',
+      'requested': 'Requested',
+      'technician_assigned': 'Technician Assigned',
+      'on_the_way': 'On The Way',
+      'arrival_approval_pending': 'Approve Arrival',
+      'completion_approval_pending': 'Approve Completion',
+      'payment_pending': 'Payment Pending',
       'in_progress': 'In Progress',
       'completed': 'Completed',
       'approve_completion': 'Approve Completion',
       'service_approved': 'Service Approved',
       'completion_approved': 'Completion has been approved',
       'view_checklist_progress': 'View Checklist Progress',
+      'approve_arrival': 'Approve Arrival',
+      'done': 'Done',
       'simulate_next_status': 'Simulate Next Status',
+
+      // PROFILE
+      'profile': 'Profile',
+      'phone_number': 'Phone Number',
+      'send_otp': 'Send OTP',
+      'please_fill_all_fields': 'Please fill all fields',
+      'location': 'Location',
+      'role': 'Role',
+
+      // NOTIFICATIONS
+      'notifications': 'Notifications',
+      'booking_confirmed': 'Booking Confirmed',
+      'edit_profile': 'Edit Profile',
+      'save': 'Save',
+      'addresses': 'Addresses',
+      'select_location': 'Select Location',
+      'confirm_location': 'Confirm Location',
+      'booking_approved': 'Your service booking has been approved',
+      'service_assigned': 'Service Assigned',
+      'technician_assigned_notification': 'A technician has been assigned',
+      'service_completed': 'Service Completed',
+      'review_completed': 'Please review the completed service',
 
       // PROGRESS
       'service_progress': 'Service Progress',
       'checklist_completion': 'Checklist Completion',
       'complete_service': 'Complete Service',
     },
+
 
     // ================= ARABIC =================
     'ar': {
@@ -120,7 +159,6 @@ class AppTranslations extends Translations {
       'create_account': 'إنشاء حساب',
       'verification': 'التحقق',
       'enter_otp': 'أدخل رمز التحقق',
-
       'email': 'البريد الإلكتروني',
       'password': 'كلمة المرور',
       'login': 'تسجيل الدخول',
@@ -128,7 +166,10 @@ class AppTranslations extends Translations {
       'no_account_register': 'ليس لديك حساب؟ قم بالتسجيل',
       'register_subtitle': 'انضم إلينا اليوم',
       'name': 'الاسم',
+      'send_otp': 'إرسال رمز التحقق',
+      'please_fill_all_fields': 'يرجى ملء جميع الحقول',
 
+      // OTP
       'otp_verification': 'التحقق عبر OTP',
       'otp_instruction': 'أدخل الرمز المرسل إلى بريدك الإلكتروني وهاتفك',
       'verify_otp': 'تحقق من الرمز',
@@ -136,7 +177,7 @@ class AppTranslations extends Translations {
       'otp_sent': 'تم إرسال الرمز',
       'otp_resent': 'تم إرسال رمز جديد',
 
-      // HOME SERVICES
+      // HOME
       'choose_service': 'اختر الخدمة',
 
       'service_office': 'تنظيف المكاتب',
@@ -151,13 +192,12 @@ class AppTranslations extends Translations {
       'service_glass': 'تنظيف الزجاج',
       'service_glass_desc': 'الخارجي والداخلي',
 
-      // PACKAGE FLOW
+      // PACKAGE
       'select_package': 'اختر الباقة',
       'continue': 'متابعة',
       'service_checklist': 'قائمة مهام الخدمة',
       'tasks_included': 'المهام المشمولة في هذه الباقة',
 
-      // PACKAGE DATA
       'pkg_basic': 'أساسي',
       'pkg_basic_desc': 'تنظيف أساسي',
 
@@ -189,6 +229,7 @@ class AppTranslations extends Translations {
       'pay_now': 'ادفع الآن',
       'pay_later': 'ادفع عند الانتهاء',
       'confirm_booking': 'تأكيد الحجز',
+      'no_slots': 'لا توجد أوقات متاحة',
       'incomplete_details': 'بيانات غير مكتملة',
       'select_all_details': 'يرجى اختيار التاريخ والوقت والعنوان',
       'add_new_address': 'إضافة عنوان جديد',
@@ -196,19 +237,53 @@ class AppTranslations extends Translations {
       'enter_address': 'أدخل العنوان',
       'add': 'إضافة',
       'cancel': 'إلغاء',
+      'upcoming_bookings': 'الحجوزات القادمة',
+      'no_bookings': 'لا توجد حجوزات',
+
+      // TRACKING
+      'live_tracking': 'تتبع الخدمة المباشر',
+      'technician_assigned': 'تم تعيين الفني',
+      'professional_on_way': 'مزود الخدمة في طريقه إليك',
+      'view_service_progress': 'عرض تقدم الخدمة',
 
       // STATUS
       'service_status': 'حالة الخدمة',
       'booking': 'الحجز',
       'submitted': 'تم الإرسال',
       'approved': 'تمت الموافقة',
+      'requested': 'مطلوب',
+      'technician_assigned': 'تم تخصيص فني',
+      'on_the_way': 'في الطريق',
+      'arrival_approval_pending': 'الموافقة على الوصول',
+      'completion_approval_pending': 'الموافقة على الإكمال',
+      'payment_pending': 'في انتظار الدفع',
       'in_progress': 'قيد التنفيذ',
       'completed': 'مكتمل',
       'approve_completion': 'اعتماد الإكمال',
       'service_approved': 'تم اعتماد الخدمة',
       'completion_approved': 'تم اعتماد الإكمال',
-      'view_checklist_progress': 'عرض تقدم المهام',
-      'simulate_next_status': 'محاكاة الحالة التالية',
+      'view_checklist_progress': 'عرض تقدم المهام',      'approve_arrival': 'الموافقة على الوصول',
+      'done': 'تم',      'simulate_next_status': 'محاكاة الحالة التالية',
+
+      // PROFILE
+      'profile': 'الملف الشخصي',
+      'phone_number': 'رقم الهاتف',
+      'location': 'الموقع',
+      'role': 'الدور',
+
+      // NOTIFICATIONS
+      'notifications': 'الإشعارات',
+      'booking_confirmed': 'تم تأكيد الحجز',
+      'booking_approved': 'تمت الموافقة على حجز الخدمة',
+      'edit_profile': 'تعديل الملف الشخصي',
+      'save': 'حفظ',
+      'addresses': 'العناوين',
+      'select_location': 'اختر الموقع',
+      'confirm_location': 'تأكيد الموقع',
+      'service_assigned': 'تم تعيين الخدمة',
+      'technician_assigned_notification': 'تم تعيين فني',
+      'service_completed': 'اكتملت الخدمة',
+      'review_completed': 'يرجى مراجعة الخدمة المكتملة',
 
       // PROGRESS
       'service_progress': 'تقدم الخدمة',

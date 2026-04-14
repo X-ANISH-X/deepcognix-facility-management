@@ -1,109 +1,52 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:user_a/src/services/api_client.dart';
+import 'package:intl/intl.dart';
+import '../services/api_client.dart';
 
 class BookingController extends GetxController {
-  final _api = ApiClient();
+  final ApiClient _api = ApiClient();
 
-  // ----------------------------
-  // Selection tracking (set before reaching BookingDetailsScreen)
-  // ----------------------------
+  // ================= CORE =================
+  final bookingId = 0.obs;
+  final serviceId = 1.obs;
+  final packageId = 0.obs;
+  final price = 0.0.obs;
 
-  int selectedServiceId = 0;
-  int selectedPackageId = 0;
+  final selectedDate = "".obs;
+  final selectedTime = "".obs;
+  final selectedAddress = "".obs;
 
-  // ----------------------------
-  // Booking form values
-  // ----------------------------
+  final selectedLat = 12.9716.obs;
+  final selectedLng = 77.5946.obs;
 
-  /// Display string shown in the UI, e.g. "14/4/2026"
-  final selectedDate = ''.obs;
+  // ================= STATUS =================
+  final bookingStatus = "submitted".obs;
+  final isPolling = false.obs;
 
-  /// ISO date string sent to the API, e.g. "2026-04-14"
-  String _isoDate = '';
+  // ================= TECHNICIAN =================
+  final technicianName = "".obs;
+  final technicianPhone = "".obs;
+  final technicianRating = "".obs;
 
-  /// One of: 'morning' | 'afternoon' | 'evening'
-  final selectedTimeSlot = ''.obs;
+  final technicianLat = 0.0.obs;
+  final technicianLng = 0.0.obs;
 
-  final selectedAddress = ''.obs;
-  final paymentMethod = 'pay_now'.obs;
-
-  // ----------------------------
-  // Current booking state
-  // ----------------------------
-
-  final currentBookingId = Rxn<int>();
-  final bookingStatus = 'submitted'.obs;
-  final isConfirming = false.obs;
-
-  // ----------------------------
-  // Address list
-  // ----------------------------
-
-  final addresses = [
-    'Home - 123 Main Street',
-    'Office - Business Ave',
-  ].obs;
+  // ================= ADDRESS =================
+  final addresses = <String>[].obs;
 
   void addAddress(String address) {
-    addresses.add(address);
-  }
-
-  // ----------------------------
-  // Date helpers
-  // ----------------------------
-
-  void setDate(DateTime date) {
-    selectedDate.value = '${date.day}/${date.month}/${date.year}';
-    _isoDate =
-        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  // ----------------------------
-  // Booking API calls
-  // ----------------------------
-
-  Future<bool> confirmBooking() async {
-    try {
-      isConfirming.value = true;
-      final response = await _api.post('/bookings', {
-        'service_id': selectedServiceId,
-        'package_id': selectedPackageId,
-        'scheduled_date': _isoDate,
-        'scheduled_time_slot': selectedTimeSlot.value,
-        'address_line': selectedAddress.value,
-      });
-      currentBookingId.value = response['booking_id'] as int;
-      bookingStatus.value = 'submitted';
-      return true;
-    } catch (e) {
-      Get.snackbar(
-        'Booking Error',
-        e.toString().replaceFirst('Exception: ', ''),
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return false;
-    } finally {
-      isConfirming.value = false;
+    if (!addresses.contains(address)) {
+      addresses.add(address);
     }
   }
 
-  Future<void> fetchBookingStatus() async {
-    if (currentBookingId.value == null) return;
-    try {
-      final data = await _api.get('/bookings/${currentBookingId.value}');
-      bookingStatus.value = data['status'] as String;
-    } catch (_) {}
-  }
-
-  // ----------------------------
-  // Checklist logic (for checklist progress screen)
-  // ----------------------------
-
+  // ================= CHECKLIST =================
   final checklist = <String>[
-    'Dusting',
-    'Vacuuming',
-    'Mopping',
-    'Restroom cleaning',
+    "Dusting",
+    "Mopping",
+    "Kitchen Cleaning",
+    "Bathroom Cleaning",
   ].obs;
 
   final completedTasks = <String>[].obs;
@@ -119,14 +62,157 @@ class BookingController extends GetxController {
     }
   }
 
-  void markServiceCompleted() {
-    if (progress == 1.0) {
-      bookingStatus.value = 'completed';
+  Future<void> markServiceCompleted() async {
+    await completeBooking();
+  }
+
+  // ================= SLOTS =================
+  final availableSlots = <String>[].obs;
+
+  void loadSlotsForDate(DateTime date) {
+    availableSlots.value = [
+      "09:00 AM",
+      "11:00 AM",
+      "01:00 PM",
+      "03:00 PM",
+      "05:00 PM",
+    ];
+  }
+
+  // ================= TIME FIX (THE REAL HERO) =================
+  String normalizeTime(String slotLabel) {
+    final dt = DateFormat.jm().parse(slotLabel); // 09:00 AM
+    return DateFormat.Hms().format(dt); // 09:00:00
+  }
+
+  // ================= CREATE BOOKING =================
+  Future<void> createBooking() async {
+    try {
+      if (packageId.value == 0) throw Exception("Select a package");
+      if (selectedAddress.value.isEmpty) throw Exception("Enter address");
+      if (selectedDate.value.isEmpty || selectedTime.value.isEmpty) {
+        throw Exception("Select date & time");
+      }
+
+      final body = {
+        "customer_id": 1,
+        "service_id": serviceId.value,
+        "package_id": packageId.value,
+
+        // ✅ CORRECT FIELDS
+        "scheduled_date": selectedDate.value,
+        "scheduled_time_slot": normalizeTime(selectedTime.value),
+
+        "address_line": selectedAddress.value,
+
+        // required fillers
+        "building_name": "",
+        "floor_number": "",
+        "apartment_number": "",
+
+        "latitude": selectedLat.value,
+        "longitude": selectedLng.value,
+
+        "final_price": price.value,
+      };
+
+      debugPrint("🚀 FINAL BODY → $body");
+
+      final res = await _api.post("/bookings", body);
+
+      final id = res["id"] ?? res["booking_id"];
+      bookingId.value = id is int ? id : int.parse(id.toString());
+
+      bookingStatus.value = "submitted";
+
+      startPolling();
+
+    } catch (e) {
+      debugPrint("❌ ERROR → $e");
+      Get.snackbar("Booking Failed", e.toString());
     }
   }
 
-  void resetChecklist() {
-    completedTasks.clear();
-    bookingStatus.value = 'in_progress';
+  // ================= STATUS =================
+  String normalizeStatus(String status) {
+    return status.trim().toLowerCase();
+  }
+
+  String mapStatus(String status) {
+    final normalized = normalizeStatus(status);
+
+    switch (normalized) {
+      case 'submitted':
+        return 'requested';
+      case 'assigned':
+        return 'technician_assigned';
+      case 'in_progress':
+      case 'in progress':
+        return 'in_progress';
+      case 'completed':
+        return 'completed';
+      case 'payment_pending':
+      case 'payment pending':
+        return 'payment_pending';
+      default:
+        return normalized;
+    }
+  }
+
+  Future<void> fetchStatus() async {
+    try {
+      final res = await _api.get("/bookings/${bookingId.value}");
+
+      final rawStatus = (res["status"] ?? "").toString();
+      final mappedStatus = mapStatus(rawStatus);
+
+      debugPrint("STATUS FETCH → raw='$rawStatus' mapped='$mappedStatus'");
+
+      bookingStatus.value = mappedStatus;
+
+      final tech = res["technician"];
+      if (tech != null) {
+        technicianName.value = tech["name"] ?? "";
+        technicianPhone.value = tech["phone"] ?? "";
+        technicianRating.value = tech["rating"]?.toString() ?? "";
+      }
+    } catch (e) {
+      debugPrint("STATUS ERROR → $e");
+    }
+  }
+
+  // ================= ACTIONS =================
+  Future<void> approveArrival() async {
+    await _api.post("/bookings/${bookingId.value}/start", {});
+    bookingStatus.value = "in_progress";
+  }
+
+  Future<void> completeBooking() async {
+    await _api.post("/bookings/${bookingId.value}/complete", {});
+    bookingStatus.value = "completed";
+  }
+
+  // ================= POLLING =================
+  Timer? pollingTimer;
+
+  void startPolling() {
+    if (bookingId.value == 0) return;
+
+    isPolling.value = true;
+
+    pollingTimer?.cancel();
+
+    pollingTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) async {
+        await fetchStatus();
+      },
+    );
+  }
+
+  @override
+  void onClose() {
+    pollingTimer?.cancel();
+    super.onClose();
   }
 }

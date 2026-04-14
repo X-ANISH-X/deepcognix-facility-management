@@ -1,27 +1,39 @@
 name: user_a
-description: "A new Flutter project."
+description: "Facility Management User App"
+
 publish_to: 'none'
 
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.10.7
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
+  # STATE MANAGEMENT
   get: ^4.6.6
   get_storage: ^2.1.1
 
 
-  # 🔥 REQUIRED FOR DATE PICKER + RTL + MATERIAL LOCALIZATION
+  # LOCATION PERMISSION
+  permission_handler: ^11.3.1
+
+  # HTTP API
+  http: ^1.2.2
+
+  # DATE FORMATTING (used by BookingController.normalizeTime)
+  intl: ^0.20.2
+
+  # OPEN PHONE / URL
+  url_launcher: ^6.3.0
+
+  # LOCALIZATION
   flutter_localizations:
     sdk: flutter
 
-
   cupertino_icons: ^1.0.8
-  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:
@@ -32,3 +44,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  assets:
+    - assets/map.png
