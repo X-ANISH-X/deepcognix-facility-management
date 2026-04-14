@@ -273,8 +273,38 @@ class BookingScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () async {
+                  // Validate all fields before attempting booking
+                  if (controller.packageId.value == 0) {
+                    Get.snackbar(
+                      'Select a Package',
+                      'Please choose a package before booking.',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                    return;
+                  }
+                  if (controller.selectedAddress.value.isEmpty) {
+                    Get.snackbar(
+                      'Enter Address',
+                      'Please enter your service address.',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                    return;
+                  }
+                  if (controller.selectedDate.value.isEmpty ||
+                      controller.selectedTime.value.isEmpty) {
+                    Get.snackbar(
+                      'Select Date & Time',
+                      'Please pick a date and time slot.',
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                    return;
+                  }
                   await controller.createBooking();
-                  Get.toNamed('/tracking');
+                  // Only navigate if booking creation succeeded
+                  // (createBooking updates bookingId; 0 means it failed)
+                  if (controller.bookingId.value != 0) {
+                    Get.toNamed('/tracking');
+                  }
                 },
                 child: const Text("Confirm Booking"),
               ),
