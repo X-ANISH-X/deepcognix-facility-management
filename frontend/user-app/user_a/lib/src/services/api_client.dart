@@ -74,7 +74,9 @@ class ApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
     } else {
-      throw Exception(data["message"] ?? "API Error");
+      // FastAPI returns errors under the key "detail"
+      final msg = data["detail"] ?? data["message"] ?? "API Error (${response.statusCode})";
+      throw Exception(msg);
     }
   }
 }
