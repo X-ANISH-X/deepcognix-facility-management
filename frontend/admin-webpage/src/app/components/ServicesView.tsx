@@ -10,12 +10,13 @@ import { Switch } from '@/app/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { getServiceColor, getServiceBgColor, AVAILABLE_SERVICES } from '@/app/utils/serviceColors';
-import { mockApi, type Service } from '@/app/services/mockApi';
+import { api, type Service, type Category } from '@/app/services/api';
 import { Plus, Edit, DollarSign, Clock, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ServicesView() {
   const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -23,8 +24,9 @@ export function ServicesView() {
   useEffect(() => {
     const loadServices = async () => {
       setIsLoading(true);
-      const data = await mockApi.getServices();
+      const [data, cats] = await Promise.all([api.getServices(), api.getCategories()]);
       setServices(data);
+      setCategories(cats);
       setIsLoading(false);
     };
     loadServices();
@@ -33,15 +35,16 @@ export function ServicesView() {
   const handleCreateService = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
-    const newService = await mockApi.createService({
+    const catId = Number(formData.get('categoryId'));
+    const cat = categories.find(c => c.id === catId);
+    const newService = await api.createService({
       name: formData.get('name') as string,
-      category: formData.get('category') as string,
+      category: cat?.name ?? '',
+      categoryId: catId,
       basePrice: Number(formData.get('basePrice')),
       duration: Number(formData.get('duration')),
       description: formData.get('description') as string,
     });
-
     setServices([...services, newService]);
     setIsCreateDialogOpen(false);
     toast.success('Service created successfully!');
@@ -50,28 +53,26 @@ export function ServicesView() {
   const handleUpdateService = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingService) return;
-
     const formData = new FormData(e.currentTarget);
-    
-    const updated = await mockApi.updateService(editingService.id, {
+    const catId = Number(formData.get('categoryId'));
+    const cat = categories.find(c => c.id === catId);
+    const updated = await api.updateService(editingService.rawId, {
       name: formData.get('name') as string,
-      category: formData.get('category') as string,
+      category: cat?.name ?? editingService.category,
+      categoryId: catId,
       basePrice: Number(formData.get('basePrice')),
       duration: Number(formData.get('duration')),
       description: formData.get('description') as string,
     });
-
     setServices(services.map(s => s.id === updated.id ? updated : s));
     setEditingService(null);
     toast.success('Service updated successfully!');
   };
 
   const handleToggleActive = async (service: Service) => {
-    const updated = await mockApi.updateService(service.id, {
-      isActive: !service.isActive
-    });
-    setServices(services.map(s => s.id === updated.id ? updated : s));
-    toast.success(`Service ${updated.isActive ? 'activated' : 'deactivated'}`);
+    const result = await api.toggleServiceActive(service.rawId);
+    setServices(services.map(s => s.id === service.id ? { ...s, isActive: result.is_active } : s));
+    toast.success(`Service ${result.is_active ? 'activated' : 'deactivated'}`);
   };
 
   const servicesByCategory = services.reduce((acc, service) => {
@@ -112,15 +113,15 @@ export function ServicesView() {
                   <Input id="name" name="name" required className="rounded-xl" />
                 </div>
                 <div className="flex-1 flex flex-col gap-1">
-                  <Label htmlFor="category">Category</Label>
-                  <Select name="category" required>
+                  <Label htmlFor="categoryId">Category</Label>
+                  <Select name="categoryId" required>
                     <SelectTrigger className="rounded-xl">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {AVAILABLE_SERVICES.map((service) => (
-                        <SelectItem key={service} value={service}>
-                          {service}
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={String(cat.id)}>
+                          {cat.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

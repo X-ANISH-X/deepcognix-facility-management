@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '@/app/context/ThemeContext';
+import { api } from '@/app/services/api';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -13,22 +14,23 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      if (email && password) {
-        // Store credentials if remember me is checked
-        if (rememberMe) {
-          localStorage.setItem('rememberedEmail', email);
-        }
-        onLoginSuccess();
+    try {
+      await api.login(email, password);
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
       }
+      onLoginSuccess();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (
@@ -157,6 +159,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 Forgot password?
               </a>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mt-3 px-4 py-2 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm text-center">
+                {error}
+              </div>
+            )}
 
             {/* Sign In Button */}
             <button

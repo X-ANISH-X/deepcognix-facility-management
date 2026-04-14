@@ -4,7 +4,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { getServiceColor } from '@/app/utils/serviceColors';
-import { mockApi, type Technician } from '@/app/services/mockApi';
+import { api, type Technician } from '@/app/services/api';
 import { MapPin, Phone, Mail, Navigation, User } from 'lucide-react';
 
 export function TechnicianMapView() {
@@ -15,7 +15,7 @@ export function TechnicianMapView() {
   useEffect(() => {
     const loadTechnicians = async () => {
       setIsLoading(true);
-      const data = await mockApi.getTechnicians();
+      const data = await api.getTechnicians();
       setTechnicians(data);
       if (data.length > 0) {
         setSelectedTech(data[0]);

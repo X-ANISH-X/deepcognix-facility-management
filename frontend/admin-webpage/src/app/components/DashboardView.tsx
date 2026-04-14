@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { mockApi, type KPIData, type WorkOrder } from '@/app/services/mockApi';
+import { api, type KPIData, type WorkOrder } from '@/app/services/api';
 import { mockRevenueData } from '@/app/services/mockRevenueData';
 import { useLanguage } from '@/app/context/LanguageContext';
 import { Activity, DollarSign, Users, Wrench, TrendingUp, Clock } from 'lucide-react';
@@ -16,8 +16,8 @@ export function DashboardView() {
   useEffect(() => {
     const loadData = async () => {
       const [kpiData, orders] = await Promise.all([
-        mockApi.getKPIs(),
-        mockApi.getWorkOrders()
+        api.getKPIs(),
+        api.getWorkOrders()
       ]);
       setKpis(kpiData);
       setRecentOrders(orders.slice(0, 5));

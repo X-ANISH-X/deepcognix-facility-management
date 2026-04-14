@@ -95,3 +95,51 @@ def get_me(
     if not user or not user["is_active"]:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.get("/users", response_model=list[dict])
+def list_users(
+    role: str | None = None,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    """Admin-only: list all users, optionally filtered by role."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    cursor = db.cursor(dictionary=True)
+    try:
+        if role:
+            cursor.execute(
+                "SELECT id, full_name, email, phone_number, role, is_active, created_at FROM users WHERE role = %s ORDER BY created_at DESC",
+                (role,),
+            )
+        else:
+            cursor.execute(
+                "SELECT id, full_name, email, phone_number, role, is_active, created_at FROM users ORDER BY created_at DESC"
+            )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+
+
+@router.patch("/users/{user_id}/toggle-active", response_model=dict)
+def toggle_user_active(
+    user_id: int,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    """Admin-only: activate or deactivate a user account."""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, is_active FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        new_status = not user["is_active"]
+        cursor.execute("UPDATE users SET is_active = %s WHERE id = %s", (new_status, user_id))
+        db.commit()
+        return {"user_id": user_id, "is_active": new_status}
+    finally:
+        cursor.close()

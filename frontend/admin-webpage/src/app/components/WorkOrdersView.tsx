@@ -8,7 +8,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
-import { mockApi, type WorkOrder, type Technician } from '@/app/services/mockApi';
+import { api, type WorkOrder, type Technician } from '@/app/services/api';
 import { Plus, Search, Filter, Calendar, MapPin, DollarSign, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,8 +28,8 @@ export function WorkOrdersView() {
     const loadData = async () => {
       setIsLoading(true);
       const [orders, techs] = await Promise.all([
-        mockApi.getWorkOrders(),
-        mockApi.getTechnicians()
+        api.getWorkOrders(),
+        api.getTechnicians()
       ]);
       setWorkOrders(orders);
       setTechnicians(techs);
@@ -63,28 +63,16 @@ export function WorkOrdersView() {
 
   const handleCreateOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    const newOrder = await mockApi.createWorkOrder({
-      customerName: formData.get('customerName') as string,
-      serviceType: formData.get('serviceType') as string,
-      priority: formData.get('priority') as WorkOrder['priority'],
-      scheduledDate: formData.get('scheduledDate') as string,
-      scheduledTime: formData.get('scheduledTime') as string,
-      location: formData.get('location') as string,
-      description: formData.get('description') as string,
-      estimatedCost: Number(formData.get('estimatedCost'))
-    });
-
-    setWorkOrders([...workOrders, newOrder]);
+    // Bookings in this system are created by customers via the User App.
+    // Admin manages (approve / assign / cancel) existing bookings.
+    toast.info('New bookings are submitted by customers via the User App. Use Approve/Assign to manage them here.');
     setIsCreateDialogOpen(false);
-    toast.success('Work order created successfully!');
   };
 
   const handleAssignTechnician = async (technicianId: string) => {
     if (!selectedOrder) return;
 
-    const updated = await mockApi.assignWorkOrder(selectedOrder.id, technicianId);
+    const updated = await api.assignWorkOrder(selectedOrder.id, technicianId);
     setWorkOrders(workOrders.map(wo => wo.id === updated.id ? updated : wo));
     setIsAssignDialogOpen(false);
     toast.success(`Assigned to ${updated.technicianName}`);
@@ -323,7 +311,34 @@ export function WorkOrdersView() {
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
-                {order.status === 'pending' && (
+                {order.rawStatus === 'submitted' && (
+                  <Button
+                    onClick={async () => {
+                      await api.approveWorkOrder(order.rawId);
+                      const refreshed = await api.getWorkOrders();
+                      setWorkOrders(refreshed);
+                      toast.success('Booking approved!');
+                    }}
+                    className="flex-1 min-w-[130px] rounded-full bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    Approve
+                  </Button>
+                )}
+                {(order.rawStatus === 'submitted' || order.rawStatus === 'approved') && (
+                  <Button
+                    onClick={async () => {
+                      await api.cancelWorkOrder(order.rawId);
+                      const refreshed = await api.getWorkOrders();
+                      setWorkOrders(refreshed);
+                      toast.success('Booking cancelled');
+                    }}
+                    variant="outline"
+                    className="flex-1 min-w-[100px] rounded-full text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    Cancel
+                  </Button>
+                )}
+                {(order.rawStatus === 'approved' || order.status === 'pending') && (
                   <Button 
                     onClick={() => { setSelectedOrder(order); setIsAssignDialogOpen(true); }}
                     className="flex-1 min-w-[150px] rounded-full bg-blue-600 hover:bg-blue-700"
@@ -341,7 +356,7 @@ export function WorkOrdersView() {
                     Reassign
                   </Button>
                 )}
-                <Button variant="outline" className="flex-1 min-w-[150px] rounded-full">
+                <Button variant="outline" className="flex-1 min-w-[120px] rounded-full">
                   View Details
                 </Button>
               </div>

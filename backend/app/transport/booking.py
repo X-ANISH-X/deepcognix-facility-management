@@ -71,6 +71,53 @@ def get_booking(
     return booking
 
 
+@router.post("/{booking_id}/approve")
+def approve_booking(
+    booking_id: int,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"admin"})
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, status FROM bookings WHERE id = %s", (booking_id,))
+        booking = cursor.fetchone()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        if booking["status"] != "submitted":
+            raise HTTPException(status_code=400, detail=f"Cannot approve a booking with status '{booking['status']}'")
+        cursor.execute("UPDATE bookings SET status = 'approved' WHERE id = %s", (booking_id,))
+        db.commit()
+        return {"message": "Booking approved successfully"}
+    finally:
+        cursor.close()
+
+
+@router.post("/{booking_id}/cancel")
+def cancel_booking(
+    booking_id: int,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"admin", "customer"})
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, status, customer_id FROM bookings WHERE id = %s", (booking_id,))
+        booking = cursor.fetchone()
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        if current_user["role"] == "customer" and booking["customer_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="You cannot cancel this booking")
+        cancellable = {"submitted", "approved"}
+        if booking["status"] not in cancellable:
+            raise HTTPException(status_code=400, detail=f"Cannot cancel a booking with status '{booking['status']}'")
+        cursor.execute("UPDATE bookings SET status = 'cancelled' WHERE id = %s", (booking_id,))
+        db.commit()
+        return {"message": "Booking cancelled successfully"}
+    finally:
+        cursor.close()
+
+
 @router.post("/{booking_id}/assign")
 def assign_booking(
     booking_id: int,
