@@ -122,28 +122,19 @@ def ensure_schema_updates(cursor):
 
 def init_db():
     print("🔄 Connecting to MySQL Server...")
-    
-    # 1. Connect to MySQL Server (No DB selected yet)
-    conn = mysql.connector.connect(
-        host=settings.DB_HOST,
-        user=settings.DB_USER,
-        password=settings.DB_PASSWORD
-    )
-    cursor = conn.cursor(buffered=True)
-    
-    # 2. Create Database
-    cursor.execute(f"CREATE DATABASE IF NOT EXISTS {settings.DB_NAME}")
-    print(f"✅ Database '{settings.DB_NAME}' checked/created.")
-    
-    conn.close()
-    
-    # 3. Connect to the specific Database
+
+    # Connect directly to the existing database.
+    # The database was created during initial MySQL setup.
+    # deepcognix user has all privileges on deepcognix_db but
+    # does NOT have global CREATE DATABASE permission.
     conn = mysql.connector.connect(
         host=settings.DB_HOST,
         user=settings.DB_USER,
         password=settings.DB_PASSWORD,
-        database=settings.DB_NAME
+        database=settings.DB_NAME,
+        port=settings.DB_PORT,
     )
+    print(f"✅ Connected to database '{settings.DB_NAME}'.")
     cursor = conn.cursor(buffered=True)
     
     # 4. Read and Execute tables.sql
