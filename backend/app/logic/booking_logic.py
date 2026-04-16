@@ -37,6 +37,49 @@ def _fetch_booking(cursor, booking_id: int):
     return cursor.fetchone()
 
 
+def _create_or_refresh_booking_request(
+    cursor,
+    *,
+    booking_id: int,
+    requested_by: int,
+    request_type: str,
+    message: str,
+):
+    cursor.execute(
+        """
+        SELECT id
+        FROM booking_requests
+        WHERE booking_id = %s
+          AND request_type = %s
+          AND status = 'pending'
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (booking_id, request_type),
+    )
+    existing = cursor.fetchone()
+    if existing:
+        cursor.execute(
+            """
+            UPDATE booking_requests
+            SET requested_by = %s,
+                message = %s
+            WHERE id = %s
+            """,
+            (requested_by, message, existing["id"]),
+        )
+        return existing["id"]
+
+    cursor.execute(
+        """
+        INSERT INTO booking_requests (booking_id, requested_by, request_type, message, status)
+        VALUES (%s, %s, %s, %s, 'pending')
+        """,
+        (booking_id, requested_by, request_type, message),
+    )
+    return cursor.lastrowid
+
+
 def create_booking(conn, booking, customer_id: int):
     cursor = conn.cursor(dictionary=True)
     try:
@@ -318,6 +361,13 @@ def request_job_rejection(conn, booking_id: int, technician_id: int, reason: str
             """,
             (clean_reason, booking_id),
         )
+        _create_or_refresh_booking_request(
+            cursor,
+            booking_id=booking_id,
+            requested_by=technician_id,
+            request_type="rejection",
+            message=clean_reason,
+        )
 
         create_notification(
             cursor,
@@ -357,6 +407,18 @@ def approve_job_rejection(conn, booking_id: int, admin_id: int):
             "UPDATE bookings SET status = 'rejected' WHERE id = %s",
             (booking_id,),
         )
+        cursor.execute(
+            """
+            UPDATE booking_requests
+            SET status = 'approved',
+                reviewed_by = %s,
+                reviewed_at = CURRENT_TIMESTAMP
+            WHERE booking_id = %s
+              AND request_type = 'rejection'
+              AND status = 'pending'
+            """,
+            (admin_id, booking_id),
+        )
 
         create_notification(
             cursor,
@@ -386,7 +448,7 @@ def approve_job_rejection(conn, booking_id: int, admin_id: int):
         cursor.close()
 
 
-def complete_job(conn, booking_id: int, technician_id: int):
+def request_job_completion(conn, booking_id: int, technician_id: int, notes: str | None = None):
     cursor = conn.cursor(dictionary=True)
     try:
         booking = _fetch_booking(cursor, booking_id)
@@ -412,28 +474,87 @@ def complete_job(conn, booking_id: int, technician_id: int):
             return False, "Complete all checklist tasks before finishing the job"
 
         cursor.execute(
-            "UPDATE bookings SET status = 'completed' WHERE id = %s",
+            "UPDATE bookings SET status = 'completion_requested' WHERE id = %s",
             (booking_id,),
+        )
+        _create_or_refresh_booking_request(
+            cursor,
+            booking_id=booking_id,
+            requested_by=technician_id,
+            request_type="completion",
+            message=(
+                notes.strip()
+                if notes and notes.strip()
+                else f"Technician requested completion approval for booking #{booking_id}."
+            ),
         )
         create_notification(
             cursor,
             user_id=technician_id,
             title="Completion Requested",
-            message=f"Completion approval was requested for booking #{booking_id}.",
+            message=f"Completion approval request was sent to admin for booking #{booking_id}.",
             notification_type="completion_requested",
+        )
+        cursor.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")
+        for admin in cursor.fetchall():
+            create_notification(
+                cursor,
+                user_id=admin["id"],
+                title="Completion Approval Needed",
+                message=f"Technician requested completion approval for booking #{booking_id}.",
+                notification_type="completion_requested",
+            )
+        conn.commit()
+        return True, None
+    finally:
+        cursor.close()
+
+
+def approve_job_completion(conn, booking_id: int, admin_id: int):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = _fetch_booking(cursor, booking_id)
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["status"] != "completion_requested":
+            return False, "Booking does not have a pending completion request"
+
+        cursor.execute(
+            "UPDATE bookings SET status = 'completed' WHERE id = %s",
+            (booking_id,),
+        )
+        cursor.execute(
+            """
+            UPDATE booking_requests
+            SET status = 'approved',
+                reviewed_by = %s,
+                reviewed_at = CURRENT_TIMESTAMP
+            WHERE booking_id = %s
+              AND request_type = 'completion'
+              AND status = 'pending'
+            """,
+            (admin_id, booking_id),
         )
         create_notification(
             cursor,
-            user_id=technician_id,
-            title="Job Approved",
-            message=f"Booking #{booking_id} has been marked completed in the current approval flow.",
+            user_id=booking["technician_id"],
+            title="Completion Approved",
+            message=f"Admin approved completion for booking #{booking_id}.",
             notification_type="job_completed",
         )
         create_notification(
             cursor,
             user_id=booking["customer_id"],
             title="Job Completed",
-            message=f"Booking #{booking_id} has been completed by your technician.",
+            message=f"Booking #{booking_id} has been completed and approved.",
+            notification_type="job_completed",
+        )
+        create_notification(
+            cursor,
+            user_id=admin_id,
+            title="Completion Approved",
+            message=f"You approved completion for booking #{booking_id}.",
             notification_type="job_completed",
         )
         conn.commit()

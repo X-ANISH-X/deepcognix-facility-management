@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import '../services/api_client.dart';
 
 class BookingController extends GetxController {
@@ -79,10 +78,9 @@ class BookingController extends GetxController {
     ];
   }
 
-  // ================= TIME FIX (THE REAL HERO) =================
+  // ================= TIME SLOT NORMALIZATION =================
   String normalizeTime(String slotLabel) {
-    final dt = DateFormat.jm().parse(slotLabel); // 09:00 AM
-    return DateFormat.Hms().format(dt); // 09:00:00
+    return slotLabel.trim().toUpperCase();
   }
 
   // ================= CREATE BOOKING =================

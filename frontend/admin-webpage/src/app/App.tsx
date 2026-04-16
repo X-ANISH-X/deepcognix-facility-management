@@ -10,13 +10,14 @@ import { ReportsView } from '@/app/components/ReportsView';
 import { SettingsView } from '@/app/components/SettingsView';
 import { LayoutDashboard, Map, ClipboardList, Settings, FileText, LogOut, Menu, X, Sun, Moon, Globe } from 'lucide-react';
 import { Toaster } from '@/app/components/ui/sonner';
+import { api, getToken } from '@/app/services/api';
 
 type View = 'dashboard' | 'map' | 'orders' | 'services' | 'reports' | 'settings';
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getToken()));
   const { theme, toggleTheme } = useTheme();
   const { language } = useLanguage();
 
@@ -133,7 +134,10 @@ function AppContent() {
                 <p className="text-xs text-gray-500 dark:text-gray-400">admin@facility.com</p>
               </div>
               <button 
-                onClick={() => setIsAuthenticated(false)}
+                onClick={() => {
+                  api.logout();
+                  setIsAuthenticated(false);
+                }}
                 className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors"
                 title="Logout"
               >

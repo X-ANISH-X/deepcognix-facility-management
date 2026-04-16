@@ -13,6 +13,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const Color brandColor = Color(0xFF0FB9B1);
+  static const Color brandDark = Color(0xFF00897B);
+  static const Color brandLight = Color(0xFF26A69A);
+  static const Color cardColor = Color(0xFFF7F9FA);
+  static const Color borderColor = Color(0xFFE5E5EA);
+  static const Color textMuted = Color(0xFF8E8E93);
 
   final themeController = Get.find<ThemeController>();
   final langController = Get.find<LanguageController>();
@@ -22,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final passwordController = TextEditingController();
 
   final formKey = GlobalKey<FormState>();
+  bool rememberMe = true;
 
   @override
   void dispose() {
@@ -70,18 +77,47 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
 
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-
-          child: Form(
-            key: formKey,
-
-            child: SingleChildScrollView(
-              child: Column(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Form(
+                key: formKey,
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
 
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 32),
+
+                  Center(
+                    child: Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [brandDark, brandLight],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: [
+                          BoxShadow(
+                            color: brandColor.withOpacity(0.28),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.cleaning_services,
+                        size: 46,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 28),
 
                   Text(
                     "welcome_back".tr,
@@ -95,10 +131,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   Text(
                     "login_continue".tr,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: textMuted,
+                          height: 1.35,
+                        ),
                   ),
 
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 36),
 
                   /// EMAIL
                   TextFormField(
@@ -107,7 +146,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     autofillHints: const [AutofillHints.email],
                     decoration: InputDecoration(
                       labelText: "email".tr,
-                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.email_outlined),
+                      filled: true,
+                      fillColor: cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: brandColor, width: 1.5),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -129,7 +182,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     autofillHints: const [AutofillHints.password],
                     decoration: InputDecoration(
                       labelText: "password".tr,
-                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      filled: true,
+                      fillColor: cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: borderColor),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: borderColor),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: brandColor, width: 1.5),
+                      ),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -142,12 +209,42 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
 
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 10),
+
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: rememberMe,
+                        activeColor: brandColor,
+                        onChanged: (value) {
+                          setState(() {
+                            rememberMe = value ?? true;
+                          });
+                        },
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "Remember me",
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
 
                   /// LOGIN BUTTON
                   SizedBox(
                     width: double.infinity,
+                    height: 52,
                     child: Obx(() => ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: brandColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
 
                           onPressed: authController.isLoading.value
                               ? null
@@ -160,11 +257,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                   authController.login(
                                     emailController.text.trim(),
                                     passwordController.text.trim(),
+                                    rememberMe: rememberMe,
                                   );
                                 },
 
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: EdgeInsets.zero,
 
                             child: authController.isLoading.value
                                 ? const SizedBox(
@@ -177,7 +275,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                   )
                                 : Text(
                                     "login".tr,
-                                    style: const TextStyle(fontSize: 16),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                           ),
                         )),
@@ -195,6 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ),

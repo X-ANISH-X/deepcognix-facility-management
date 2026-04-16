@@ -74,8 +74,8 @@ CREATE TABLE IF NOT EXISTS bookings (
         'approved',
         'assigned',
         'in_progress',
+        'completion_requested',
         'completed',
-        'cancelled',
         'rejection_requested',
         'rejected'
     ) DEFAULT 'submitted',
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     final_price DECIMAL(10,2),
 
     scheduled_date DATE NOT NULL,
-    scheduled_time_slot ENUM('morning','afternoon','evening') NOT NULL,
+    scheduled_time_slot ENUM('09:00 AM','11:00 AM','01:00 PM','03:00 PM','05:00 PM') NOT NULL,
 
     address_line TEXT NOT NULL,
     building_name VARCHAR(100),
@@ -132,16 +132,22 @@ CREATE TABLE IF NOT EXISTS technician_live_locations (
 );
 
 -- ==========================================
--- 8. PAYMENTS (UNCHANGED)
+-- 8. BOOKING REQUESTS (ADMIN-HANDLED WORKFLOW)
 -- ==========================================
-CREATE TABLE IF NOT EXISTS payments (
+CREATE TABLE IF NOT EXISTS booking_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    booking_id INT UNIQUE NOT NULL,
-    amount DECIMAL(10,2) NOT NULL,
-    payment_method VARCHAR(50),
-    status ENUM('pending','success','failed') DEFAULT 'pending',
+    booking_id INT NOT NULL,
+    requested_by INT NOT NULL,
+    reviewed_by INT,
+    request_type ENUM('completion','rejection','escalation','feedback','cancellation') NOT NULL,
+    status ENUM('pending','approved','rejected','resolved') DEFAULT 'pending',
+    message TEXT,
+    admin_notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+    reviewed_at TIMESTAMP NULL,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    FOREIGN KEY (requested_by) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- ==========================================

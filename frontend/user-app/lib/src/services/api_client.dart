@@ -15,7 +15,7 @@ class ApiClient {
       // For real device / iOS / desktop use 127.0.0.1
       // We use 127.0.0.1 since we target Chrome for dev
     }
-    return "http://127.0.0.1:$_port";
+    return "http://192.168.1.128:$_port";
   }
 
   final GetStorage _storage = GetStorage();

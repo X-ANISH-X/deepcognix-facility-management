@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-TimeSlot = Literal["morning", "afternoon", "evening"]
+TimeSlot = Literal["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"]
 
 
 class BookingCreate(BaseModel):
@@ -60,3 +60,7 @@ class BookingChecklistTaskUpdate(BaseModel):
 
 class RejectBookingRequest(BaseModel):
     reason: str
+
+
+class CompleteBookingRequest(BaseModel):
+    notes: str | None = None

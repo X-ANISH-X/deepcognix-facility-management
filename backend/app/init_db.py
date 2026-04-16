@@ -62,6 +62,7 @@ def _cleanup_duplicate_checklist_rows(cursor):
 
 
 def _ensure_booking_status_values(cursor):
+    cursor.execute("UPDATE bookings SET status = 'submitted' WHERE status = 'cancelled'")
     _run_safe_alter(
         cursor,
         """
@@ -71,11 +72,51 @@ def _ensure_booking_status_values(cursor):
             'approved',
             'assigned',
             'in_progress',
+            'completion_requested',
             'completed',
-            'cancelled',
             'rejection_requested',
             'rejected'
         ) DEFAULT 'submitted'
+        """,
+    )
+
+
+def _ensure_booking_time_slot_values(cursor):
+    cursor.execute("ALTER TABLE bookings MODIFY scheduled_time_slot VARCHAR(20) NOT NULL")
+    cursor.execute(
+        """
+        UPDATE bookings
+        SET scheduled_time_slot = CASE scheduled_time_slot
+            WHEN 'morning' THEN '09:00 AM'
+            WHEN 'afternoon' THEN '01:00 PM'
+            WHEN 'evening' THEN '05:00 PM'
+            ELSE scheduled_time_slot
+        END
+        """
+    )
+    cursor.execute(
+        """
+        UPDATE bookings
+        SET scheduled_time_slot = '09:00 AM'
+        WHERE scheduled_time_slot NOT IN (
+            '09:00 AM',
+            '11:00 AM',
+            '01:00 PM',
+            '03:00 PM',
+            '05:00 PM'
+        )
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE bookings
+        MODIFY scheduled_time_slot ENUM(
+            '09:00 AM',
+            '11:00 AM',
+            '01:00 PM',
+            '03:00 PM',
+            '05:00 PM'
+        ) NOT NULL
         """,
     )
 
@@ -93,6 +134,8 @@ def ensure_schema_updates(cursor):
             "ALTER TABLE notifications ADD COLUMN notification_type VARCHAR(50) NULL AFTER title",
         )
 
+    _run_safe_alter(cursor, "DROP TABLE IF EXISTS payments")
+
     if not _column_exists(cursor, "technician_live_locations", "booking_id"):
         _run_safe_alter(cursor, "ALTER TABLE technician_live_locations ADD COLUMN booking_id INT NULL")
         _run_safe_alter(
@@ -105,6 +148,7 @@ def ensure_schema_updates(cursor):
         )
 
     _ensure_booking_status_values(cursor)
+    _ensure_booking_time_slot_values(cursor)
     _cleanup_duplicate_checklist_rows(cursor)
 
     if not _index_exists(cursor, "package_checklist", "unique_package_task"):

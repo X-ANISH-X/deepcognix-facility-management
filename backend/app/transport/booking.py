@@ -3,11 +3,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.security import get_current_user_payload
 from app.database import get_db_connection
 from app.logic import booking_logic
-from app.logic.booking_logic import approve_job_rejection, complete_job, request_job_rejection, start_job
+from app.logic.booking_logic import (
+    approve_job_completion,
+    approve_job_rejection,
+    request_job_completion,
+    request_job_rejection,
+    start_job,
+)
 from app.model.booking_model import (
     AssignTechnicianRequest,
     BookingChecklistTaskUpdate,
     BookingCreate,
+    CompleteBookingRequest,
     RejectBookingRequest,
 )
 
@@ -89,31 +96,6 @@ def approve_booking(
         cursor.execute("UPDATE bookings SET status = 'approved' WHERE id = %s", (booking_id,))
         db.commit()
         return {"message": "Booking approved successfully"}
-    finally:
-        cursor.close()
-
-
-@router.post("/{booking_id}/cancel")
-def cancel_booking(
-    booking_id: int,
-    db=Depends(get_db_connection),
-    current_user: dict = Depends(get_current_user_payload),
-):
-    _ensure_roles(current_user, {"admin", "customer"})
-    cursor = db.cursor(dictionary=True)
-    try:
-        cursor.execute("SELECT id, status, customer_id FROM bookings WHERE id = %s", (booking_id,))
-        booking = cursor.fetchone()
-        if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
-        if current_user["role"] == "customer" and booking["customer_id"] != current_user["id"]:
-            raise HTTPException(status_code=403, detail="You cannot cancel this booking")
-        cancellable = {"submitted", "approved"}
-        if booking["status"] not in cancellable:
-            raise HTTPException(status_code=400, detail=f"Cannot cancel a booking with status '{booking['status']}'")
-        cursor.execute("UPDATE bookings SET status = 'cancelled' WHERE id = %s", (booking_id,))
-        db.commit()
-        return {"message": "Booking cancelled successfully"}
     finally:
         cursor.close()
 
@@ -218,17 +200,33 @@ def approve_rejection_request(
 @router.post("/{booking_id}/complete")
 def complete_booking(
     booking_id: int,
+    payload: CompleteBookingRequest | None = None,
     conn=Depends(get_db_connection),
     current_user: dict = Depends(get_current_user_payload),
 ):
     _ensure_roles(current_user, {"technician"})
-    success, error = complete_job(
+    success, error = request_job_completion(
         conn=conn,
         booking_id=booking_id,
         technician_id=current_user["id"],
+        notes=payload.notes if payload else None,
     )
 
     if not success:
         raise HTTPException(status_code=400, detail=error)
 
-    return {"message": "Job completed successfully"}
+    return {"message": "Completion request sent to admin"}
+
+
+@router.post("/{booking_id}/completion/approve")
+def approve_completion_request(
+    booking_id: int,
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"admin"})
+    success, error = approve_job_completion(conn, booking_id, current_user["id"])
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Job completion approved"}

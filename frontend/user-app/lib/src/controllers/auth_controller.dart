@@ -11,7 +11,7 @@ class AuthController extends GetxController {
   // ================================================================== //
   //  LOGIN
   // ================================================================== //
-  Future<void> login(String email, String password) async {
+  Future<void> login(String email, String password, {bool rememberMe = true}) async {
     if (email.trim().isEmpty || password.isEmpty) {
       _snack("Error", "Please enter your email and password.");
       return;
@@ -36,6 +36,7 @@ class AuthController extends GetxController {
         role:   response["role"]      ?? "user",
         email:  email.trim(),
         phone:  response["phone_number"], // may be null — saveAuth handles it
+        rememberMe: rememberMe,
       );
 
       Get.offAllNamed('/home');
