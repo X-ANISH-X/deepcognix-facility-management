@@ -88,7 +88,7 @@ export interface WorkOrder {
   customerName: string;
   serviceType: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'assigned' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'assigned' | 'in-progress' | 'completion-requested' | 'rejection-requested' | 'completed' | 'cancelled';
   rawStatus: string;
   technicianId?: string;
   technicianName?: string;
@@ -180,8 +180,9 @@ function mapBookingStatus(s: string): WorkOrder['status'] {
     case 'approved': return 'pending';
     case 'assigned': return 'assigned';
     case 'in_progress': return 'in-progress';
+    case 'completion_requested': return 'completion-requested';
+    case 'rejection_requested': return 'rejection-requested';
     case 'completed': return 'completed';
-    case 'cancelled':
     case 'rejected': return 'cancelled';
     default: return 'pending';
   }
@@ -192,13 +193,6 @@ function mapBookingPriority(_b: RawBooking): WorkOrder['priority'] {
 }
 
 function mapBooking(b: RawBooking): WorkOrder {
-  const timeLabel =
-    b.scheduled_time_slot === 'morning'
-      ? '09:00'
-      : b.scheduled_time_slot === 'afternoon'
-      ? '14:00'
-      : '18:00';
-
   const locationParts = [
     b.address_line,
     b.building_name,
@@ -216,7 +210,7 @@ function mapBooking(b: RawBooking): WorkOrder {
     technicianId: b.technician_id ? String(b.technician_id) : undefined,
     technicianName: b.technician_name ?? undefined,
     scheduledDate: b.scheduled_date,
-    scheduledTime: timeLabel,
+    scheduledTime: b.scheduled_time_slot,
     location: locationParts.join(', '),
     description: b.customer_notes ?? '',
     estimatedCost: b.final_price ?? 0,
@@ -306,7 +300,7 @@ export const api = {
     bookings.forEach((b) => {
       if (
         b.technician_id &&
-        ['assigned', 'in_progress'].includes(b.status)
+        ['assigned', 'in_progress', 'completion_requested', 'rejection_requested'].includes(b.status)
       ) {
         activeJobMap[b.technician_id] = (activeJobMap[b.technician_id] ?? 0) + 1;
       }
@@ -344,8 +338,12 @@ export const api = {
     await post(`/bookings/${rawId}/approve`);
   },
 
-  cancelWorkOrder: async (rawId: number): Promise<void> => {
-    await post(`/bookings/${rawId}/cancel`);
+  approveCompletionRequest: async (rawId: number): Promise<void> => {
+    await post(`/bookings/${rawId}/completion/approve`);
+  },
+
+  approveRejectionRequest: async (rawId: number): Promise<void> => {
+    await post(`/bookings/${rawId}/rejection/approve`);
   },
 
   assignWorkOrder: async (workOrderId: string, technicianId: string): Promise<WorkOrder> => {

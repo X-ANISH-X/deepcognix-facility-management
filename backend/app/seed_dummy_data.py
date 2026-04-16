@@ -279,29 +279,6 @@ def set_task_progress(cursor, booking_id: int, completed_count: int | None = Non
             )
 
 
-def ensure_payment(cursor, booking_id: int, amount: float, status: str, payment_method: str):
-    cursor.execute("SELECT id FROM payments WHERE booking_id = %s", (booking_id,))
-    row = cursor.fetchone()
-    if row:
-        cursor.execute(
-            """
-            UPDATE payments
-            SET amount = %s, status = %s, payment_method = %s
-            WHERE booking_id = %s
-            """,
-            (amount, status, payment_method, booking_id),
-        )
-        return
-
-    cursor.execute(
-        """
-        INSERT INTO payments (booking_id, amount, payment_method, status)
-        VALUES (%s, %s, %s, %s)
-        """,
-        (booking_id, amount, payment_method, status),
-    )
-
-
 def ensure_notification(
     cursor,
     user_id: int,
@@ -362,6 +339,97 @@ def seed_dummy_data():
     conn = get_connection()
     cursor = conn.cursor(buffered=True)
     try:
+        # Keep the demo DB intentionally small for end-to-end testing:
+        # one customer, one technician, one admin, and no pre-created jobs.
+        cursor.execute("DELETE FROM technician_live_locations")
+        cursor.execute("DELETE FROM booking_requests")
+        cursor.execute("DELETE FROM notifications")
+        cursor.execute("DELETE FROM booking_checklist")
+        cursor.execute("DELETE FROM bookings")
+        cursor.execute("DELETE FROM package_checklist")
+        cursor.execute("DELETE FROM packages")
+        cursor.execute("DELETE FROM services")
+        cursor.execute("DELETE FROM categories")
+        cursor.execute("DELETE FROM users")
+
+        for table_name in [
+            "technician_live_locations",
+            "booking_requests",
+            "notifications",
+            "booking_checklist",
+            "bookings",
+            "package_checklist",
+            "packages",
+            "services",
+            "categories",
+            "users",
+        ]:
+            cursor.execute(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1")
+
+        with open("app/tables.sql", "r", encoding="utf-8") as tables_file:
+            sql_commands = tables_file.read().split(";")
+
+        for command in sql_commands:
+            clean_command = command.strip()
+            if "INSERT INTO packages" in clean_command or "INSERT IGNORE INTO package_checklist" in clean_command:
+                cursor.execute(clean_command)
+
+        users = {
+            "admin": SeedUser("Admin User", "sam@gmail.com", "9876500001", "admin", "test123"),
+            "customer": SeedUser("Sam Customer", "sam234@gmail.com", "9876500002", "customer", "test123"),
+            "technician": SeedUser("Samarth Vasisht", "sam123@gmail.com", "9876500003", "technician", "test123"),
+        }
+
+        for user in users.values():
+            ensure_user(cursor, user)
+
+        cleaning_category_id = ensure_category(
+            cursor,
+            "Cleaning",
+            "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=300&q=80",
+        )
+
+        ensure_service(
+            cursor,
+            category_id=cleaning_category_id,
+            name="Home Deep Cleaning",
+            description="Apartment and villa cleaning with package-based checklist execution.",
+            base_price=999.00,
+            duration_minutes=180,
+        )
+        ensure_service(
+            cursor,
+            category_id=cleaning_category_id,
+            name="Sofa & Upholstery Cleaning",
+            description="Fabric and upholstery focused cleaning for living room furniture.",
+            base_price=799.00,
+            duration_minutes=120,
+        )
+        ensure_service(
+            cursor,
+            category_id=cleaning_category_id,
+            name="AC Cleaning",
+            description="AC cleaning and inspection visit.",
+            base_price=699.00,
+            duration_minutes=90,
+        )
+
+        conn.commit()
+
+        print("Reset demo database successfully.")
+        print("")
+        print("Login credentials:")
+        print("  Admin      -> sam@gmail.com / test123")
+        print("  User       -> sam234@gmail.com / test123")
+        print("  Technician -> sam123@gmail.com / test123")
+        print("")
+        print("Seeded data includes:")
+        print("  - The three requested users only")
+        print("  - Cleaning services")
+        print("  - Existing Silver, Gold, and Platinum packages with package checklists")
+        print("  - No pre-created bookings, notifications, requests, or locations")
+        return
+
         users = {
             "admin": SeedUser("Priya Nair", "admin.demo@deepcognix.com", "9876500001", "admin", "Admin@123"),
             # Quick-test accounts — same password as admin for easy local testing
@@ -427,7 +495,7 @@ def seed_dummy_data():
                 "status": "assigned",
                 "final_price": gold_price,
                 "scheduled_date": today + timedelta(days=1),
-                "scheduled_time_slot": "morning",
+                "scheduled_time_slot": "09:00 AM",
                 "address_line": "Flat 402, Maple Residency, Sector 62",
                 "building_name": "Maple Residency",
                 "floor_number": "4",
@@ -446,7 +514,7 @@ def seed_dummy_data():
                 "status": "in_progress",
                 "final_price": platinum_price,
                 "scheduled_date": today,
-                "scheduled_time_slot": "afternoon",
+                "scheduled_time_slot": "01:00 PM",
                 "address_line": "Tower B, Riverfront Heights, Indiranagar",
                 "building_name": "Riverfront Heights",
                 "floor_number": "12",
@@ -465,7 +533,7 @@ def seed_dummy_data():
                 "status": "completed",
                 "final_price": silver_price,
                 "scheduled_date": today - timedelta(days=2),
-                "scheduled_time_slot": "evening",
+                "scheduled_time_slot": "05:00 PM",
                 "address_line": "House 17, Palm Grove Villas",
                 "building_name": "Palm Grove Villas",
                 "floor_number": "Ground",
@@ -484,7 +552,7 @@ def seed_dummy_data():
                 "status": "assigned",
                 "final_price": silver_price,
                 "scheduled_date": today + timedelta(days=2),
-                "scheduled_time_slot": "afternoon",
+                "scheduled_time_slot": "03:00 PM",
                 "address_line": "Flat 803, Skyview Apartments",
                 "building_name": "Skyview Apartments",
                 "floor_number": "8",
@@ -503,7 +571,7 @@ def seed_dummy_data():
                 "status": "submitted",
                 "final_price": gold_price,
                 "scheduled_date": today + timedelta(days=4),
-                "scheduled_time_slot": "morning",
+                "scheduled_time_slot": "11:00 AM",
                 "address_line": "Flat 903, Blue Cedar Heights",
                 "building_name": "Blue Cedar Heights",
                 "floor_number": "9",
@@ -530,10 +598,6 @@ def seed_dummy_data():
                 set_task_progress(cursor, booking_id, completed_count=0)
 
             booking_ids.append(booking_id)
-
-            payment_status = "success" if item["status"] == "completed" else "pending"
-            payment_method = "upi" if item["status"] == "completed" else "card"
-            ensure_payment(cursor, booking_id, item["final_price"], payment_status, payment_method)
 
         ensure_notification(
             cursor,
@@ -590,7 +654,7 @@ def seed_dummy_data():
         print("  - Active categories and services")
         print("  - Assigned, in-progress, completed, and submitted bookings")
         print("  - Package-driven checklist tasks")
-        print("  - Payments, notifications, and sample technician locations")
+        print("  - Notifications and sample technician locations")
     finally:
         cursor.close()
         conn.close()

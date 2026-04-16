@@ -21,22 +21,34 @@ export function WorkOrdersView() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadData = async () => {
+  const loadData = async (showLoader = false) => {
+    if (showLoader) {
       setIsLoading(true);
-      const [orders, techs] = await Promise.all([
-        api.getWorkOrders(),
-        api.getTechnicians()
-      ]);
-      setWorkOrders(orders);
-      setTechnicians(techs);
-      setFilteredOrders(orders);
+    }
+    const [orders, techs] = await Promise.all([
+      api.getWorkOrders(),
+      api.getTechnicians()
+    ]);
+    setWorkOrders(orders);
+    setTechnicians(techs);
+    setFilteredOrders(orders);
+    if (showLoader) {
       setIsLoading(false);
-    };
-    loadData();
+    }
+  };
+
+  useEffect(() => {
+    loadData(true);
+    const intervalId = window.setInterval(() => {
+      loadData(false).catch(() => {
+        // Keep the current list visible if a background refresh fails.
+      });
+    }, 5000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
@@ -91,6 +103,8 @@ export function WorkOrdersView() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-500/10 text-green-600 border-green-200';
+      case 'completion-requested': return 'bg-emerald-500/10 text-emerald-700 border-emerald-200';
+      case 'rejection-requested': return 'bg-orange-500/10 text-orange-700 border-orange-200';
       case 'in-progress': return 'bg-blue-500/10 text-blue-600 border-blue-200';
       case 'assigned': return 'bg-purple-500/10 text-purple-600 border-purple-200';
       case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200';
@@ -216,6 +230,8 @@ export function WorkOrdersView() {
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="completion-requested">Completion Requested</SelectItem>
+                    <SelectItem value="rejection-requested">Rejection Requested</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
@@ -315,27 +331,12 @@ export function WorkOrdersView() {
                   <Button
                     onClick={async () => {
                       await api.approveWorkOrder(order.rawId);
-                      const refreshed = await api.getWorkOrders();
-                      setWorkOrders(refreshed);
+                      await loadData(false);
                       toast.success('Booking approved!');
                     }}
                     className="flex-1 min-w-[130px] rounded-full bg-emerald-600 hover:bg-emerald-700"
                   >
                     Approve
-                  </Button>
-                )}
-                {(order.rawStatus === 'submitted' || order.rawStatus === 'approved') && (
-                  <Button
-                    onClick={async () => {
-                      await api.cancelWorkOrder(order.rawId);
-                      const refreshed = await api.getWorkOrders();
-                      setWorkOrders(refreshed);
-                      toast.success('Booking cancelled');
-                    }}
-                    variant="outline"
-                    className="flex-1 min-w-[100px] rounded-full text-red-600 border-red-300 hover:bg-red-50"
-                  >
-                    Cancel
                   </Button>
                 )}
                 {(order.rawStatus === 'approved' || order.status === 'pending') && (
@@ -356,7 +357,35 @@ export function WorkOrdersView() {
                     Reassign
                   </Button>
                 )}
-                <Button variant="outline" className="flex-1 min-w-[120px] rounded-full">
+                {order.rawStatus === 'completion_requested' && (
+                  <Button
+                    onClick={async () => {
+                      await api.approveCompletionRequest(order.rawId);
+                      await loadData(false);
+                      toast.success('Completion approved');
+                    }}
+                    className="flex-1 min-w-[170px] rounded-full bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    Approve Completion
+                  </Button>
+                )}
+                {order.rawStatus === 'rejection_requested' && (
+                  <Button
+                    onClick={async () => {
+                      await api.approveRejectionRequest(order.rawId);
+                      await loadData(false);
+                      toast.success('Rejection approved');
+                    }}
+                    className="flex-1 min-w-[160px] rounded-full bg-orange-600 hover:bg-orange-700"
+                  >
+                    Approve Rejection
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => { setSelectedOrder(order); setIsDetailsDialogOpen(true); }}
+                  className="flex-1 min-w-[120px] rounded-full"
+                >
                   View Details
                 </Button>
               </div>
@@ -410,6 +439,60 @@ export function WorkOrdersView() {
                 </div>
               ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Work Order Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Work Order Details {selectedOrder?.id}</DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-gray-500">Customer</p>
+                  <p className="font-semibold">{selectedOrder.customerName}</p>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-gray-500">Technician</p>
+                  <p className="font-semibold">{selectedOrder.technicianName ?? 'Not assigned yet'}</p>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-gray-500">Service</p>
+                  <p className="font-semibold">{selectedOrder.serviceType}</p>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-gray-500">Status</p>
+                  <Badge className={getStatusColor(selectedOrder.status)} variant="outline">
+                    {selectedOrder.status}
+                  </Badge>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-gray-500">Schedule</p>
+                  <p className="font-semibold">{selectedOrder.scheduledDate} at {selectedOrder.scheduledTime}</p>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4">
+                  <p className="text-gray-500">Package Price</p>
+                  <p className="font-semibold">Rs {selectedOrder.estimatedCost}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <p className="text-gray-500">Address</p>
+                <p className="font-semibold">{selectedOrder.location}</p>
+              </div>
+              <div className="rounded-2xl bg-gray-50 p-4">
+                <p className="text-gray-500">Customer Notes</p>
+                <p className="font-semibold">{selectedOrder.description || 'No notes added'}</p>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="outline" className="rounded-full" onClick={() => setIsDetailsDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

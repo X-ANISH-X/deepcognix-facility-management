@@ -13,6 +13,7 @@ class AuthService {
   static const _kEmail    = "email";
   static const _kPhone    = "phone";
   static const _kRole     = "role";
+  static const _kRemember = "remember_me";
 
   // ================================================================== //
   //  SAVE AUTH  (call this right after a successful login / register)
@@ -24,11 +25,13 @@ class AuthService {
     required String role,
     String? email,
     String? phone,
+    bool rememberMe = true,
   }) {
     _storage.write(_kToken,  token);
     _storage.write(_kUserId, userId);
     _storage.write(_kName,   name);
     _storage.write(_kRole,   role);
+    _storage.write(_kRemember, rememberMe);
     if (email != null) _storage.write(_kEmail, email);
     if (phone != null) _storage.write(_kPhone, phone);
   }
@@ -47,6 +50,8 @@ class AuthService {
     // Also treat an expired token as "not logged in"
     return !isTokenExpired;
   }
+
+  bool get shouldRestoreSession => _storage.read<bool>(_kRemember) ?? true;
 
   // ================================================================== //
   //  GETTERS

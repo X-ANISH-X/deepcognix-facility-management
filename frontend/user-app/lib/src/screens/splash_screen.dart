@@ -12,7 +12,6 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
 
   final AuthService authService = Get.find<AuthService>();
-
   @override
   void initState() {
     super.initState();
@@ -25,6 +24,12 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
+
+    if (!authService.shouldRestoreSession) {
+      authService.logout();
+      Get.offAllNamed('/login');
+      return;
+    }
 
     final bool isLoggedIn = authService.isLoggedIn;
 
@@ -52,39 +57,51 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ),
 
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+        child: Center(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.88, end: 1),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutBack,
+            builder: (context, scale, child) {
+              return Opacity(
+                opacity: scale.clamp(0.0, 1.0).toDouble(),
+                child: Transform.scale(scale: scale, child: child),
+              );
+            },
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
 
-              Icon(
-                Icons.cleaning_services,
-                size: 80,
-                color: Colors.white,
-              ),
-
-              SizedBox(height: 20),
-
-              Text(
-                "CARTEL STAR BUILDING",
-                style: TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
+                Icon(
+                  Icons.cleaning_services,
+                  size: 80,
                   color: Colors.white,
-                  letterSpacing: 2,
                 ),
-              ),
 
-              SizedBox(height: 8),
+                SizedBox(height: 20),
 
-              Text(
-                "CLEANING SERVICES LLC",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
+                Text(
+                  "CARTEL STAR BUILDING",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 2,
+                  ),
                 ),
-              ),
-            ],
+
+                SizedBox(height: 8),
+
+                Text(
+                  "CLEANING SERVICES LLC",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

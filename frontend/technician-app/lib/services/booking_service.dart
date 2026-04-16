@@ -100,9 +100,14 @@ class BookingService {
     );
   }
 
-  Future<void> completeJob(int bookingId) async {
+  Future<void> completeJob(int bookingId, {String? notes}) async {
     final token = await _requireToken();
-    await _authorizedPost('/bookings/$bookingId/complete', token);
+    final cleanNotes = notes?.trim();
+    await _authorizedPost(
+      '/bookings/$bookingId/complete',
+      token,
+      body: cleanNotes == null || cleanNotes.isEmpty ? null : {'notes': cleanNotes},
+    );
   }
 
   Future<String> _requireToken() async {

@@ -377,7 +377,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
-  Future<void> _completeJob() async {
+  Future<void> _completeJob({String? notes}) async {
     setState(() {
       _isSubmitting = true;
     });
@@ -422,7 +422,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return;
       }
 
-      await _bookingService.completeJob(widget.job.id);
+      await _bookingService.completeJob(widget.job.id, notes: notes);
       _stopLocationTracking(clearMessage: true);
       await _loadBooking();
       if (!mounted) {
@@ -448,7 +448,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   Future<void> _openCompletionRequest(BookingSummary booking) async {
-    final notesController = TextEditingController();
+    String completionNotes = '';
     final submitted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -470,15 +470,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'This request would normally go to the admin operations queue and the customer approval workflow. That communication flow is not connected yet, so we will complete the booking directly after confirmation.',
+                'This sends a completion approval request to the admin operations queue.',
               ),
               const SizedBox(height: 16),
               Text('Booking: ${booking.title}'),
               Text('Completed tasks: ${_tasks.where((task) => task.isCompleted).length}/${_tasks.length}'),
               const SizedBox(height: 16),
               TextField(
-                controller: notesController,
                 maxLines: 3,
+                onChanged: (value) {
+                  completionNotes = value;
+                },
                 decoration: const InputDecoration(
                   labelText: 'Completion notes',
                   hintText: 'Add notes for admin/customer handover',
@@ -497,10 +499,9 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         );
       },
     );
-    notesController.dispose();
 
     if (submitted == true) {
-      await _completeJob();
+      await _completeJob(notes: completionNotes);
     }
   }
 
