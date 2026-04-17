@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { api as mockApi, type KPIData, type Service, type WorkOrder } from '@/app/services/api';
-import { mockRevenueData } from '@/app/services/mockRevenueData';
 import { useLanguage } from '@/app/context/LanguageContext';
 import { Activity, DollarSign, Users, TrendingUp, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
@@ -54,6 +53,36 @@ const POP_ANIMATION_SCALE = 1;
 const ACTIVE_SLICE_OFFSET = 10;
 const RADIAN = Math.PI / 180;
 
+const buildEmptyRevenueTrend = (period: 'day' | 'week' | 'month' | 'year') => {
+  if (period === 'day') {
+    return Array.from({ length: 10 }, (_, index) => {
+      const hour = 8 + index;
+      return { label: `${hour.toString().padStart(2, '0')}:00`, revenue: 0 };
+    });
+  }
+
+  if (period === 'week') {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 6);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      return { label: date.toLocaleDateString('en-US', { weekday: 'short' }), revenue: 0 };
+    });
+  }
+
+  if (period === 'month') {
+    return Array.from({ length: 5 }, (_, index) => ({ label: `Week ${index + 1}`, revenue: 0 }));
+  }
+
+  return [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ].map((label) => ({ label, revenue: 0 }));
+};
+
 const adjustColorLightness = (hex: string, percent: number): string => {
   const raw = hex.replace('#', '');
   if (raw.length !== 6) {
@@ -100,6 +129,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
   const [allOrders, setAllOrders] = useState<WorkOrder[]>([]);
   const [recentOrders, setRecentOrders] = useState<WorkOrder[]>([]);
   const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
+  const [revenueTrend, setRevenueTrend] = useState<Array<{ label: string; revenue: number }>>([]);
   const [serviceDistribution, setServiceDistribution] = useState<DistributionSlice[]>([]);
   const [servicesByCategory, setServicesByCategory] = useState<Record<string, Service[]>>({});
   const [activeSliceIndex, setActiveSliceIndex] = useState<number | null>(null);
@@ -268,6 +298,20 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
     }
   };
 
+  const loadRevenueTrend = async (silent = true) => {
+    try {
+      const revenueStats = await mockApi.getRevenueStats(revenuePeriod);
+      const trend = revenueStats.trendData.length > 0 ? revenueStats.trendData : buildEmptyRevenueTrend(revenuePeriod);
+      setRevenueTrend(trend);
+    } catch (error) {
+      if (!silent) {
+        const message = error instanceof Error ? error.message : 'Unable to load revenue data';
+        toast.error(message);
+      }
+      setRevenueTrend(buildEmptyRevenueTrend(revenuePeriod));
+    }
+  };
+
   useEffect(() => {
     void loadDashboardData(false);
 
@@ -279,11 +323,13 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
         eventName.startsWith('checklist.')
       ) {
         void loadDashboardData(true);
+        void loadRevenueTrend(true);
       }
     });
 
     const pollTimer = window.setInterval(() => {
       void loadDashboardData(true);
+      void loadRevenueTrend(true);
     }, 10000);
 
     return () => {
@@ -291,6 +337,10 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
       window.clearInterval(pollTimer);
     };
   }, []);
+
+  useEffect(() => {
+    void loadRevenueTrend(false);
+  }, [revenuePeriod]);
 
   useEffect(() => {
     if (selectedCategory && !servicesByCategory[selectedCategory]) {
@@ -318,33 +368,38 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
     setActiveSliceIndex(null);
   };
 
-  const dailyData = mockRevenueData.daily();
-
   const pendingSubmittedOrders = useMemo(
     () => allOrders.filter((order) => order.status === 'submitted').slice(0, 6),
     [allOrders],
   );
 
-  const weeklyData = mockRevenueData.weekly();
+  const weeklyCompletionData = useMemo(() => {
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(today.getDate() - 6);
 
-  const monthlyData = mockRevenueData.monthly();
+    const completedCounts = new Map<string, number>();
 
-  const yearlyData = mockRevenueData.yearly();
+    allOrders.forEach((order) => {
+      if (order.status !== 'completed') {
+        return;
+      }
 
-  const getRevenueData = () => {
-    switch (revenuePeriod) {
-      case 'day':
-        return dailyData;
-      case 'week':
-        return weeklyData;
-      case 'month':
-        return monthlyData;
-      case 'year':
-        return yearlyData;
-      default:
-        return weeklyData;
-    }
-  };
+      const completedDate = (order.completedAt || order.scheduledDate).slice(0, 10);
+      completedCounts.set(completedDate, (completedCounts.get(completedDate) || 0) + 1);
+    });
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const currentDate = new Date(start);
+      currentDate.setDate(start.getDate() + index);
+      const dateKey = currentDate.toISOString().slice(0, 10);
+
+      return {
+        day: currentDate.toLocaleDateString('en-US', { weekday: 'short' }),
+        completed: completedCounts.get(dateKey) || 0,
+      };
+    });
+  }, [allOrders]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -388,7 +443,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
 
       {/* KPI Cards */}
       <div className="flex flex-wrap gap-4 items-stretch">
-        <Card className="flex-1 min-w-[200px] rounded-3xl border-none shadow-lg bg-gradient-to-br from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700 text-white">
+        <Card className="flex-1 min-w-50 rounded-3xl border-none shadow-lg bg-linear-to-br from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700 text-white">
           <CardContent className="p-6 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between mb-2">
               <Activity className="w-8 h-8 opacity-80" />
@@ -400,7 +455,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px] rounded-3xl border-none shadow-lg bg-gradient-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 text-white">
+        <Card className="flex-1 min-w-50 rounded-3xl border-none shadow-lg bg-linear-to-br from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 text-white">
           <CardContent className="p-6 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between mb-2">
               <DollarSign className="w-8 h-8 opacity-80" />
@@ -412,7 +467,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px] rounded-3xl border-none shadow-lg bg-gradient-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 text-white">
+        <Card className="flex-1 min-w-50 rounded-3xl border-none shadow-lg bg-linear-to-br from-green-500 to-green-600 dark:from-green-600 dark:to-green-700 text-white">
           <CardContent className="p-6 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between mb-2">
               <TrendingUp className="w-8 h-8 opacity-80" />
@@ -424,7 +479,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px] rounded-3xl border-none shadow-lg bg-gradient-to-br from-emerald-400 to-emerald-500 dark:from-emerald-500 dark:to-emerald-600 text-white">
+        <Card className="flex-1 min-w-50 rounded-3xl border-none shadow-lg bg-linear-to-br from-emerald-400 to-emerald-500 dark:from-emerald-500 dark:to-emerald-600 text-white">
           <CardContent className="p-6 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between mb-2">
               <Users className="w-8 h-8 opacity-80" />
@@ -436,7 +491,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-[200px] rounded-3xl border-none shadow-lg bg-gradient-to-br from-teal-300 to-teal-400 dark:from-teal-400 dark:to-teal-500 text-white">
+        <Card className="flex-1 min-w-50 rounded-3xl border-none shadow-lg bg-linear-to-br from-teal-300 to-teal-400 dark:from-teal-400 dark:to-teal-500 text-white">
           <CardContent className="p-6 flex flex-col justify-between h-full">
             <div className="flex items-center justify-between mb-2">
               <Clock className="w-8 h-8 opacity-80" />
@@ -475,13 +530,13 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
       {/* Charts Section */}
       <div className="flex flex-wrap gap-6 items-stretch">
         {/* Weekly Completion Trend */}
-        <Card className="flex-1 min-w-[400px] rounded-3xl border-none shadow-lg flex flex-col">
+        <Card className="flex-1 min-w-100 rounded-3xl border-none shadow-lg flex flex-col">
           <CardHeader>
             <CardTitle>{t('dashboard.chart.weekly')}</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col justify-center" dir="ltr">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                <BarChart data={weeklyCompletionData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="day" stroke="#888" />
                 <YAxis stroke="#888" width={50} />
@@ -500,7 +555,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
         </Card>
 
         {/* Service Distribution */}
-        <Card className="flex-1 min-w-[300px] rounded-3xl border-none shadow-lg flex flex-col">
+        <Card className="flex-1 min-w-75 rounded-3xl border-none shadow-lg flex flex-col">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <CardTitle>
@@ -578,7 +633,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
                   }}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color, opacity: getSliceOpacity(index) }}></div>
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color, opacity: getSliceOpacity(index) }}></div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{item.name}</span>
                   </div>
                   <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -593,7 +648,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
 
       {/* Recent Work Orders */}
       <Card className="rounded-3xl border-none shadow-lg flex flex-col">
-        <CardHeader className="flex-shrink-0">
+        <CardHeader className="shrink-0">
           <CardTitle>{t('dashboard.chart.recent')}</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
@@ -628,7 +683,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
 
       {/* Revenue Trend */}
       <Card className="rounded-3xl border-none shadow-lg flex flex-col">
-        <CardHeader className="flex-shrink-0">
+        <CardHeader className="shrink-0">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <CardTitle>{t('dashboard.chart.revenue')}</CardTitle>
             <div className="flex flex-wrap gap-2 items-center">
@@ -676,10 +731,10 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col justify-center" dir="ltr">
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={getRevenueData()} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+            <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={revenueTrend} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey={revenuePeriod === 'week' ? 'day' : 'label'} stroke="#888" />
+              <XAxis dataKey="label" stroke="#888" />
               <YAxis stroke="#888" width={50} />
               <Tooltip 
                 contentStyle={{ 

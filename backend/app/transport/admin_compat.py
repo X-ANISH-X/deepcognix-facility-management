@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
@@ -173,6 +174,74 @@ def _calculate_price_from_services(db, service_ids: list[int]) -> float:
         return float(row.get("total_price") or 0)
     finally:
         cursor.close()
+
+
+def _normalize_revenue_period(period: str | None) -> str:
+    allowed_periods = {"day", "week", "month", "year"}
+    normalized = (period or "week").strip().lower()
+    return normalized if normalized in allowed_periods else "week"
+
+
+def _build_revenue_trend_rows(period: str, rows: list[dict]) -> list[dict]:
+    revenue_by_bucket: dict[str, float] = {}
+    for row in rows:
+        bucket_key = str(row.get("bucket") or row.get("day") or row.get("month") or row.get("hour") or "")
+        if bucket_key:
+            revenue_by_bucket[bucket_key] = float(row.get("revenue") or 0)
+
+    today = date.today()
+
+    if period == "day":
+        return [
+            {
+                "label": f"{hour:02d}:00",
+                "revenue": revenue_by_bucket.get(str(hour), 0.0),
+            }
+            for hour in range(8, 18)
+        ]
+
+    if period == "week":
+        start_day = today - timedelta(days=6)
+        return [
+            {
+                "label": (start_day + timedelta(days=offset)).strftime("%a"),
+                "revenue": revenue_by_bucket.get((start_day + timedelta(days=offset)).isoformat(), 0.0),
+            }
+            for offset in range(7)
+        ]
+
+    if period == "month":
+        return [
+            {
+                "label": f"Week {week_number}",
+                "revenue": revenue_by_bucket.get(str(week_number), 0.0),
+            }
+            for week_number in range(1, 6)
+        ]
+
+    return [
+        {
+            "label": month_name,
+            "revenue": revenue_by_bucket.get(str(index), 0.0),
+        }
+        for index, month_name in enumerate(
+            [
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec",
+            ],
+            start=1,
+        )
+    ]
 
 
 def _upsert_service_package_meta(db, package_id: int, service_ids: list[int], estimated_times: dict[str, str]):
@@ -516,10 +585,12 @@ def delete_service_alias(
 
 @router.get("/payments/stats/revenue")
 def revenue_stats_alias(
+    period: str = Query("week"),
     db=Depends(get_db_connection),
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
+    normalized_period = _normalize_revenue_period(period)
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
@@ -534,14 +605,63 @@ def revenue_stats_alias(
 
         cursor.execute(
             """
-            SELECT DATE(created_at) AS day, COALESCE(SUM(final_price), 0) AS revenue
+            SELECT DATE(updated_at) AS day, COALESCE(SUM(final_price), 0) AS revenue
             FROM bookings
-            WHERE status = 'completed' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-            GROUP BY DATE(created_at)
+            WHERE status = 'completed' AND DATE(updated_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+            GROUP BY DATE(updated_at)
             ORDER BY day ASC
             """
         )
         daily_rows = cursor.fetchall()
+
+        if normalized_period == "day":
+            cursor.execute(
+                """
+                SELECT HOUR(updated_at) AS bucket, COALESCE(SUM(final_price), 0) AS revenue
+                FROM bookings
+                WHERE status = 'completed'
+                  AND DATE(updated_at) = CURDATE()
+                  AND HOUR(updated_at) BETWEEN 8 AND 17
+                GROUP BY HOUR(updated_at)
+                ORDER BY bucket ASC
+                """
+            )
+            trend_rows = cursor.fetchall()
+        elif normalized_period == "week":
+            cursor.execute(
+                """
+                SELECT DATE(updated_at) AS bucket, COALESCE(SUM(final_price), 0) AS revenue
+                FROM bookings
+                WHERE status = 'completed' AND DATE(updated_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+                GROUP BY DATE(updated_at)
+                ORDER BY bucket ASC
+                """
+            )
+            trend_rows = cursor.fetchall()
+        elif normalized_period == "month":
+            cursor.execute(
+                """
+                SELECT FLOOR((DAY(updated_at) - 1) / 7) + 1 AS bucket, COALESCE(SUM(final_price), 0) AS revenue
+                FROM bookings
+                WHERE status = 'completed'
+                  AND YEAR(updated_at) = YEAR(CURDATE())
+                  AND MONTH(updated_at) = MONTH(CURDATE())
+                GROUP BY FLOOR((DAY(updated_at) - 1) / 7) + 1
+                ORDER BY bucket ASC
+                """
+            )
+            trend_rows = cursor.fetchall()
+        else:
+            cursor.execute(
+                """
+                SELECT MONTH(updated_at) AS bucket, COALESCE(SUM(final_price), 0) AS revenue
+                FROM bookings
+                WHERE status = 'completed' AND YEAR(updated_at) = YEAR(CURDATE())
+                GROUP BY MONTH(updated_at)
+                ORDER BY bucket ASC
+                """
+            )
+            trend_rows = cursor.fetchall()
     finally:
         cursor.close()
 
@@ -550,11 +670,15 @@ def revenue_stats_alias(
         for item in daily_rows
     ]
 
+    trend_data = _build_revenue_trend_rows(normalized_period, trend_rows)
+
     return {
         "stats": {
             "total_revenue": float(totals.get("total_revenue") or 0),
             "pending_revenue": float(totals.get("pending_revenue") or 0),
             "daily_revenue": daily_revenue,
+            "trend_data": trend_data,
+            "trend_period": normalized_period,
         }
     }
 
