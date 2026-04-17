@@ -1,147 +1,136 @@
 # Project Structure Documentation
 
 ## Overview
-This is a **Facility Management Service Application** - a React-based dashboard built with Vite, TypeScript, Tailwind CSS, and Radix UI components. It provides real-time facility service management including work order tracking, technician management, and revenue analytics.
+This admin dashboard is a React + TypeScript app built with Vite. It uses Tailwind CSS and Radix/shadcn-style UI primitives for facility operations workflows (work orders, services, map/status tracking, settings, reports, and language/theme support).
 
----
+## Root Structure
 
-## Root Level Files
-
-### Configuration Files
-
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| **package.json** | Node.js project manifest with dependencies (React, Vite, UI libraries, Tailwind CSS) and build scripts |
-| **vite.config.ts** | Vite bundler configuration with React and Tailwind plugins for development/production builds |
-| **postcss.config.mjs** | PostCSS configuration (uses Tailwind v4 auto-setup via @tailwindcss/vite) |
-| **tsconfig.json** | TypeScript compiler configuration |
+| `index.html` | Vite HTML entry point |
+| `package.json` | Dependencies and scripts |
+| `vite.config.ts` | Vite configuration |
+| `postcss.config.mjs` | PostCSS/Tailwind processing |
+| `tsconfig.json` | TypeScript compiler settings |
+| `README.md` | Setup and usage documentation |
+| `PROJECT_STRUCTURE.md` | This architecture reference |
+| `info.txt` | Product/domain notes |
+| `.env.example` | Example environment variable template |
+| `guidelines/Guidelines.md` | Team conventions and implementation guidance |
+| `src/` | Application source code |
 
-### Documentation & Assets
+## Source Tree
 
-| File | Purpose |
-|------|---------|
-| **README.md** | Main project documentation and setup instructions |
-| **ATTRIBUTIONS.md** | Credits and attribution information for dependencies and libraries |
-| **info.txt** | Project overview and functional requirements (business context) |
-| **index.html** | Main HTML entry point for the React application |
+```text
+src/
+	main.tsx
+	vite-env.d.ts
+	app/
+		App.tsx
+		components/
+			DashboardView.tsx
+			LoadingSpinner.tsx
+			LoginPage.tsx
+			ReportsView.tsx
+			ServicePackagesView.tsx
+			ServicesView.tsx
+			SettingsView.tsx
+			TechnicianMapView.tsx
+			TranslatableText.tsx
+			WorkOrdersView.tsx
+			figma/
+				ImageWithFallback.tsx
+			ui/
+				accordion.tsx
+				alert-dialog.tsx
+				alert.tsx
+				aspect-ratio.tsx
+				avatar.tsx
+				badge.tsx
+				breadcrumb.tsx
+				button.tsx
+				calendar.tsx
+				card.tsx
+				carousel.tsx
+				chart.tsx
+				checkbox.tsx
+				collapsible.tsx
+				command.tsx
+				context-menu.tsx
+				dialog.tsx
+				drawer.tsx
+				dropdown-menu.tsx
+				form.tsx
+				hover-card.tsx
+				input-otp.tsx
+				input.tsx
+				label.tsx
+				menubar.tsx
+				navigation-menu.tsx
+				pagination.tsx
+				popover.tsx
+				progress.tsx
+				radio-group.tsx
+				resizable.tsx
+				scroll-area.tsx
+				select.tsx
+				separator.tsx
+				sheet.tsx
+				sidebar.tsx
+				skeleton.tsx
+				slider.tsx
+				sonner.tsx
+				switch.tsx
+				table.tsx
+				tabs.tsx
+				textarea.tsx
+				toggle-group.tsx
+				toggle.tsx
+				tooltip.tsx
+				use-mobile.ts
+				utils.ts
+		context/
+			LanguageContext.tsx
+			ThemeContext.tsx
+		services/
+			api.ts
+			mockApi.ts
+			mockRevenueData.ts
+			translationService.ts
+		utils/
+			accessControl.ts
+			serviceCatalog.ts
+			serviceColors.ts
+			translations.ts
+	styles/
+		fonts.css
+		index.css
+		tailwind.css
+		theme.css
+```
 
-### Guidelines
+## Directory Roles
 
-| File | Purpose |
-|------|---------|
-| **guidelines/Guidelines.md** | Project guidelines and best practices for development |
+| Directory | Responsibility |
+|-----------|----------------|
+| `src/app/components/` | Feature screens and reusable presentation components |
+| `src/app/components/ui/` | Shared low-level UI primitives and helpers |
+| `src/app/context/` | Global app state providers (theme/language) |
+| `src/app/services/` | Data access layer, API adapters, and mock data |
+| `src/app/utils/` | Cross-cutting utility logic and constants |
+| `src/styles/` | Global style entry, Tailwind layer, theme variables, font setup |
 
----
+## Key Notes
 
-## Source Code (`src/`)
+1. `src/app/services/api.ts` is the abstraction point for backend integration.
+2. `src/app/services/mockApi.ts` and `src/app/services/mockRevenueData.ts` support development without backend availability.
+3. `src/app/context/LanguageContext.tsx` and `src/app/components/TranslatableText.tsx` provide UI localization plumbing.
+4. `src/app/components/ui/` contains many generated/shared primitives; avoid changing these unless updating design system behavior.
+5. `src/styles/index.css` should remain the single import point for global styles.
 
-### Main Entry Point
+## Maintenance Rules
 
-| File | Purpose |
-|------|---------|
-| **main.tsx** | React application entry point - initializes the root React component |
-
-### Application Root (`src/app/`)
-
-| File | Purpose |
-|------|---------|
-| **App.tsx** | Main application component with routing logic, authentication state, sidebar navigation, and layout structure. Handles login page display and dashboard navigation |
-
-### Components (`src/app/components/`)
-
-#### Main Views
-
-| Component | Purpose |
-|-----------|---------|
-| **DashboardView.tsx** | Mission Control dashboard showing KPI metrics (active work orders, revenue, completion rates), weekly performance charts, service distribution, recent work orders, and revenue trends |
-| **LoginPage.tsx** | Teal-themed authentication page with email/password login, social login options (Google/GitHub), theme toggle, light/dark mode support, and remember me functionality |
-| **DashboardView.tsx** | Mission Control dashboard showing KPI metrics (active work orders, revenue, completion rates), weekly performance charts, service distribution, recent work orders, and revenue trends |
-| **TechnicianMapView.tsx** | Real-time technician tracking with mock map display, technician status (available/on-job/offline), contact information, location data, active jobs counter, completion rates, and specialty badges |
-| **WorkOrdersView.tsx** | Work order management displaying pending/assigned/in-progress/completed service requests with priority levels, technician assignments, scheduling information, and cost tracking |
-| **ServicesView.tsx** | Service catalog and pricing management showing available services, categories, base pricing, duration estimates, descriptions, and active status toggles |
-| **ReportsView.tsx** | Analytics and reporting dashboard (ignored per request) |
-
-#### Sub-Components
-
-| Component | Purpose |
-|-----------|---------|
-| **figma/ImageWithFallback.tsx** | Utility component for displaying images with fallback handling when images fail to load |
-
-### Context (`src/app/context/`)
-
-| File | Purpose |
-|------|---------|
-| **ThemeContext.tsx** | React Context for managing light/dark mode theme state, including theme persistence to localStorage and smooth theme transition animations |
-
-### Services (`src/app/services/`)
-
-| File | Purpose |
-|------|---------|
-| **mockApi.ts** | Mock API service providing simulated backend data and interfaces. Includes: <ul><li>Data type definitions (Technician, WorkOrder, Service, KPIData, etc.)</li><li>Mock data generators for testing and development</li><li>API endpoint simulators (getKPIs, getWorkOrders, getTechnicians, getServices, etc.)</li><li>Structured to allow easy replacement with real API calls</li></ul> |
-
-### Styles (`src/styles/`)
-
-| File | Purpose |
-|------|---------|
-| **index.css** | Main CSS entry point that imports all style modules in correct order |
-| **fonts.css** | Custom font definitions and typography setup (currently empty, available for custom fonts) |
-| **tailwind.css** | Tailwind CSS framework directives and core utility setup |
-| **theme.css** | Custom theme configuration including: <ul><li>CSS custom properties (variables) for teal/green color palette</li><li>Light and dark mode color definitions</li><li>Theme transition animations</li><li>Custom variants for theme-aware styling</li></ul> |
-
----
-
-## UI Components Library (`src/app/components/ui/`)
-
-**Note:** All UI component files are auto-generated Radix UI + Shadcn/ui components and are ignored in this documentation. These provide reusable styled components including:
-- Form elements (input, button, checkbox, textarea)
-- Containers (card, dialog, drawer, sheet)
-- Display (badge, avatar, table, tabs)
-- Navigation (breadcrumb, menubar, pagination)
-- Data visualization (chart)
-- And many more...
-
----
-
-## Technology Stack
-
-### Core
-- **React 18** - UI library
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-
-### Styling
-- **Tailwind CSS v4** - Utility-first CSS framework
-- **Dark mode support** - Via CSS custom properties and theme context
-
-### UI Libraries
-- **Radix UI** - Headless component primitives
-- **shadcn/ui** - Component library built on Radix
-- **Lucide React** - Icon library
-- **Recharts** - Chart and graph library
-
-### State Management
-- **React Context API** - Theme management
-- **React Hooks** - Local component state
-
----
-
-## Key Features
-
-1. **Authentication** - Login page with email/password and social login
-2. **Dashboard** - Real-time KPI metrics and performance charts
-3. **Work Order Management** - Track service requests and assignments
-4. **Technician Tracking** - Real-time location and status monitoring
-5. **Service Management** - Pricing and service catalog
-6. **Reporting** - Analytics and business intelligence
-7. **Theme Support** - Light and dark mode with persistence
-8. **Responsive Design** - Flexbox-based layouts for mobile to desktop
-
----
-
-## File Organization Principles
-
-- **Separation of Concerns** - Views handle UI logic, Context handles state, Services handle data
-- **Reusable Components** - UI components are modular and composable
-- **Type Safety** - TypeScript interfaces for all data structures
-- **Mock API Pattern** - Easy transition to real backend without code changes
-- **Styling Strategy** - Tailwind utilities with custom theme variables and CSS modules
+1. Add new feature screens under `src/app/components/`.
+2. Keep network/data concerns in `src/app/services/` rather than inside view components.
+3. Keep reusable pure helpers in `src/app/utils/`.
+4. Update this file whenever files are added, removed, or moved in `src/`.

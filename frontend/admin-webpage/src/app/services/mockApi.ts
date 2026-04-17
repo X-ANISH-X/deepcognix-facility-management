@@ -1,13 +1,10 @@
-// Mock API Service - Replace with actual backend calls
-// This structure makes it easy to swap in real API endpoints later
-
 export interface Technician {
   id: string;
   name: string;
   email: string;
   phone: string;
   specialty: string[];
-  status: 'available' | 'on-job' | 'offline';
+  status: 'available' | 'assigned' | 'enroute' | 'onsite' | 'offline';
   location: {
     lat: number;
     lng: number;
@@ -24,13 +21,17 @@ export interface WorkOrder {
   customerName: string;
   serviceType: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'assigned' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completed' | 'cancelled';
   technicianId?: string;
   technicianName?: string;
   scheduledDate: string;
   scheduledTime: string;
   location: string;
+  buildingName?: string;
+  floorNumber?: string;
+  apartmentNumber?: string;
   description: string;
+  customerNotes?: string;
   estimatedCost: number;
   actualCost?: number;
   createdAt: string;
@@ -42,8 +43,18 @@ export interface Service {
   name: string;
   category: string;
   basePrice: number;
-  duration: number; // in minutes
+  duration: number;
   description: string;
+  isActive: boolean;
+  color?: string;
+}
+
+export interface ServicePackage {
+  id: string;
+  name: string;
+  description: string;
+  serviceIds: string[];
+  estimatedTimes: Record<string, string>;
   isActive: boolean;
 }
 
@@ -51,347 +62,663 @@ export interface KPIData {
   activeWorkOrders: number;
   totalRevenue: number;
   avgCompletionRate: number;
-  maintenanceCostPerGSF: number;
   totalTechnicians: number;
   completedToday: number;
 }
 
-// Mock Data
-const mockTechnicians: Technician[] = [
-  {
-    id: 'tech-001',
-    name: 'John Mitchell',
-    email: 'john.mitchell@facility.com',
-    phone: '+1-555-0101',
-    specialty: ['Plumbing', 'HVAC'],
-    status: 'on-job',
-    location: { lat: 40.7128, lng: -74.0060, address: '123 Main St, New York' },
-    currentJobs: 2,
-    completionRate: 94.5,
-    avatar: 'JM'
-  },
-  {
-    id: 'tech-002',
-    name: 'Sarah Chen',
-    email: 'sarah.chen@facility.com',
-    phone: '+1-555-0102',
-    specialty: ['Electrical', 'Lighting'],
-    status: 'available',
-    location: { lat: 40.7489, lng: -73.9680, address: '456 Park Ave, New York' },
-    currentJobs: 0,
-    completionRate: 98.2,
-    avatar: 'SC'
-  },
-  {
-    id: 'tech-003',
-    name: 'Michael Torres',
-    email: 'michael.torres@facility.com',
-    phone: '+1-555-0103',
-    specialty: ['HVAC', 'Cleaning'],
-    status: 'on-job',
-    location: { lat: 40.7589, lng: -73.9851, address: '789 Broadway, New York' },
-    currentJobs: 1,
-    completionRate: 91.8,
-    avatar: 'MT'
-  },
-  {
-    id: 'tech-004',
-    name: 'Emily Rodriguez',
-    email: 'emily.rodriguez@facility.com',
-    phone: '+1-555-0104',
-    specialty: ['Plumbing', 'General Maintenance'],
-    status: 'available',
-    location: { lat: 40.7306, lng: -73.9352, address: '321 Queens Blvd, New York' },
-    currentJobs: 0,
-    completionRate: 96.7,
-    avatar: 'ER'
-  },
-  {
-    id: 'tech-005',
-    name: 'David Kim',
-    email: 'david.kim@facility.com',
-    phone: '+1-555-0105',
-    specialty: ['Electrical', 'Security'],
-    status: 'offline',
-    location: { lat: 40.6782, lng: -73.9442, address: '567 Atlantic Ave, Brooklyn' },
-    currentJobs: 0,
-    completionRate: 89.3,
-    avatar: 'DK'
-  }
-];
+export interface RevenueStats {
+  totalRevenue: number;
+  pendingRevenue: number;
+  dailyRevenue: Array<{ date: string; revenue: number }>;
+}
 
-const mockWorkOrders: WorkOrder[] = [
-  {
-    id: 'WO-2026-001',
-    customerId: 'cust-001',
-    customerName: 'Acme Corporation',
-    serviceType: 'HVAC Repair',
-    priority: 'urgent',
-    status: 'assigned',
-    technicianId: 'tech-001',
-    technicianName: 'John Mitchell',
-    scheduledDate: '2026-01-15',
-    scheduledTime: '10:00',
-    location: '100 Business Park, Suite 200',
-    description: 'AC unit not cooling properly, urgent repair needed',
-    estimatedCost: 450,
-    createdAt: '2026-01-15T08:30:00Z'
-  },
-  {
-    id: 'WO-2026-002',
-    customerId: 'cust-002',
-    customerName: 'TechStart Inc',
-    serviceType: 'Plumbing',
-    priority: 'high',
-    status: 'in-progress',
-    technicianId: 'tech-001',
-    technicianName: 'John Mitchell',
-    scheduledDate: '2026-01-15',
-    scheduledTime: '14:00',
-    location: '250 Innovation Drive',
-    description: 'Leaking pipe in server room',
-    estimatedCost: 280,
-    createdAt: '2026-01-14T16:45:00Z'
-  },
-  {
-    id: 'WO-2026-003',
-    customerId: 'cust-003',
-    customerName: 'Global Retail Chain',
-    serviceType: 'Electrical',
-    priority: 'medium',
-    status: 'pending',
-    scheduledDate: '2026-01-16',
-    scheduledTime: '09:00',
-    location: '789 Shopping Plaza',
-    description: 'Install new LED lighting in store',
-    estimatedCost: 1200,
-    createdAt: '2026-01-14T10:20:00Z'
-  },
-  {
-    id: 'WO-2026-004',
-    customerId: 'cust-004',
-    customerName: 'Downtown Offices LLC',
-    serviceType: 'Cleaning',
-    priority: 'low',
-    status: 'completed',
-    technicianId: 'tech-003',
-    technicianName: 'Michael Torres',
-    scheduledDate: '2026-01-14',
-    scheduledTime: '18:00',
-    location: '456 Office Tower, Floor 12',
-    description: 'Deep cleaning after renovation',
-    estimatedCost: 800,
-    actualCost: 800,
-    createdAt: '2026-01-13T09:00:00Z',
-    completedAt: '2026-01-14T22:30:00Z'
-  },
-  {
-    id: 'WO-2026-005',
-    customerId: 'cust-005',
-    customerName: 'Metro Hospital',
-    serviceType: 'HVAC Maintenance',
-    priority: 'high',
-    status: 'assigned',
-    technicianId: 'tech-003',
-    technicianName: 'Michael Torres',
-    scheduledDate: '2026-01-15',
-    scheduledTime: '15:30',
-    location: '1000 Healthcare Ave, Building C',
-    description: 'Routine HVAC system inspection and filter replacement',
-    estimatedCost: 350,
-    createdAt: '2026-01-15T07:00:00Z'
-  }
-];
+export interface NotificationItem {
+  id: number;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  readAt?: string;
+}
 
-const mockServices: Service[] = [
-  {
-    id: 'srv-001',
-    name: 'AC Repair',
-    category: 'HVAC',
-    basePrice: 450,
-    duration: 120,
-    description: 'Air conditioning unit repair and diagnostics',
-    isActive: true
-  },
-  {
-    id: 'srv-002',
-    name: 'Plumbing Emergency',
-    category: 'Plumbing',
-    basePrice: 280,
-    duration: 90,
-    description: 'Emergency plumbing repairs including leaks and blockages',
-    isActive: true
-  },
-  {
-    id: 'srv-003',
-    name: 'Electrical Installation',
-    category: 'Electrical',
-    basePrice: 1200,
-    duration: 240,
-    description: 'New electrical installations and upgrades',
-    isActive: true
-  },
-  {
-    id: 'srv-004',
-    name: 'Deep Cleaning',
-    category: 'Cleaning',
-    basePrice: 800,
-    duration: 300,
-    description: 'Professional deep cleaning services',
-    isActive: true
-  },
-  {
-    id: 'srv-005',
-    name: 'HVAC Maintenance',
-    category: 'HVAC',
-    basePrice: 350,
-    duration: 90,
-    description: 'Regular HVAC system maintenance and inspection',
-    isActive: true
-  },
-  {
-    id: 'srv-006',
-    name: 'Lock Repair',
-    category: 'Security',
-    basePrice: 180,
-    duration: 60,
-    description: 'Lock repair and replacement services',
-    isActive: true
-  }
-];
+export interface RealtimeEvent {
+  event: string;
+  [key: string]: unknown;
+}
 
-// Mock API Functions
+type Dict = Record<string, unknown>;
+
+const API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
+  'http://127.0.0.1:8000';
+const TOKEN_KEY = 'admin_token';
+const LEGACY_TOKEN_KEY = 'backend_access_token';
+
+function getRealtimeWsUrl(): string {
+  const trimmed = API_BASE.replace(/\/+$/, '');
+  return `${trimmed.replace(/^http/i, 'ws')}/realtime/ws`;
+}
+
+function getDefaultCategoryColor(category: string): string {
+  const key = category.trim().toLowerCase();
+  const colors: Record<string, string> = {
+    'general cleaning': '#0f766e',
+    'kitchen cleaning': '#d97706',
+    'bathroom care': '#0284c7',
+    'windows & balcony': '#4f46e5',
+    'upholstery & fabrics': '#be185d',
+    sanitization: '#059669',
+    'premium detailing': '#475569',
+    'add-on services': '#ea580c',
+    hvac: '#2563eb',
+    plumbing: '#16a34a',
+    electrical: '#ca8a04',
+    cleaning: '#7c3aed',
+    security: '#dc2626',
+    lighting: '#f59e0b',
+  };
+  return colors[key] || '#3b82f6';
+}
+
+function readToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+}
+
+function pickString(obj: Dict, key: string): string {
+  const value = obj[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function pickNumber(obj: Dict, key: string): number {
+  const value = obj[key];
+  return typeof value === 'number' ? value : Number(value || 0);
+}
+
+function pickFirstNumber(obj: Dict, keys: string[], fallback = 0): number {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const parsed = pickNumber(obj, key);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return fallback;
+}
+
+function statusFromBackend(raw: string): WorkOrder['status'] {
+  if (raw === 'submitted') return 'submitted';
+  if (raw === 'approved') return 'approved';
+  if (raw === 'assigned') return 'assigned';
+  if (raw === 'in_progress') return 'in-progress';
+  if (raw === 'completed') return 'completed';
+  if (raw === 'rejected') return 'cancelled';
+  if (raw === 'cancelled') return 'cancelled';
+  return 'submitted';
+}
+
+function statusToBackend(raw: WorkOrder['status']): string {
+  if (raw === 'in-progress') return 'in_progress';
+  if (raw === 'cancelled') return 'rejected';
+  return raw;
+}
+
+function toBackendTimeSlot(raw: string | undefined): string {
+  const allowedSlots = new Set(['09:00 AM', '11:00 AM', '01:00 PM', '03:00 PM', '05:00 PM']);
+
+  const formatSlot = (hour24: number, minute: number): string => {
+    const clampedHour = Math.max(0, Math.min(23, hour24));
+    const clampedMinute = Math.max(0, Math.min(59, minute));
+    const period = clampedHour >= 12 ? 'PM' : 'AM';
+    const hour12 = clampedHour % 12 === 0 ? 12 : clampedHour % 12;
+    return `${String(hour12).padStart(2, '0')}:${String(clampedMinute).padStart(2, '0')} ${period}`;
+  };
+
+  if (!raw) {
+    return '09:00 AM';
+  }
+
+  const value = raw.trim();
+  if (allowedSlots.has(value)) {
+    return value;
+  }
+
+  // HH:MM:SS
+  if (/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+    const [hh, mm] = value.split(':').map(Number);
+    return formatSlot(hh, mm);
+  }
+
+  // HH:MM from <input type="time">
+  if (/^\d{2}:\d{2}$/.test(value)) {
+    const [hh, mm] = value.split(':').map(Number);
+    return formatSlot(hh, mm);
+  }
+
+  // Handle AM/PM values if passed in from a select label.
+  const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match) {
+    let hour = Number(match[1]);
+    const minute = match[2];
+    const period = match[3].toUpperCase();
+    if (period === 'PM' && hour < 12) {
+      hour += 12;
+    }
+    if (period === 'AM' && hour === 12) {
+      hour = 0;
+    }
+    return formatSlot(hour, Number(minute));
+  }
+
+  return '09:00 AM';
+}
+
+function toAvatar(name: string): string {
+  const bits = name.split(' ').filter(Boolean);
+  if (bits.length === 0) return 'U';
+  if (bits.length === 1) return bits[0].slice(0, 2).toUpperCase();
+  return `${bits[0][0] ?? ''}${bits[1][0] ?? ''}`.toUpperCase();
+}
+
+async function request<T>(path: string, init?: RequestInit, requireAuth = false): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init?.headers as Record<string, string> | undefined),
+  };
+
+  if (requireAuth) {
+    const token = readToken();
+    if (!token) {
+      throw new Error('Missing auth token. Please sign in again.');
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+  });
+
+  const body = (await response.json().catch(() => ({}))) as Dict;
+  if (!response.ok) {
+    const detail = typeof body.detail === 'string' ? body.detail : typeof body.error === 'string' ? body.error : `Request failed (${response.status})`;
+    throw new Error(detail);
+  }
+
+  return body as T;
+}
+
+function mapTechnician(item: Dict): Technician {
+  const name = pickString(item, 'full_name') || pickString(item, 'name') || 'Technician';
+  const lat = item.latitude === null || item.latitude === undefined ? 0 : pickNumber(item, 'latitude');
+  const lng = item.longitude === null || item.longitude === undefined ? 0 : pickNumber(item, 'longitude');
+  const rawStatus = pickString(item, 'status');
+  const mappedStatus: Technician['status'] =
+    rawStatus === 'assigned' || rawStatus === 'enroute' || rawStatus === 'onsite' || rawStatus === 'offline' || rawStatus === 'available'
+      ? rawStatus
+      : rawStatus === 'on-job'
+        ? 'onsite'
+      : (item.is_active === false ? 'offline' : 'available');
+
+  const specialties = Array.isArray(item.specialties)
+    ? item.specialties.map((value) => String(value)).filter(Boolean)
+    : [];
+
+  return {
+    id: String(item.id ?? ''),
+    name,
+    email: pickString(item, 'email'),
+    phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
+    specialty: specialties,
+    status: mappedStatus,
+    location: {
+      lat,
+      lng,
+      address: pickString(item, 'location_address') || pickString(item, 'location') || pickString(item, 'address') || 'N/A',
+    },
+    currentJobs: pickNumber(item, 'current_jobs'),
+    completionRate: pickNumber(item, 'completion_rate'),
+    avatar: toAvatar(name),
+  };
+}
+
+function mapWorkOrder(item: Dict): WorkOrder {
+  const status = statusFromBackend(pickString(item, 'status'));
+  const createdAt = pickString(item, 'created_at') || new Date().toISOString();
+  const finalPriceRaw = item.final_price;
+  const actualCost = typeof finalPriceRaw === 'number' ? finalPriceRaw : undefined;
+
+  return {
+    id: String(item.id ?? ''),
+    customerId: String(item.customer_id ?? item.user_id ?? ''),
+    customerName: pickString(item, 'customer_name'),
+    serviceType: pickString(item, 'service_name') || pickString(item, 'serviceType'),
+    priority: (pickString(item, 'priority') as WorkOrder['priority']) || 'medium',
+    status,
+    technicianId: item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined,
+    technicianName: pickString(item, 'technician_name') || undefined,
+    scheduledDate: pickString(item, 'scheduled_date'),
+    scheduledTime: pickString(item, 'scheduled_time_slot') || '09:00:00',
+    location: pickString(item, 'location') || pickString(item, 'address_line'),
+    buildingName: pickString(item, 'building_name') || undefined,
+    floorNumber: pickString(item, 'floor_number') || undefined,
+    apartmentNumber: pickString(item, 'apartment_number') || undefined,
+    description: pickString(item, 'customer_notes') || pickString(item, 'notes'),
+    customerNotes: pickString(item, 'customer_notes') || undefined,
+    estimatedCost: pickNumber(item, 'base_price'),
+    actualCost,
+    createdAt,
+    completedAt: pickString(item, 'completed_at') || undefined,
+  };
+}
+
+function mapService(item: Dict, categoriesById: Map<number, string>): Service {
+  const categoryId = Number(item.category_id ?? 0);
+  const categoryName = categoriesById.get(categoryId) || `Category ${categoryId}`;
+  return {
+    id: String(item.id ?? ''),
+    name: pickString(item, 'name'),
+    category: categoryName,
+    basePrice: pickNumber(item, 'base_price'),
+    duration: pickNumber(item, 'duration_minutes') || 60,
+    description: pickString(item, 'description'),
+    isActive: item.is_active !== false,
+    color: getDefaultCategoryColor(categoryName),
+  };
+}
+
+function mapServicePackage(item: Dict): ServicePackage {
+  return {
+    id: String(item.id ?? ''),
+    name: pickString(item, 'name'),
+    description: pickString(item, 'description'),
+    serviceIds: Array.isArray(item.service_ids)
+      ? item.service_ids.map((value) => String(value))
+      : [],
+    estimatedTimes: typeof item.estimated_times === 'object' && item.estimated_times !== null
+      ? (item.estimated_times as Record<string, string>)
+      : {},
+    isActive: item.is_active !== false,
+  };
+}
+
+async function getCategories(): Promise<Array<{ id: number; name: string }>> {
+  const data = await request<Dict[] | { categories?: Dict[]; error?: string }>('/services/categories/all');
+  const categoryList = Array.isArray(data) ? data : (data.categories || []);
+  return categoryList.map((item) => ({
+    id: Number(item.id ?? 0),
+    name: pickString(item, 'name'),
+  }));
+}
+
+async function ensureCategoryId(categoryName: string): Promise<number> {
+  const categories = await getCategories();
+  const existing = categories.find((c) => c.name.toLowerCase() === categoryName.trim().toLowerCase());
+  if (existing) {
+    return existing.id;
+  }
+
+  const created = await request<Dict>('/services/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name: categoryName.trim(), icon_url: null }),
+  }, true);
+
+  return Number(created.id ?? 0);
+}
+
 export const mockApi = {
-  // Technicians
+  subscribeRealtime: (onEvent: (event: RealtimeEvent) => void): (() => void) => {
+    let stopped = false;
+    let socket: WebSocket | null = null;
+    let reconnectTimer: number | null = null;
+    let pingTimer: number | null = null;
+
+    const clearTimers = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (pingTimer !== null) {
+        window.clearInterval(pingTimer);
+        pingTimer = null;
+      }
+    };
+
+    const connect = () => {
+      if (stopped) return;
+
+      try {
+        socket = new WebSocket(getRealtimeWsUrl());
+      } catch {
+        reconnectTimer = window.setTimeout(connect, 3000);
+        return;
+      }
+
+      socket.onopen = () => {
+        pingTimer = window.setInterval(() => {
+          if (socket?.readyState === WebSocket.OPEN) {
+            socket.send('ping');
+          }
+        }, 25000);
+      };
+
+      socket.onmessage = (message) => {
+        try {
+          const payload = JSON.parse(message.data) as RealtimeEvent;
+          if (payload?.event) {
+            onEvent(payload);
+          }
+        } catch {
+          // Ignore malformed payloads.
+        }
+      };
+
+      socket.onerror = () => {
+        socket?.close();
+      };
+
+      socket.onclose = () => {
+        clearTimers();
+        if (!stopped) {
+          reconnectTimer = window.setTimeout(connect, 2000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      stopped = true;
+      clearTimers();
+      if (socket && socket.readyState <= WebSocket.OPEN) {
+        socket.close();
+      }
+    };
+  },
+
   getTechnicians: async (): Promise<Technician[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockTechnicians;
+    const data = await request<{ technicians?: Dict[] }>('/technicians', undefined, true);
+    return (data.technicians || []).map(mapTechnician);
   },
 
   getTechnicianById: async (id: string): Promise<Technician | undefined> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return mockTechnicians.find(t => t.id === id);
+    const data = await request<{ technician?: Dict }>(`/technicians/${id}`, undefined, true);
+    return data.technician ? mapTechnician(data.technician) : undefined;
   },
 
-  updateTechnicianStatus: async (id: string, status: Technician['status']): Promise<Technician> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const tech = mockTechnicians.find(t => t.id === id);
-    if (tech) {
-      tech.status = status;
+  updateTechnicianStatus: async (id: string, nextStatus: Technician['status']): Promise<Technician> => {
+    await request<{ profile: Dict }>(`/technicians/${id}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: nextStatus }),
+    }, true);
+
+    const technician = await mockApi.getTechnicianById(id);
+    if (!technician) {
+      throw new Error('Technician not found after status update');
     }
-    return tech!;
+    return technician;
   },
 
-  // Work Orders
   getWorkOrders: async (): Promise<WorkOrder[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockWorkOrders;
+    const data = await request<Dict[] | { bookings?: Dict[] }>('/bookings/', undefined, true);
+    const list = Array.isArray(data) ? data : (data.bookings || []);
+    return list.map(mapWorkOrder);
   },
 
   getWorkOrderById: async (id: string): Promise<WorkOrder | undefined> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return mockWorkOrders.find(wo => wo.id === id);
+    const data = await request<Dict | { booking?: Dict }>(`/bookings/${id}`, undefined, true);
+    const booking = 'booking' in data ? data.booking : data;
+    return booking ? mapWorkOrder(booking as Dict) : undefined;
   },
 
   createWorkOrder: async (data: Partial<WorkOrder>): Promise<WorkOrder> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newOrder: WorkOrder = {
-      id: `WO-2026-${String(mockWorkOrders.length + 1).padStart(3, '0')}`,
-      customerId: data.customerId || '',
-      customerName: data.customerName || '',
-      serviceType: data.serviceType || '',
-      priority: data.priority || 'medium',
-      status: 'pending',
-      scheduledDate: data.scheduledDate || '',
-      scheduledTime: data.scheduledTime || '',
-      location: data.location || '',
-      description: data.description || '',
-      estimatedCost: data.estimatedCost || 0,
-      createdAt: new Date().toISOString()
+    const services = await mockApi.getServices();
+    const packages = await mockApi.getServicePackages();
+    const candidate = services.find((item) => item.name.toLowerCase() === (data.serviceType || '').toLowerCase()) || services[0];
+    if (!candidate) {
+      throw new Error('No services available. Please create a service first.');
+    }
+    const packageCandidate = packages[0];
+    const packageId = Number(packageCandidate?.id || 0);
+    if (!packageId) {
+      throw new Error('No service packages available. Please configure at least one package.');
+    }
+
+    const me = await request<Dict>('/auth/me', undefined, true);
+    const customerId = Number(data.customerId || me.id || 0);
+    if (!customerId) {
+      throw new Error('Unable to determine customer account for booking creation.');
+    }
+
+    const payload = {
+      customer_id: customerId,
+      service_id: Number(candidate.id),
+      package_id: packageId,
+      scheduled_date: data.scheduledDate || new Date().toISOString().slice(0, 10),
+      scheduled_time_slot: toBackendTimeSlot(data.scheduledTime),
+      address_line: data.location || 'Not specified',
+      building_name: data.buildingName || null,
+      floor_number: data.floorNumber || null,
+      apartment_number: data.apartmentNumber || null,
+      customer_notes: data.customerNotes || data.description || '',
     };
-    mockWorkOrders.push(newOrder);
-    return newOrder;
+
+    const created = await request<{ booking?: Dict; booking_id?: number }>('/bookings/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, true);
+
+    if (created.booking) {
+      return mapWorkOrder(created.booking);
+    }
+
+    const createdId = Number(created.booking_id || 0);
+    if (!createdId) {
+      throw new Error('Booking created but backend did not return booking details');
+    }
+
+    const fetched = await mockApi.getWorkOrderById(String(createdId));
+    if (!fetched) {
+      throw new Error('Booking created but could not be retrieved');
+    }
+    return fetched;
   },
 
   assignWorkOrder: async (workOrderId: string, technicianId: string): Promise<WorkOrder> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const order = mockWorkOrders.find(wo => wo.id === workOrderId);
-    const tech = mockTechnicians.find(t => t.id === technicianId);
-    if (order && tech) {
-      order.technicianId = technicianId;
-      order.technicianName = tech.name;
-      order.status = 'assigned';
-      tech.currentJobs += 1;
+    const updated = await request<{ booking: Dict }>(`/bookings/${workOrderId}/assign?technician_id=${encodeURIComponent(String(Number(technicianId)))}`, {
+      method: 'PUT',
+    }, true);
+
+    const full = await mockApi.getWorkOrderById(String(updated.booking.id ?? workOrderId));
+    if (!full) {
+      throw new Error('Booking not found after assignment');
     }
-    return order!;
+    return full;
   },
 
-  updateWorkOrderStatus: async (id: string, status: WorkOrder['status']): Promise<WorkOrder> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const order = mockWorkOrders.find(wo => wo.id === id);
-    if (order) {
-      order.status = status;
-      if (status === 'completed') {
-        order.completedAt = new Date().toISOString();
-        order.actualCost = order.estimatedCost;
-      }
+  updateWorkOrderStatus: async (id: string, nextStatus: WorkOrder['status']): Promise<WorkOrder> => {
+    const backendStatus = encodeURIComponent(statusToBackend(nextStatus));
+    await request<{ booking: Dict }>(`/bookings/${id}/status?status=${backendStatus}`, {
+      method: 'PUT',
+    }, true);
+
+    const full = await mockApi.getWorkOrderById(id);
+    if (!full) {
+      throw new Error('Booking not found after status update');
     }
-    return order!;
+    return full;
   },
 
-  // Services
   getServices: async (): Promise<Service[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockServices;
+    const [serviceData, categoryData] = await Promise.all([
+      request<Dict[] | { services?: Dict[] }>('/services/'),
+      request<Dict[] | { categories?: Dict[] }>('/services/categories/all'),
+    ]);
+
+    const categories = Array.isArray(categoryData)
+      ? categoryData
+      : (categoryData.categories || []);
+
+    const categoriesById = new Map<number, string>(
+      categories.map((c) => [Number(c.id ?? 0), pickString(c, 'name')]),
+    );
+
+    const serviceList = Array.isArray(serviceData)
+      ? serviceData
+      : (serviceData.services || []);
+
+    return serviceList.map((item) => mapService(item, categoriesById));
   },
 
   createService: async (data: Partial<Service>): Promise<Service> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const newService: Service = {
-      id: `srv-${String(mockServices.length + 1).padStart(3, '0')}`,
-      name: data.name || '',
-      category: data.category || '',
-      basePrice: data.basePrice || 0,
-      duration: data.duration || 60,
-      description: data.description || '',
-      isActive: true
-    };
-    mockServices.push(newService);
-    return newService;
+    const categoryName = (data.category || 'General').trim();
+    const categoryId = await ensureCategoryId(categoryName);
+
+    const created = await request<Dict>('/services/', {
+      method: 'POST',
+      body: JSON.stringify({
+        category_id: categoryId,
+        name: data.name || '',
+        description: data.description || '',
+        base_price: Number(data.basePrice || 0),
+        duration_minutes: Number(data.duration || 60),
+      }),
+    }, true);
+
+    const createdId = pickNumber(created, 'service_id');
+    if (createdId > 0) {
+      const fetched = await request<Dict>(`/services/${createdId}`);
+      const mapped = mapService(fetched, new Map<number, string>([[categoryId, categoryName]]));
+      return { ...mapped, color: data.color };
+    }
+
+    const mapped = mapService(created, new Map<number, string>([[categoryId, categoryName]]));
+    return { ...mapped, color: data.color };
   },
 
   updateService: async (id: string, data: Partial<Service>): Promise<Service> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const service = mockServices.find(s => s.id === id);
-    if (service) {
-      Object.assign(service, data);
+    const currentService = await request<Dict>(`/services/${id}`);
+
+    const categoryName = data.category || `Category ${Number(currentService.category_id ?? 0)}`;
+    const categoryId = await ensureCategoryId(categoryName);
+
+    const updated = await request<Dict>(`/services/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        category_id: categoryId,
+        name: data.name ?? pickString(currentService, 'name'),
+        description: data.description ?? pickString(currentService, 'description'),
+        base_price: data.basePrice ?? pickNumber(currentService, 'base_price'),
+        duration_minutes: data.duration ?? (pickNumber(currentService, 'duration_minutes') || 60),
+      }),
+    }, true);
+
+    if (data.isActive === false) {
+      await request(`/services/${id}`, { method: 'DELETE' }, true);
     }
-    return service!;
+
+    const mapped = mapService(updated, new Map<number, string>([[categoryId, categoryName]]));
+    return { ...mapped, isActive: data.isActive ?? mapped.isActive, color: data.color };
   },
 
-  // KPIs
-  getKPIs: async (): Promise<KPIData> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const activeOrders = mockWorkOrders.filter(wo => 
-      wo.status === 'assigned' || wo.status === 'in-progress'
-    ).length;
-    
-    const completedOrders = mockWorkOrders.filter(wo => wo.status === 'completed');
-    const totalRevenue = completedOrders.reduce((sum, wo) => sum + (wo.actualCost || 0), 0);
-    
-    const avgCompletionRate = mockTechnicians.reduce((sum, t) => sum + t.completionRate, 0) / mockTechnicians.length;
-    
-    const completedToday = mockWorkOrders.filter(wo => 
-      wo.status === 'completed' && wo.completedAt?.startsWith('2026-01-15')
-    ).length;
+  getServicePackages: async (): Promise<ServicePackage[]> => {
+    const data = await request<Dict[]>('/service-packages/', undefined, true);
+    return Array.isArray(data) ? data.map(mapServicePackage) : [];
+  },
+
+  createServicePackage: async (data: Partial<ServicePackage>): Promise<ServicePackage> => {
+    const created = await request<Dict>('/service-packages/', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: data.name || '',
+        description: data.description || '',
+        service_ids: (data.serviceIds || []).map((value) => Number(value)),
+        estimated_times: data.estimatedTimes || {},
+      }),
+    }, true);
+
+    return mapServicePackage(created);
+  },
+
+  updateServicePackage: async (id: string, data: Partial<ServicePackage>): Promise<ServicePackage> => {
+    const updated = await request<Dict>(`/service-packages/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: data.name,
+        description: data.description,
+        service_ids: data.serviceIds ? data.serviceIds.map((value) => Number(value)) : undefined,
+        estimated_times: data.estimatedTimes,
+        is_active: data.isActive,
+      }),
+    }, true);
+
+    return mapServicePackage(updated);
+  },
+
+  deleteServicePackage: async (id: string): Promise<void> => {
+    await request(`/service-packages/${id}`, { method: 'DELETE' }, true);
+  },
+
+  getRevenueStats: async (): Promise<RevenueStats> => {
+    const data = await request<{ stats?: Dict }>('/payments/stats/revenue', undefined, true);
+    const stats = (data.stats || data) as Dict;
+
+    const dailyRevenueRaw = Array.isArray(stats.daily_revenue) ? stats.daily_revenue : [];
+    const dailyRevenue = dailyRevenueRaw.map((entry) => {
+      const item = entry as Dict;
+      return {
+        date: pickString(item, 'date'),
+        revenue: pickNumber(item, 'revenue'),
+      };
+    });
 
     return {
-      activeWorkOrders: activeOrders,
-      totalRevenue,
-      avgCompletionRate,
-      maintenanceCostPerGSF: 2.34, // Mock value
-      totalTechnicians: mockTechnicians.length,
-      completedToday
+      totalRevenue: pickFirstNumber(stats, ['total_revenue', 'totalRevenue']),
+      pendingRevenue: pickFirstNumber(stats, ['pending_revenue', 'pendingRevenue']),
+      dailyRevenue,
     };
-  }
+  },
+
+  getNotifications: async (): Promise<NotificationItem[]> => {
+    const data = await request<Dict[] | { notifications?: Dict[] }>('/notifications/', undefined, true);
+    const list = Array.isArray(data) ? data : (data.notifications || []);
+    return list.map((item) => ({
+      id: Number(item.id ?? 0),
+      message: pickString(item, 'message'),
+      type: pickString(item, 'type') || pickString(item, 'notification_type') || 'info',
+      isRead: Boolean(item.is_read),
+      createdAt: pickString(item, 'created_at'),
+      readAt: pickString(item, 'read_at') || undefined,
+    }));
+  },
+
+  getUnreadNotificationCount: async (): Promise<number> => {
+    const data = await request<{ unread_count?: number }>('/notifications/unread', undefined, true);
+    return Number(data.unread_count ?? 0);
+  },
+
+  markNotificationAsRead: async (id: number): Promise<void> => {
+    await request(`/notifications/${id}/read`, { method: 'PUT' }, true);
+  },
+
+  markAllNotificationsAsRead: async (): Promise<void> => {
+    await request('/notifications/read-all', { method: 'PUT' }, true);
+  },
+
+  getKPIs: async (): Promise<KPIData> => {
+    const [statsData, technicians] = await Promise.all([
+      request<{ stats?: Dict }>('/bookings/stats/dashboard', undefined, true),
+      mockApi.getTechnicians(),
+    ]);
+
+    const stats = (statsData.stats || statsData) as Dict;
+    return {
+      activeWorkOrders: pickFirstNumber(stats, ['active_orders', 'active_bookings', 'activeWorkOrders']),
+      totalRevenue: pickFirstNumber(stats, ['total_revenue', 'revenue', 'totalRevenue']),
+      avgCompletionRate: pickFirstNumber(stats, ['completion_rate', 'avg_completion_rate', 'avgCompletionRate']),
+      totalTechnicians: technicians.length,
+      completedToday: pickFirstNumber(stats, ['completed_today', 'completed_bookings_today', 'completedToday']),
+    };
+  },
 };

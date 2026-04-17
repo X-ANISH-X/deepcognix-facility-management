@@ -1,72 +1,55 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { translations } from '@/app/utils/translations';
 
 type Language = 'en' | 'ar';
 
 interface LanguageContextType {
   language: Language;
-  toggleLanguage: () => void;
-  t: (text: string) => string;
+  t: (key: string) => string;
+  setLanguage: (language: Language) => void;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguageState] = useState<Language>('en');
 
-  const toggleLanguage = () => {
-    setLanguage(prev => prev === 'en' ? 'ar' : 'en');
+  useEffect(() => {
+    const savedLanguage = localStorage.getItem('language') as Language;
+    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'ar')) {
+      setLanguageState(savedLanguage);
+      applyLanguageSettings(savedLanguage);
+    }
+  }, []);
+
+  const applyLanguageSettings = (lang: Language) => {
+    // Set text direction for RTL languages
+    if (lang === 'ar') {
+      document.documentElement.dir = 'rtl';
+      document.documentElement.lang = 'ar';
+    } else {
+      document.documentElement.dir = 'ltr';
+      document.documentElement.lang = 'en';
+    }
   };
 
-  const t = (text: string): string => {
-    // Simple mapping for hardcoded translations
-    const translations: { [key: string]: string } = {
-      // Dashboard
-      'Mission Control': 'مركز القيادة',
-      'Real-time facility management overview': 'نظرة عامة على إدارة المرافق في الوقت الفعلي',
-      'Active Work Orders': 'طلبات العمل النشطة',
-      'Weekly Revenue': 'إيرادات الأسبوع',
-      'Avg Completion Rate': 'متوسط معدل الإنجاز',
-      'Total Technicians': 'إجمالي الفنيين',
-      'Completed Today': 'المكتملة اليوم',
-      'Revenue Overview': 'نظرة عامة على الإيرادات',
-      'Service Distribution': 'توزيع الخدمات',
-      'Recent Work Orders': 'طلبات العمل الأخيرة',
-      'Weekly Performance': 'الأداء الأسبوعي',
-      'Daily': 'يومي',
-      'Weekly': 'أسبوعي',
-      'Monthly': 'شهري',
-      'Yearly': 'سنوي',
+  const t = (key: string): string => {
+    const langTranslations = translations[language];
+    return langTranslations?.[key as keyof typeof langTranslations] || key;
+  };
 
-      // Settings
-      'Settings': 'الإعدادات',
-      'Manage your preferences and settings': 'إدارة تفضيلاتك والإعدادات',
-      'Language': 'اللغة',
-      'English': 'English',
-      'Theme': 'المظهر',
-      'Dark Mode': 'الوضع الليلي',
-      'Light Mode': 'الوضع الفاتح',
-      'Switch to العربية': 'التبديل إلى English',
-      'Switch to English': 'التبديل إلى العربية',
-
-      // Navigation
-      'Dashboard': 'لوحة التحكم',
-      'Technician Tracking': 'تتبع الفنيين',
-      'Work Orders': 'طلبات العمل',
-      'Services & Pricing': 'الخدمات والتسعير',
-      'Reports': 'التقارير',
-      'Loading dashboard...': 'جاري تحميل لوحة المعلومات...',
-      'System Online': 'النظام متصل',
-    };
-
-    if (language === 'en') {
-      return text;
-    }
-
-    return translations[text] || text;
+  const setLanguage = (newLanguage: Language) => {
+    setLanguageState(newLanguage);
+    localStorage.setItem('language', newLanguage);
+    applyLanguageSettings(newLanguage);
   };
 
   return (
-    <LanguageContext.Provider value={{ language, toggleLanguage, t }}>
+    <LanguageContext.Provider value={{ 
+      language, 
+      t,
+      setLanguage
+    }}>
       {children}
     </LanguageContext.Provider>
   );

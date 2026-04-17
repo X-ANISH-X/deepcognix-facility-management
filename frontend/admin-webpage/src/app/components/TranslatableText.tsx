@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLanguage, useTranslate } from '@/app/context/LanguageContext';
-import { translateText } from '@/app/services/translationService';
+import { useLanguage } from '@/app/context/LanguageContext';
 
 interface TranslatableTextProps {
   children: string;
@@ -17,7 +16,7 @@ export function TranslatableText({
   className = '',
   as: Component = 'span'
 }: TranslatableTextProps) {
-  const { language, useGoogleTranslate } = useLanguage();
+  const { language, useGoogleTranslate, translateText } = useLanguage();
   const [displayText, setDisplayText] = useState(children);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -28,9 +27,9 @@ export function TranslatableText({
     }
 
     setIsLoading(true);
-    translateText(children, language)
+    translateText(children)
       .then(result => {
-        setDisplayText(result.text);
+        setDisplayText(result);
         setIsLoading(false);
       })
       .catch(error => {
@@ -38,7 +37,7 @@ export function TranslatableText({
         setDisplayText(children);
         setIsLoading(false);
       });
-  }, [children, language, useGoogleTranslate]);
+  }, [children, language, useGoogleTranslate, translateText]);
 
   const opacity = isLoading ? 'opacity-70' : 'opacity-100';
 

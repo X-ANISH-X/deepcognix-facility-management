@@ -1,31 +1,329 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { api, type KPIData, type WorkOrder } from '@/app/services/api';
+import { api as mockApi, type KPIData, type Service, type WorkOrder } from '@/app/services/api';
 import { mockRevenueData } from '@/app/services/mockRevenueData';
 import { useLanguage } from '@/app/context/LanguageContext';
-import { Activity, DollarSign, Users, Wrench, TrendingUp, Clock } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { Activity, DollarSign, Users, TrendingUp, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Sector } from 'recharts';
+import { toast } from 'sonner';
 
-export function DashboardView() {
-  const { language, t } = useLanguage();
+// Color mapping for categories - must match serviceColors configuration
+const categoryColorMap: Record<string, string> = {
+  'general cleaning': '#0f766e',
+  'kitchen cleaning': '#d97706',
+  'bathroom care': '#0284c7',
+  'windows & balcony': '#4f46e5',
+  'upholstery & fabrics': '#be185d',
+  'sanitization': '#059669',
+  'premium detailing': '#475569',
+  'add-on services': '#ea580c',
+  'hvac': '#2563eb',
+  'plumbing': '#16a34a',
+  'electrical': '#ca8a04',
+  'cleaning': '#7c3aed',
+  'security': '#dc2626',
+  'lighting': '#f59e0b',
+};
+
+const fallbackPalette = [
+  '#06b6d4', // cyan-600
+  '#84cc16', // lime-600
+  '#d946ef', // fuchsia-600
+  '#78716c', // stone-600
+];
+
+const getCategoryColor = (categoryName: string): string => {
+  const normalized = categoryName.trim().toLowerCase();
+  return categoryColorMap[normalized] || fallbackPalette[
+    normalized.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % fallbackPalette.length
+  ];
+};
+
+interface DistributionSlice {
+  name: string;
+  value: number;
+  color: string;
+  percentage: number;
+  type: 'category' | 'service';
+  category: string;
+  parentCategory?: string;
+}
+
+const POP_ANIMATION_SCALE = 1;
+const ACTIVE_SLICE_OFFSET = 10;
+const RADIAN = Math.PI / 180;
+
+const adjustColorLightness = (hex: string, percent: number): string => {
+  const raw = hex.replace('#', '');
+  if (raw.length !== 6) {
+    return hex;
+  }
+
+  const num = parseInt(raw, 16);
+  const amt = Math.round(2.55 * percent);
+  const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+  const G = Math.max(0, Math.min(255, (num >> 8 & 0x00ff) + amt));
+  const B = Math.max(0, Math.min(255, (num & 0x0000ff) + amt));
+
+  return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
+};
+
+const renderActiveSlice = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, midAngle } = props;
+  const offsetDistance = ACTIVE_SLICE_OFFSET * POP_ANIMATION_SCALE;
+  const shiftedCx = cx + offsetDistance * Math.cos(-midAngle * RADIAN);
+  const shiftedCy = cy + offsetDistance * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <g>
+      <Sector
+        cx={shiftedCx}
+        cy={shiftedCy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+      />
+    </g>
+  );
+};
+
+interface DashboardViewProps {
+  role?: 'admin' | 'technician' | 'customer';
+}
+
+export function DashboardView({ role = 'customer' }: DashboardViewProps) {
+  const { t } = useLanguage();
   const [kpis, setKpis] = useState<KPIData | null>(null);
+  const [allOrders, setAllOrders] = useState<WorkOrder[]>([]);
   const [recentOrders, setRecentOrders] = useState<WorkOrder[]>([]);
   const [revenuePeriod, setRevenuePeriod] = useState<'day' | 'week' | 'month' | 'year'>('week');
+  const [serviceDistribution, setServiceDistribution] = useState<DistributionSlice[]>([]);
+  const [servicesByCategory, setServicesByCategory] = useState<Record<string, Service[]>>({});
+  const [activeSliceIndex, setActiveSliceIndex] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const buildServiceDistribution = (services: Service[]) => {
+    const servicesByCategory: Record<string, Service[]> = {};
+
+    services
+      .filter((service) => service.isActive)
+      .forEach((service) => {
+        const categoryKey = service.category;
+
+        if (!servicesByCategory[categoryKey]) {
+          servicesByCategory[categoryKey] = [];
+        }
+
+        servicesByCategory[categoryKey].push(service);
+      });
+
+    const activeServiceCount = services.filter((service) => service.isActive).length || 1;
+
+    return Object.entries(servicesByCategory)
+      .map(([category, servicesInCategory]) => {
+        const count = servicesInCategory.length;
+        // Use deterministic color lookup based on category name instead of service color field
+        const baseColor = getCategoryColor(category);
+
+        return {
+          name: category,
+          value: count,
+          color: baseColor,
+          percentage: Math.round((count / activeServiceCount) * 100),
+          type: 'category' as const,
+          category,
+        };
+      })
+      .sort((a, b) => b.value - a.value);
+  };
+
+  const groupServicesByCategory = (services: Service[]) => {
+    return services
+      .filter((service) => service.isActive)
+      .reduce((grouped, service) => {
+        if (!grouped[service.category]) {
+          grouped[service.category] = [];
+        }
+
+        grouped[service.category].push(service);
+        return grouped;
+      }, {} as Record<string, Service[]>);
+  };
+
+  const categoryTotals = serviceDistribution.reduce((sum, item) => sum + item.value, 0);
+
+  const pieData = useMemo(() => {
+    if (!selectedCategory) {
+      return serviceDistribution;
+    }
+
+    const selectedCategoryServices = servicesByCategory[selectedCategory] || [];
+    const parentCategorySlice = serviceDistribution.find((slice) => slice.category === selectedCategory);
+
+    if (!selectedCategoryServices.length || !parentCategorySlice) {
+      return serviceDistribution;
+    }
+
+    const categoryColor = parentCategorySlice.color;
+
+    const serviceSlices: DistributionSlice[] = selectedCategoryServices.map((service, index) => {
+      const totalServices = selectedCategoryServices.length;
+      const offset = (index - (totalServices - 1) / 2) * 12;
+      return {
+        name: service.name,
+        value: 1,
+        color: adjustColorLightness(categoryColor, offset),
+        percentage: Math.round((1 / parentCategorySlice.value) * 100),
+        type: 'service',
+        category: service.category,
+        parentCategory: selectedCategory,
+      };
+    });
+
+    return serviceDistribution.flatMap((slice) => {
+      if (slice.category !== selectedCategory) {
+        return [slice];
+      }
+
+      return serviceSlices;
+    });
+  }, [selectedCategory, serviceDistribution, servicesByCategory]);
+
+  const pieTotal = pieData.reduce((sum, item) => sum + item.value, 0);
+
+  const legendData = useMemo(() => {
+    if (!selectedCategory) {
+      return pieData;
+    }
+
+    const selectedItems = pieData.filter((slice) => slice.parentCategory === selectedCategory);
+    const otherItems = pieData.filter((slice) => slice.parentCategory !== selectedCategory);
+    return [...selectedItems, ...otherItems];
+  }, [pieData, selectedCategory]);
+
+  const drilledSliceIndexes = useMemo(
+    () => pieData
+      .map((slice, index) => (slice.parentCategory === selectedCategory ? index : -1))
+      .filter((index) => index !== -1),
+    [pieData, selectedCategory],
+  );
+
+  const getSliceOpacity = (index: number) => {
+    if (activeSliceIndex === null) {
+      return 1;
+    }
+
+    return activeSliceIndex === index ? 1 : 0.72;
+  };
+
+  const getLegendPercentage = (itemValue: number) => {
+    if (!categoryTotals) {
+      return 0;
+    }
+
+    return Math.round((itemValue / categoryTotals) * 100);
+  };
+
+  const getPiePercentage = (itemValue: number) => {
+    if (!pieTotal) {
+      return 0;
+    }
+
+    return Math.round((itemValue / pieTotal) * 100);
+  };
+
+  const loadDashboardData = async (silent = true) => {
+    try {
+      const [kpiData, orders, services] = await Promise.all([
+        mockApi.getKPIs(),
+        mockApi.getWorkOrders(),
+        mockApi.getServices()
+      ]);
+
+      setKpis(kpiData);
+      setAllOrders(orders);
+      setRecentOrders(orders.slice(0, 5));
+      setServiceDistribution(buildServiceDistribution(services));
+      setServicesByCategory(groupServicesByCategory(services));
+    } catch (error) {
+      if (!silent) {
+        const message = error instanceof Error ? error.message : 'Unable to load dashboard data';
+        toast.error(message);
+      }
+      setKpis({
+        activeWorkOrders: 0,
+        totalRevenue: 0,
+        avgCompletionRate: 0,
+        totalTechnicians: 0,
+        completedToday: 0,
+      });
+      setAllOrders([]);
+      setRecentOrders([]);
+      setServiceDistribution([]);
+      setServicesByCategory({});
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      const [kpiData, orders] = await Promise.all([
-        api.getKPIs(),
-        api.getWorkOrders()
-      ]);
-      setKpis(kpiData);
-      setRecentOrders(orders.slice(0, 5));
+    void loadDashboardData(false);
+
+    const unsubscribe = mockApi.subscribeRealtime((event) => {
+      const eventName = event.event;
+      if (
+        eventName.startsWith('booking.') ||
+        eventName.startsWith('technician.') ||
+        eventName.startsWith('checklist.')
+      ) {
+        void loadDashboardData(true);
+      }
+    });
+
+    const pollTimer = window.setInterval(() => {
+      void loadDashboardData(true);
+    }, 10000);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(pollTimer);
     };
-    loadData();
   }, []);
 
+  useEffect(() => {
+    if (selectedCategory && !servicesByCategory[selectedCategory]) {
+      setSelectedCategory(null);
+    }
+  }, [selectedCategory, servicesByCategory]);
+
+  useEffect(() => {
+    setActiveSliceIndex(null);
+    setIsAnimating(true);
+    const timer = setTimeout(() => {
+      setIsAnimating(false);
+    }, 280 * POP_ANIMATION_SCALE + 50);
+    return () => clearTimeout(timer);
+  }, [selectedCategory]);
+
+  const handleSliceSelection = (category: string) => {
+    if (isAnimating) return;
+    setSelectedCategory((currentCategory) => currentCategory === category ? null : category);
+    setActiveSliceIndex(null);
+  };
+
+  const resetToCategories = () => {
+    setSelectedCategory(null);
+    setActiveSliceIndex(null);
+  };
+
   const dailyData = mockRevenueData.daily();
+
+  const pendingSubmittedOrders = useMemo(
+    () => allOrders.filter((order) => order.status === 'submitted').slice(0, 6),
+    [allOrders],
+  );
 
   const weeklyData = mockRevenueData.weekly();
 
@@ -47,13 +345,6 @@ export function DashboardView() {
         return weeklyData;
     }
   };
-
-  const serviceDistribution = [
-    { name: 'HVAC', value: 35, color: '#14b8a6' },
-    { name: 'Plumbing', value: 28, color: '#10b981' },
-    { name: 'Electrical', value: 20, color: '#059669' },
-    { name: 'Cleaning', value: 17, color: '#2dd4bf' }
-  ];
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -81,18 +372,18 @@ export function DashboardView() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading dashboard...</p>
+          <p className="text-gray-500">{t('dashboard.loading')}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col justify-start">
-        <h1 className="text-3xl font-bold tracking-tight">{t('Mission Control')}</h1>
-        <p className="text-gray-500 mt-1">{t('Real-time facility management overview')}</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t('dashboard.title')}</h1>
+        <p className="text-gray-500 mt-1">{t('dashboard.subtitle')}</p>
       </div>
 
       {/* KPI Cards */}
@@ -104,7 +395,7 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">{kpis.activeWorkOrders}</div>
-              <div className="text-sm opacity-90 mt-1">{t('Active Work Orders')}</div>
+              <div className="text-sm opacity-90 mt-1">{t('dashboard.kpi.active')}</div>
             </div>
           </CardContent>
         </Card>
@@ -115,8 +406,8 @@ export function DashboardView() {
               <DollarSign className="w-8 h-8 opacity-80" />
             </div>
             <div>
-              <div className="text-3xl font-bold">${(kpis.totalRevenue / 1000).toFixed(1)}k</div>
-              <div className="text-sm opacity-90 mt-1">{t('Weekly Revenue')}</div>
+              <div className="text-3xl font-bold">AED {(kpis.totalRevenue / 1000).toFixed(1)}k</div>
+              <div className="text-sm opacity-90 mt-1">{t('dashboard.kpi.revenue')}</div>
             </div>
           </CardContent>
         </Card>
@@ -128,19 +419,7 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">{kpis.avgCompletionRate.toFixed(1)}%</div>
-              <div className="text-sm opacity-90 mt-1">Avg Completion Rate</div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="flex-1 min-w-[200px] rounded-3xl border-none shadow-lg bg-gradient-to-br from-teal-400 to-teal-500 dark:from-teal-500 dark:to-teal-600 text-white">
-          <CardContent className="p-6 flex flex-col justify-between h-full">
-            <div className="flex items-center justify-between mb-2">
-              <Wrench className="w-8 h-8 opacity-80" />
-            </div>
-            <div>
-              <div className="text-3xl font-bold">${kpis.maintenanceCostPerGSF}</div>
-              <div className="text-sm opacity-90 mt-1">Cost per GSF</div>
+              <div className="text-sm opacity-90 mt-1">{t('dashboard.kpi.completion')}</div>
             </div>
           </CardContent>
         </Card>
@@ -152,7 +431,7 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">{kpis.totalTechnicians}</div>
-              <div className="text-sm opacity-90 mt-1">{t('Total Technicians')}</div>
+              <div className="text-sm opacity-90 mt-1">{t('dashboard.kpi.technicians')}</div>
             </div>
           </CardContent>
         </Card>
@@ -164,25 +443,48 @@ export function DashboardView() {
             </div>
             <div>
               <div className="text-3xl font-bold">{kpis.completedToday}</div>
-              <div className="text-sm opacity-90 mt-1">Completed Today</div>
+              <div className="text-sm opacity-90 mt-1">{t('dashboard.kpi.completed')}</div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {role === 'admin' && (
+        <Card className="rounded-3xl border-none shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Pending Customer Requests</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingSubmittedOrders.length === 0 ? (
+              <p className="text-sm text-gray-500">No submitted requests waiting for approval.</p>
+            ) : (
+              pendingSubmittedOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-semibold">{order.id} - {order.customerName}</p>
+                    <p className="text-xs text-gray-500">{order.serviceType} | {order.scheduledDate}</p>
+                  </div>
+                  <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-200" variant="outline">submitted</Badge>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts Section */}
       <div className="flex flex-wrap gap-6 items-stretch">
         {/* Weekly Completion Trend */}
         <Card className="flex-1 min-w-[400px] rounded-3xl border-none shadow-lg flex flex-col">
           <CardHeader>
-            <CardTitle>Weekly Performance</CardTitle>
+            <CardTitle>{t('dashboard.chart.weekly')}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1 flex flex-col justify-center" dir="ltr">
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <BarChart data={weeklyData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="day" stroke="#888" />
-                <YAxis stroke="#888" />
+                <YAxis stroke="#888" width={50} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'white', 
@@ -200,22 +502,53 @@ export function DashboardView() {
         {/* Service Distribution */}
         <Card className="flex-1 min-w-[300px] rounded-3xl border-none shadow-lg flex flex-col">
           <CardHeader>
-            <CardTitle>{t('Service Distribution')}</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>
+                {selectedCategory ? `${selectedCategory} Services` : t('dashboard.chart.distribution')}
+              </CardTitle>
+              {selectedCategory && (
+                <button
+                  onClick={resetToCategories}
+                  className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Back to Categories
+                </button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={275}>
               <PieChart>
                 <Pie
-                  data={serviceDistribution}
+                  key={selectedCategory || 'categories'}
+                  data={pieData}
                   cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
+                  cy="56%"
+                  innerRadius={62}
+                  outerRadius={selectedCategory ? 120 : 108}
+                  paddingAngle={selectedCategory ? 0 : 5}
                   dataKey="value"
+                  activeIndex={activeSliceIndex !== null ? activeSliceIndex : undefined}
+                  activeShape={renderActiveSlice}
+                  isAnimationActive
+                  animationDuration={280 * POP_ANIMATION_SCALE}
+                  animationEasing="ease-out"
+                  onMouseEnter={(_, index) => setActiveSliceIndex(index)}
+                  onMouseLeave={() => setActiveSliceIndex(null)}
+                  onClick={(entry: DistributionSlice) => {
+                    if (entry.type === 'category' && !isAnimating) {
+                      handleSliceSelection(entry.category);
+                    }
+                  }}
                 >
-                  {serviceDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  {pieData.map((entry, index) => (
+                    <Cell 
+                      key={`${entry.type}-${entry.parentCategory || entry.category}-${entry.name}`}
+                      fill={entry.color}
+                      fillOpacity={getSliceOpacity(index)}
+                      stroke="var(--card)"
+                      strokeWidth={selectedCategory ? (entry.type === 'category' ? 5 : 0) : 2}
+                    />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -228,13 +561,31 @@ export function DashboardView() {
                 />
               </PieChart>
             </ResponsiveContainer>
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              {serviceDistribution.map((item) => (
-                <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-sm text-gray-600">{item.name} ({item.value}%)</span>
+            <div className="mt-8 space-y-1">
+              {legendData.map((item) => {
+                const index = pieData.findIndex((slice) => slice.name === item.name && slice.parentCategory === item.parentCategory && slice.type === item.type);
+                const isActiveRow = activeSliceIndex === index;
+                return (
+                <div
+                  key={`${item.type}-${item.parentCategory || item.category}-${item.name}`}
+                  className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg transition-all duration-220 ease-out cursor-pointer ${isActiveRow ? 'bg-gray-50/80 dark:bg-gray-700/50' : ''} ${item.parentCategory === selectedCategory ? 'ring-1 ring-teal-300/55' : ''}`}
+                  onMouseEnter={() => setActiveSliceIndex(index)}
+                  onMouseLeave={() => setActiveSliceIndex(null)}
+                  onClick={() => {
+                    if (item.type === 'category') {
+                      handleSliceSelection(item.category);
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color, opacity: getSliceOpacity(index) }}></div>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{item.name}</span>
+                  </div>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    {item.type === 'service' ? 'Service' : `${item.value} services`} ({item.type === 'service' ? getPiePercentage(item.value) : getLegendPercentage(item.value)}%)
+                  </span>
                 </div>
-              ))}
+              );})}
             </div>
           </CardContent>
         </Card>
@@ -243,7 +594,7 @@ export function DashboardView() {
       {/* Recent Work Orders */}
       <Card className="rounded-3xl border-none shadow-lg flex flex-col">
         <CardHeader className="flex-shrink-0">
-          <CardTitle>{t('Recent Work Orders')}</CardTitle>
+          <CardTitle>{t('dashboard.chart.recent')}</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col">
           <div className="space-y-4 flex-1">
@@ -263,7 +614,7 @@ export function DashboardView() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-semibold text-lg">${order.estimatedCost}</div>
+                  <div className="font-semibold text-lg">AED {order.estimatedCost}</div>
                   <p className="text-xs text-gray-500">{order.scheduledDate}</p>
                   {order.technicianName && (
                     <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">{order.technicianName}</p>
@@ -279,7 +630,7 @@ export function DashboardView() {
       <Card className="rounded-3xl border-none shadow-lg flex flex-col">
         <CardHeader className="flex-shrink-0">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <CardTitle>Revenue Trend</CardTitle>
+            <CardTitle>{t('dashboard.chart.revenue')}</CardTitle>
             <div className="flex flex-wrap gap-2 items-center">
               <button
                 onClick={() => setRevenuePeriod('day')}
@@ -289,7 +640,7 @@ export function DashboardView() {
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                 }`}
               >
-                Day
+                {t('dashboard.chart.day')}
               </button>
               <button
                 onClick={() => setRevenuePeriod('week')}
@@ -299,7 +650,7 @@ export function DashboardView() {
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                 }`}
               >
-                Week
+                {t('dashboard.chart.week')}
               </button>
               <button
                 onClick={() => setRevenuePeriod('month')}
@@ -309,7 +660,7 @@ export function DashboardView() {
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                 }`}
               >
-                Month
+                {t('dashboard.chart.month')}
               </button>
               <button
                 onClick={() => setRevenuePeriod('year')}
@@ -319,17 +670,17 @@ export function DashboardView() {
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
                 }`}
               >
-                Year
+                {t('dashboard.chart.year')}
               </button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col justify-center">
+        <CardContent className="flex-1 flex flex-col justify-center" dir="ltr">
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={getRevenueData()}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <LineChart data={getRevenueData()} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey={revenuePeriod === 'week' ? 'day' : 'label'} stroke="#888" />
-              <YAxis stroke="#888" />
+              <YAxis stroke="#888" width={50} />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'white', 
