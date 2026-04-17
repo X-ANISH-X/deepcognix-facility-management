@@ -228,9 +228,9 @@ Use these credentials to log in to each part of the platform:
 
 | Platform | Email | Password | Role |
 |---|---|---|---|
-| Admin Panel | `admin.demo@deepcognix.com` | `Admin@123` | Admin |
-| User App | `user.demo@deepcognix.com` | `Admin@123` | Customer |
-| Technician App | `technician.demo@deepcognix.com` | `Admin@123` | Technician |
+| Admin Panel | `sam@gmail.com` | `test123` | Admin |
+| User App | `sam234@gmail.com` | `test123` | Customer |
+| Technician App | `sam123@gmail.com` | `test123` | Technician |
 
 Additional seeded accounts:
 
@@ -251,7 +251,7 @@ deepcognix-facility-management/
 ├── backend/                    # FastAPI backend
 │   ├── app/
 │   │   ├── core/               # Config, security, database
-│   │   ├── models/             # SQLAlchemy ORM models
+│   │   ├── model/              # Request/response models
 │   │   ├── transport/          # API route handlers (auth, booking, etc.)
 │   │   ├── init_db.py          # Table creation + default service seeding
 │   │   ├── main.py             # App entry point, startup events
@@ -260,7 +260,7 @@ deepcognix-facility-management/
 │
 ├── frontend/
 │   ├── admin-webpage/          # React + Vite + TypeScript admin dashboard
-│   │   └── src/app/services/api.ts   # Real API client
+│   │   └── src/app/services/mockApi.ts   # Admin app API layer
 │   │
 │   ├── user-app/               # Flutter customer app
 │   │   └── lib/
@@ -335,7 +335,7 @@ Ensure you are using Node.js 18 or newer: `node --version`. If your version is o
 Ensure Flutter is correctly installed and on your PATH: `flutter --version`. If the command is not found, re-add the Flutter `bin` folder to your PATH.
 
 **Backend returns 422 on booking**
-Ensure the time slot sent is `morning`, `afternoon`, or `evening`. This is handled automatically by the user app — no manual action needed.
+Ensure the time slot sent is one of: `09:00 AM`, `11:00 AM`, `01:00 PM`, `03:00 PM`, or `05:00 PM`. This is handled automatically by the user app — no manual action needed.
 
 **Port 8000 already in use**
 Find and kill the process using the port:
