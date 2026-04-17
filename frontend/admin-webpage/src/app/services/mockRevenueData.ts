@@ -24,16 +24,16 @@ export interface YearlyRevenue {
 }
 
 export const mockRevenueData = {
-  // Daily revenue data - shows hourly-like breakdown for today
-  daily: (): DailyRevenue[] => [
-    { label: 'Mon', revenue: 3400 },
-    { label: 'Tue', revenue: 4200 },
-    { label: 'Wed', revenue: 2800 },
-    { label: 'Thu', revenue: 5100 },
-    { label: 'Fri', revenue: 3900 },
-    { label: 'Sat', revenue: 2200 },
-    { label: 'Sun', revenue: 1600 }
-  ],
+  // Daily revenue data - shows hourly breakdown for working hours (8am–6pm)
+  daily: (): DailyRevenue[] => {
+    // Working hours: 8am to 6pm (10 hours)
+    const hours = Array.from({ length: 10 }, (_, i) => 8 + i);
+    // Example: random revenue per hour
+    return hours.map(hour => ({
+      label: `${hour}:00`,
+      revenue: Math.floor(500 + Math.random() * 1000) // You can adjust this logic
+    }));
+  },
 
   // Weekly revenue data - shows daily breakdown with completed work orders
   weekly: (): WeeklyRevenue[] => [

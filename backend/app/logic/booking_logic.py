@@ -136,6 +136,17 @@ def create_booking(conn, booking, customer_id: int):
             (booking_id, booking.package_id),
         )
 
+# Made an edit here to test the notification system
+        cursor.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")
+        for admin in cursor.fetchall():
+            create_notification(
+                cursor,
+                user_id=admin["id"],
+                title="New Booking Submitted",
+                message=f"Booking #{booking_id} was submitted and is waiting for review.",
+                notification_type="booking_submitted",
+            )
+
         conn.commit()
         return booking_id
     except Exception:

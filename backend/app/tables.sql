@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number VARCHAR(20),
     role ENUM('admin', 'customer', 'technician') NOT NULL DEFAULT 'customer',
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- ==========================================
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS services (
     duration_minutes INT DEFAULT 60,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
 
@@ -44,7 +46,62 @@ CREATE TABLE IF NOT EXISTS packages (
     price DECIMAL(10,2) NOT NULL,
     description TEXT,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- 3B. SERVICE PACKAGES (ADMIN COMPAT)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS service_packages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS service_package_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    service_package_id INT NOT NULL,
+    service_id INT NOT NULL,
+    quantity INT DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_service_package_item (service_package_id, service_id),
+    FOREIGN KEY (service_package_id) REFERENCES service_packages(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 3C. TECHNICIAN PROFILES (ADMIN COMPAT)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS technician_profiles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    technician_id INT NOT NULL UNIQUE,
+    availability_status ENUM('available', 'busy', 'offline') DEFAULT 'available',
+    skills TEXT,
+    rating DECIMAL(3,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ==========================================
+-- 3D. PAYMENTS (ADMIN COMPAT)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending',
+    payment_method VARCHAR(50),
+    transaction_reference VARCHAR(120),
+    paid_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_payments_booking_id (booking_id)
 );
 
 -- ==========================================

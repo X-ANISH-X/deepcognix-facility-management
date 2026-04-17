@@ -122,6 +122,85 @@ def _ensure_booking_time_slot_values(cursor):
 
 
 def ensure_schema_updates(cursor):
+    if not _column_exists(cursor, "users", "updated_at"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at",
+        )
+
+    if not _column_exists(cursor, "services", "updated_at"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE services ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at",
+        )
+
+    if not _column_exists(cursor, "packages", "updated_at"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE packages ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at",
+        )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS service_packages (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            description TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS service_package_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            service_package_id INT NOT NULL,
+            service_id INT NOT NULL,
+            quantity INT DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_service_package_item (service_package_id, service_id),
+            FOREIGN KEY (service_package_id) REFERENCES service_packages(id) ON DELETE CASCADE,
+            FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS technician_profiles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            technician_id INT NOT NULL UNIQUE,
+            availability_status ENUM('available', 'busy', 'offline') DEFAULT 'available',
+            skills TEXT,
+            rating DECIMAL(3,2),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS payments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            status ENUM('pending', 'paid', 'failed', 'refunded') DEFAULT 'pending',
+            payment_method VARCHAR(50),
+            transaction_reference VARCHAR(120),
+            paid_at TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_payments_booking_id (booking_id)
+        )
+        """
+    )
+
     if not _column_exists(cursor, "booking_checklist", "order_index"):
         _run_safe_alter(cursor, "ALTER TABLE booking_checklist ADD COLUMN order_index INT")
 
@@ -133,8 +212,6 @@ def ensure_schema_updates(cursor):
             cursor,
             "ALTER TABLE notifications ADD COLUMN notification_type VARCHAR(50) NULL AFTER title",
         )
-
-    _run_safe_alter(cursor, "DROP TABLE IF EXISTS payments")
 
     if not _column_exists(cursor, "technician_live_locations", "booking_id"):
         _run_safe_alter(cursor, "ALTER TABLE technician_live_locations ADD COLUMN booking_id INT NULL")
