@@ -8,3 +8,26 @@ node_modules/
 .idea/
 .vscode/
 package-lock.json
+
+# Python
+*.pyo
+*.pyd
+.pytest_cache/
+
+# React/Vite build output
+frontend/admin-webpage/dist/
+
+# Flutter generated/build files (user + technician)
+frontend/user-app/build/
+frontend/user-app/.dart_tool/
+frontend/user-app/.flutter-plugins
+frontend/user-app/.flutter-plugins-dependencies
+frontend/user-app/.packages
+frontend/user-app/.metadata
+
+frontend/technician-app/build/
+frontend/technician-app/.dart_tool/
+frontend/technician-app/.flutter-plugins
+frontend/technician-app/.flutter-plugins-dependencies
+frontend/technician-app/.packages
+frontend/technician-app/.metadata

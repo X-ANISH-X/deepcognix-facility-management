@@ -19,8 +19,11 @@ export function ServicePackagesView() {
   const [services, setServices] = useState<Service[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatePackageOpen, setIsCreatePackageOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<ServicePackage | null>(null);
   const [isCreateServiceOpen, setIsCreateServiceOpen] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [editingSelectedServiceIds, setEditingSelectedServiceIds] = useState<string[]>([]);
+  const [editingIsActive, setEditingIsActive] = useState(true);
   const [createCategory, setCreateCategory] = useState('');
 
   const categories: string[] = useMemo(() => getServiceCategories(services), [services]);
@@ -64,6 +67,17 @@ export function ServicePackagesView() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!editingPackage) {
+      setEditingSelectedServiceIds([]);
+      setEditingIsActive(true);
+      return;
+    }
+
+    setEditingSelectedServiceIds(editingPackage.serviceIds);
+    setEditingIsActive(editingPackage.isActive);
+  }, [editingPackage]);
+
   const seededPackageOrder = ['Silver Package', 'Gold Package', 'Platinum Package'];
   const orderedPackages = useMemo(() => {
     return [...packages].sort((left, right) => {
@@ -82,6 +96,14 @@ export function ServicePackagesView() {
 
   const toggleServiceSelection = (serviceId: string) => {
     setSelectedServiceIds((currentSelection) =>
+      currentSelection.includes(serviceId)
+        ? currentSelection.filter((currentId) => currentId !== serviceId)
+        : [...currentSelection, serviceId],
+    );
+  };
+
+  const toggleEditingServiceSelection = (serviceId: string) => {
+    setEditingSelectedServiceIds((currentSelection) =>
       currentSelection.includes(serviceId)
         ? currentSelection.filter((currentId) => currentId !== serviceId)
         : [...currentSelection, serviceId],
@@ -136,6 +158,33 @@ export function ServicePackagesView() {
     toast.success('Service created and added to the package.');
   };
 
+  const handleUpdatePackage = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!editingPackage) {
+      return;
+    }
+
+    if (editingSelectedServiceIds.length === 0) {
+      toast.error('Select at least one service for the package.');
+      return;
+    }
+
+    const formData = new FormData(e.currentTarget);
+    const updatedPackage = await mockApi.updateServicePackage(editingPackage.id, {
+      name: String(formData.get('name') || '').trim(),
+      description: String(formData.get('description') || '').trim(),
+      serviceIds: editingSelectedServiceIds,
+      isActive: editingIsActive,
+    });
+
+    setPackages((currentPackages) => currentPackages.map((currentPackage) => (
+      currentPackage.id === updatedPackage.id ? updatedPackage : currentPackage
+    )));
+    setEditingPackage(null);
+    toast.success('Service package updated successfully!');
+  };
+
   if (isLoading) {
     return <LoadingSpinner message="Loading service packages..." />;
   }
@@ -151,7 +200,7 @@ export function ServicePackagesView() {
         <Dialog open={isCreatePackageOpen} onOpenChange={setIsCreatePackageOpen}>
           <DialogTrigger asChild>
             <Button className="rounded-full bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap">
-              <PackagePlus className="w-4 h-4 mt-[2px]" />
+              <PackagePlus className="w-4 h-4 mt-0.5" />
               New Package
             </Button>
           </DialogTrigger>
@@ -311,6 +360,105 @@ export function ServicePackagesView() {
         </Dialog>
       </div>
 
+      <Dialog
+        open={!!editingPackage}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingPackage(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Edit Service Package</DialogTitle>
+          </DialogHeader>
+
+          {editingPackage && (
+            <form onSubmit={handleUpdatePackage} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-package-name">Package Name</Label>
+                  <Input id="edit-package-name" name="name" defaultValue={editingPackage.name} required className="rounded-xl" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="edit-package-status">Status</Label>
+                  <Select value={editingIsActive ? 'active' : 'inactive'} onValueChange={(value) => setEditingIsActive(value === 'active')}>
+                    <SelectTrigger id="edit-package-status" className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="edit-package-description">Description</Label>
+                <Textarea id="edit-package-description" name="description" rows={3} defaultValue={editingPackage.description} className="rounded-xl" />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Sparkles className="h-4 w-4" />
+                  {editingSelectedServiceIds.length} service{editingSelectedServiceIds.length === 1 ? '' : 's'} selected
+                </div>
+              </div>
+
+              <div className="max-h-[52vh] overflow-y-auto space-y-6 pr-1">
+                {orderedServiceCategories.map(([category, categoryServices]) => (
+                  <div key={category} className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-3 w-3 rounded-full ${getServiceBgColor(category)}`}></div>
+                      <h3 className="font-semibold">{category}</h3>
+                      <Badge variant="outline">{categoryServices.length}</Badge>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {categoryServices.map((service) => {
+                        const isSelected = editingSelectedServiceIds.includes(service.id);
+
+                        return (
+                          <button
+                            key={service.id}
+                            type="button"
+                            onClick={() => toggleEditingServiceSelection(service.id)}
+                            className={`rounded-3xl border p-4 text-left transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 shadow-md dark:border-emerald-500 dark:bg-emerald-950/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-950/30'}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="font-semibold text-slate-900 dark:text-white">{service.name}</div>
+                                <div className="mt-2 flex flex-wrap items-center gap-2 text-base text-slate-500">
+                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-medium dark:bg-slate-800">{service.duration} min</span>
+                                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">AED {service.basePrice}</span>
+                                </div>
+                              </div>
+                              <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                                <Check className="h-4 w-4" />
+                              </div>
+                            </div>
+                            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{service.description}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" className="rounded-full" onClick={() => setEditingPackage(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="rounded-full bg-emerald-600 hover:bg-emerald-700">
+                  Update Package
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="grid gap-6 xl:grid-cols-2">
         {orderedPackages.map((servicePackage) => {
           const bundledServices = servicePackage.serviceIds
@@ -330,9 +478,14 @@ export function ServicePackagesView() {
                     </div>
                     <p className="mt-2 text-sm text-slate-500">{servicePackage.description}</p>
                   </div>
-                  <div className="rounded-2xl bg-slate-100 px-4 py-3 text-center dark:bg-slate-900/70">
-                    <div className="text-2xl font-bold text-slate-900 dark:text-white">{bundledServices.length}</div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Bundled Services</div>
+                  <div className="flex flex-col items-end gap-3">
+                    <div className="rounded-2xl bg-slate-100 px-4 py-3 text-center dark:bg-slate-900/70">
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{bundledServices.length}</div>
+                      <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Bundled Services</div>
+                    </div>
+                    <Button type="button" variant="outline" className="rounded-full" onClick={() => setEditingPackage(servicePackage)}>
+                      Edit Package
+                    </Button>
                   </div>
                 </div>
 

@@ -70,6 +70,8 @@ export interface RevenueStats {
   totalRevenue: number;
   pendingRevenue: number;
   dailyRevenue: Array<{ date: string; revenue: number }>;
+  trendData: Array<{ label: string; revenue: number }>;
+  trendPeriod: 'day' | 'week' | 'month' | 'year';
 }
 
 export interface NotificationItem {
@@ -660,8 +662,8 @@ export const mockApi = {
     await request(`/service-packages/${id}`, { method: 'DELETE' }, true);
   },
 
-  getRevenueStats: async (): Promise<RevenueStats> => {
-    const data = await request<{ stats?: Dict }>('/payments/stats/revenue', undefined, true);
+  getRevenueStats: async (period: 'day' | 'week' | 'month' | 'year' = 'week'): Promise<RevenueStats> => {
+    const data = await request<{ stats?: Dict }>(`/payments/stats/revenue?period=${encodeURIComponent(period)}`, undefined, true);
     const stats = (data.stats || data) as Dict;
 
     const dailyRevenueRaw = Array.isArray(stats.daily_revenue) ? stats.daily_revenue : [];
@@ -673,10 +675,21 @@ export const mockApi = {
       };
     });
 
+    const trendRaw = Array.isArray(stats.trend_data) ? stats.trend_data : dailyRevenueRaw;
+    const trendData = trendRaw.map((entry) => {
+      const item = entry as Dict;
+      return {
+        label: pickString(item, 'label') || pickString(item, 'date'),
+        revenue: pickNumber(item, 'revenue'),
+      };
+    });
+
     return {
       totalRevenue: pickFirstNumber(stats, ['total_revenue', 'totalRevenue']),
       pendingRevenue: pickFirstNumber(stats, ['pending_revenue', 'pendingRevenue']),
       dailyRevenue,
+      trendData,
+      trendPeriod: (pickString(stats, 'trend_period') as RevenueStats['trendPeriod']) || period,
     };
   },
 
