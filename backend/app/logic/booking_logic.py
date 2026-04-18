@@ -123,8 +123,8 @@ def create_booking(conn, booking, customer_id: int):
 
         cursor.execute(
             """
-            INSERT INTO booking_checklist (booking_id, task_name, order_index)
-            SELECT %s, deduped.task_name, deduped.order_index
+            INSERT INTO booking_checklist (booking_id, task_name, order_index, is_completed)
+            SELECT %s, deduped.task_name, deduped.order_index, FALSE
             FROM (
                 SELECT task_name, MIN(order_index) AS order_index
                 FROM package_checklist

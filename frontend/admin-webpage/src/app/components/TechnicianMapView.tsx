@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -104,6 +104,46 @@ export function TechnicianMapView() {
     return haystack.includes(query);
   });
 
+  const positionedTechnicians = useMemo(() => {
+    const hasValidCoordinate = (tech: Technician) => {
+      const { lat, lng } = tech.location;
+      return Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+    };
+
+    const coordinateTechnicians = filteredTechnicians.filter(hasValidCoordinate);
+    const latitudes = coordinateTechnicians.map((tech) => tech.location.lat);
+    const longitudes = coordinateTechnicians.map((tech) => tech.location.lng);
+    const minLat = latitudes.length ? Math.min(...latitudes) : 0;
+    const maxLat = latitudes.length ? Math.max(...latitudes) : 0;
+    const minLng = longitudes.length ? Math.min(...longitudes) : 0;
+    const maxLng = longitudes.length ? Math.max(...longitudes) : 0;
+    const latRange = maxLat - minLat;
+    const lngRange = maxLng - minLng;
+
+    return filteredTechnicians.map((tech, index) => {
+      if (!hasValidCoordinate(tech)) {
+        return {
+          tech,
+          left: `${20 + index * 15}%`,
+          top: `${30 + (index % 3) * 20}%`,
+          usesLivePosition: false,
+        };
+      }
+
+      const xRaw = lngRange > 0 ? (tech.location.lng - minLng) / lngRange : 0.5;
+      const yRaw = latRange > 0 ? (tech.location.lat - minLat) / latRange : 0.5;
+      const x = 10 + xRaw * 80;
+      const y = 10 + (1 - yRaw) * 80;
+
+      return {
+        tech,
+        left: `${x}%`,
+        top: `${y}%`,
+        usesLivePosition: true,
+      };
+    });
+  }, [filteredTechnicians]);
+
   if (isLoading) {
     return <LoadingSpinner message={t('technician.loading')} />;
   }
@@ -132,20 +172,28 @@ export function TechnicianMapView() {
               
               {/* Map overlay info */}
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md rounded-2xl px-4 py-2 shadow-lg text-gray-900">
-                <p className="text-sm font-semibold">{t('technician.map.area')}</p>
-                <p className="text-xs text-gray-500">{t('technician.map.live')}</p>
+                <p className="text-sm font-semibold">
+                  {selectedTech?.location.address && selectedTech.location.address !== 'N/A'
+                    ? selectedTech.location.address
+                    : t('technician.map.area')}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {positionedTechnicians.some((item) => item.usesLivePosition)
+                    ? 'Live GPS marker positions'
+                    : t('technician.map.live')}
+                </p>
               </div>
 
               {/* Technician markers on the mock map */}
-              {filteredTechnicians.map((tech, index) => (
+              {positionedTechnicians.map(({ tech, left, top }) => (
                 <div
                   key={tech.id}
                   className={`absolute cursor-pointer transition-transform hover:scale-110 ${
                     selectedTech?.id === tech.id ? 'z-20' : 'z-10'
                   }`}
                   style={{
-                    left: `${20 + index * 15}%`,
-                    top: `${30 + (index % 3) * 20}%`,
+                    left,
+                    top,
                   }}
                   onClick={() => setSelectedTech(tech)}
                 >

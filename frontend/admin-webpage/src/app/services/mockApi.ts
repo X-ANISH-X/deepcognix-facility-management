@@ -21,7 +21,7 @@ export interface WorkOrder {
   customerName: string;
   serviceType: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completion-requested' | 'rejection-requested' | 'completed' | 'cancelled';
   technicianId?: string;
   technicianName?: string;
   scheduledDate: string;
@@ -154,6 +154,8 @@ function statusFromBackend(raw: string): WorkOrder['status'] {
   if (raw === 'approved') return 'approved';
   if (raw === 'assigned') return 'assigned';
   if (raw === 'in_progress') return 'in-progress';
+  if (raw === 'completion_requested') return 'completion-requested';
+  if (raw === 'rejection_requested') return 'rejection-requested';
   if (raw === 'completed') return 'completed';
   if (raw === 'rejected') return 'cancelled';
   if (raw === 'cancelled') return 'cancelled';
@@ -162,6 +164,8 @@ function statusFromBackend(raw: string): WorkOrder['status'] {
 
 function statusToBackend(raw: WorkOrder['status']): string {
   if (raw === 'in-progress') return 'in_progress';
+  if (raw === 'completion-requested') return 'completion_requested';
+  if (raw === 'rejection-requested') return 'rejection_requested';
   if (raw === 'cancelled') return 'rejected';
   return raw;
 }
@@ -548,6 +552,30 @@ export const mockApi = {
     const full = await mockApi.getWorkOrderById(id);
     if (!full) {
       throw new Error('Booking not found after status update');
+    }
+    return full;
+  },
+
+  approveWorkOrderCompletion: async (workOrderId: string): Promise<WorkOrder> => {
+    await request(`/bookings/${workOrderId}/completion/approve`, {
+      method: 'POST',
+    }, true);
+
+    const full = await mockApi.getWorkOrderById(workOrderId);
+    if (!full) {
+      throw new Error('Booking not found after completion approval');
+    }
+    return full;
+  },
+
+  approveWorkOrderRejection: async (workOrderId: string): Promise<WorkOrder> => {
+    await request(`/bookings/${workOrderId}/rejection/approve`, {
+      method: 'POST',
+    }, true);
+
+    const full = await mockApi.getWorkOrderById(workOrderId);
+    if (!full) {
+      throw new Error('Booking not found after rejection approval');
     }
     return full;
   },
