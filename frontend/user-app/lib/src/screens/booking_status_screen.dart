@@ -205,15 +205,13 @@ class BookingStatusScreen extends GetView<BookingController> {
     }
 
     if (status == "in_progress") {
-      return _button("View Checklist", () {
+      return _button("View Checklist Progress", () {
         Get.toNamed('/checklist-progress');
       });
     }
 
     if (status == "completion_approval_pending") {
-      return _button("Approve Completion", () async {
-        await controller.completeBooking();
-      });
+      return const SizedBox();
     }
 
     if (status == "payment_pending") {

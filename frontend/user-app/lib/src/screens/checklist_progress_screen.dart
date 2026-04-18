@@ -30,8 +30,6 @@ class ChecklistProgressScreen extends GetView<BookingController> {
               _progressCard(),
               const SizedBox(height: 20),
               Expanded(child: _taskList()),
-              const SizedBox(height: 16),
-              _completeButton(),
             ],
           ),
         ),
@@ -88,72 +86,41 @@ class ChecklistProgressScreen extends GetView<BookingController> {
         return Obx(() {
           final isDone = controller.completedTasks.contains(task);
 
-          return GestureDetector(
-            onTap: () {
-              controller.toggleTask(task);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isDone
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    color: isDone
-                        ? AppColors.primary
-                        : AppColors.textLight,
-                  ),
-                  const SizedBox(width: 12),
-
-                  // 🔥 THE FINAL FIX
-                  Expanded(
-                    child: Text(
-                      task.tr,
-                      style: TextStyle(
-                        fontSize: 14,
-                        decoration: isDone
-                            ? TextDecoration.lineThrough
-                            : null,
-                        color: AppColors.textDark,
-                      ),
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  isDone
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  color: isDone
+                      ? AppColors.primary
+                      : AppColors.textLight,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    task.tr,
+                    style: TextStyle(
+                      fontSize: 14,
+                      decoration: isDone
+                          ? TextDecoration.lineThrough
+                          : null,
+                      color: AppColors.textDark,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         });
       },
-    );
-  }
-
-  Widget _completeButton() {
-    if (controller.progress < 1.0) {
-      return const SizedBox();
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onPressed: () {
-          controller.markServiceCompleted();
-          Get.back();
-        },
-        child: Text('complete_service'.tr),
-      ),
     );
   }
 }
