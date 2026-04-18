@@ -62,7 +62,48 @@ def _require_admin(current_user: dict):
 
 def _map_technician(user: dict) -> dict:
     is_active = bool(user.get("is_active", True))
-    status_value = "available" if is_active else "offline"
+    latest_booking_status = str(user.get("latest_booking_status") or "").strip().lower()
+
+    if not is_active:
+        status_value = "offline"
+    elif latest_booking_status in {"in_progress"}:
+        status_value = "onsite"
+    elif latest_booking_status in {"assigned", "completion_requested", "approved"}:
+        status_value = "assigned"
+    else:
+        status_value = "available"
+
+    completion_rate = user.get("completion_rate")
+    try:
+        completion_rate_value = float(completion_rate) if completion_rate is not None else 0.0
+    except (TypeError, ValueError):
+        completion_rate_value = 0.0
+
+    current_jobs = user.get("current_jobs")
+    try:
+        current_jobs_value = int(current_jobs) if current_jobs is not None else 0
+    except (TypeError, ValueError):
+        current_jobs_value = 0
+
+    latitude = user.get("live_latitude")
+    if latitude is None:
+        latitude = user.get("booking_latitude")
+    longitude = user.get("live_longitude")
+    if longitude is None:
+        longitude = user.get("booking_longitude")
+
+    try:
+        latitude_value = float(latitude) if latitude is not None else 0.0
+    except (TypeError, ValueError):
+        latitude_value = 0.0
+
+    try:
+        longitude_value = float(longitude) if longitude is not None else 0.0
+    except (TypeError, ValueError):
+        longitude_value = 0.0
+
+    location_address = user.get("location_address") or user.get("booking_address") or "N/A"
+
     return {
         "id": user.get("id"),
         "full_name": user.get("full_name") or "Technician",
@@ -70,11 +111,11 @@ def _map_technician(user: dict) -> dict:
         "phone_number": user.get("phone_number") or "",
         "specialties": [],
         "status": status_value,
-        "location_address": "N/A",
-        "latitude": 0,
-        "longitude": 0,
-        "current_jobs": 0,
-        "completion_rate": 0,
+        "location_address": str(location_address),
+        "latitude": latitude_value,
+        "longitude": longitude_value,
+        "current_jobs": current_jobs_value,
+        "completion_rate": completion_rate_value,
         "is_active": is_active,
     }
 
@@ -333,10 +374,87 @@ def list_technicians(
     try:
         cursor.execute(
             """
-            SELECT id, full_name, email, phone_number, is_active
-            FROM users
-            WHERE role = 'technician'
-            ORDER BY is_active DESC, id DESC
+            SELECT
+                u.id,
+                u.full_name,
+                u.email,
+                u.phone_number,
+                u.is_active,
+                (
+                    SELECT COUNT(*)
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                      AND b.status IN ('assigned', 'in_progress', 'completion_requested')
+                ) AS current_jobs,
+                (
+                    SELECT b.status
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                    ORDER BY b.updated_at DESC, b.id DESC
+                    LIMIT 1
+                ) AS latest_booking_status,
+                (
+                    SELECT b.address_line
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                    ORDER BY b.updated_at DESC, b.id DESC
+                    LIMIT 1
+                ) AS booking_address,
+                (
+                    SELECT b.latitude
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                    ORDER BY b.updated_at DESC, b.id DESC
+                    LIMIT 1
+                ) AS booking_latitude,
+                (
+                    SELECT b.longitude
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                    ORDER BY b.updated_at DESC, b.id DESC
+                    LIMIT 1
+                ) AS booking_longitude,
+                (
+                    SELECT ll.latitude
+                    FROM technician_live_locations ll
+                    WHERE ll.technician_id = u.id
+                    ORDER BY ll.recorded_at DESC, ll.id DESC
+                    LIMIT 1
+                ) AS live_latitude,
+                (
+                    SELECT ll.longitude
+                    FROM technician_live_locations ll
+                    WHERE ll.technician_id = u.id
+                    ORDER BY ll.recorded_at DESC, ll.id DESC
+                    LIMIT 1
+                ) AS live_longitude,
+                (
+                    SELECT
+                        CASE
+                            WHEN COUNT(*) = 0 THEN 0
+                            ELSE ROUND(SUM(CASE WHEN b.status = 'completed' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1)
+                        END
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                ) AS completion_rate,
+                (
+                    SELECT COALESCE(MAX(ll.recorded_at), NULL)
+                    FROM technician_live_locations ll
+                    WHERE ll.technician_id = u.id
+                ) AS location_recorded_at,
+                COALESCE(
+                    (
+                        SELECT b.address_line
+                        FROM bookings b
+                        WHERE b.technician_id = u.id
+                        ORDER BY b.updated_at DESC, b.id DESC
+                        LIMIT 1
+                    ),
+                    'N/A'
+                ) AS location_address
+            FROM users u
+            WHERE u.role = 'technician'
+            ORDER BY u.is_active DESC, u.id DESC
             """
         )
         technicians = [_map_technician(row) for row in cursor.fetchall()]

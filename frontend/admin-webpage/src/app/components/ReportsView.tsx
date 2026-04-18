@@ -12,6 +12,14 @@ import { Download, Filter, FileText, Calendar, DollarSign, TrendingUp } from 'lu
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { toast } from 'sonner';
 
+const emptyRevenueStats: RevenueStats = {
+  totalRevenue: 0,
+  pendingRevenue: 0,
+  dailyRevenue: [],
+  trendData: [],
+  trendPeriod: 'week',
+};
+
 export function ReportsView() {
   const { t } = useLanguage();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -22,7 +30,7 @@ export function ReportsView() {
   const [selectedTechnician, setSelectedTechnician] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [revenueStats, setRevenueStats] = useState<RevenueStats>({ totalRevenue: 0, pendingRevenue: 0, dailyRevenue: [] });
+  const [revenueStats, setRevenueStats] = useState<RevenueStats>(emptyRevenueStats);
 
   const loadData = async (showLoader = false, silent = true) => {
     if (showLoader) {
@@ -44,7 +52,7 @@ export function ReportsView() {
       }
       setWorkOrders([]);
       setTechnicians([]);
-      setRevenueStats({ totalRevenue: 0, pendingRevenue: 0, dailyRevenue: [] });
+      setRevenueStats(emptyRevenueStats);
     } finally {
       if (showLoader) {
         setIsLoading(false);
@@ -228,6 +236,17 @@ export function ReportsView() {
     }, {} as Record<string, { date: string; count: number; revenue: number }>);
 
   const dateWiseArray = (Object.values(dateWiseData) as Array<{ date: string; count: number; revenue: number }>).sort((a, b) => a.date.localeCompare(b.date));
+
+  const paymentDateWiseArray = useMemo(() => {
+    return revenueStats.dailyRevenue
+      .filter((entry) => (!startDate || entry.date >= startDate) && (!endDate || entry.date <= endDate))
+      .map((entry) => ({ date: entry.date, revenue: entry.revenue }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [revenueStats.dailyRevenue, startDate, endDate]);
+
+  const revenueDateSeries = paymentDateWiseArray.length > 0
+    ? paymentDateWiseArray
+    : dateWiseArray.map((entry) => ({ date: entry.date, revenue: entry.revenue }));
 
   // Technician-wise report data
   const technicianWiseData = technicians
@@ -458,7 +477,7 @@ export function ReportsView() {
             </CardHeader>
             <CardContent dir="ltr">
               <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={dateWiseArray}>
+                <LineChart data={revenueDateSeries}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" stroke="#888" />
                   <YAxis stroke="#888" />
