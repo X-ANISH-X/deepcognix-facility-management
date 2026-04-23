@@ -110,6 +110,16 @@ class BookingService {
     );
   }
 
+  Future<void> reportPaymentReceived(int bookingId, {String? notes}) async {
+    final token = await _requireToken();
+    final cleanNotes = notes?.trim();
+    await _authorizedPost(
+      '/bookings/$bookingId/payment-received',
+      token,
+      body: cleanNotes == null || cleanNotes.isEmpty ? null : {'notes': cleanNotes},
+    );
+  }
+
   Future<String> _requireToken() async {
     final token = await _storageService.getToken();
     if (token == null || token.isEmpty) {

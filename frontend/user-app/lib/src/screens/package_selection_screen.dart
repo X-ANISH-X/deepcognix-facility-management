@@ -211,7 +211,7 @@ class _PackageCardState extends State<_PackageCard> {
                 ),
               ),
               Text(
-                '\$${pkg.price.toInt()}',
+                'AED ${pkg.price.toInt()}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF0F9D8A),

@@ -292,8 +292,10 @@ function mapTechnician(item: Dict): Technician {
 function mapWorkOrder(item: Dict): WorkOrder {
   const status = statusFromBackend(pickString(item, 'status'));
   const createdAt = pickString(item, 'created_at') || new Date().toISOString();
-  const finalPriceRaw = item.final_price;
-  const actualCost = typeof finalPriceRaw === 'number' ? finalPriceRaw : undefined;
+  const finalPrice = pickFirstNumber(item, ['final_price', 'finalPrice']);
+  const basePrice = pickFirstNumber(item, ['base_price', 'estimated_cost', 'estimatedCost']);
+  const actualCost = finalPrice > 0 ? finalPrice : undefined;
+  const estimatedCost = basePrice > 0 ? basePrice : finalPrice;
 
   return {
     id: String(item.id ?? ''),
@@ -312,7 +314,7 @@ function mapWorkOrder(item: Dict): WorkOrder {
     apartmentNumber: pickString(item, 'apartment_number') || undefined,
     description: pickString(item, 'customer_notes') || pickString(item, 'notes'),
     customerNotes: pickString(item, 'customer_notes') || undefined,
-    estimatedCost: pickNumber(item, 'base_price'),
+    estimatedCost,
     actualCost,
     createdAt,
     completedAt: pickString(item, 'completed_at') || undefined,

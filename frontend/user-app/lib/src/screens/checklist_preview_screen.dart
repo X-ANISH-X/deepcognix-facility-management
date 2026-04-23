@@ -85,7 +85,7 @@ class ChecklistPreviewScreen extends StatelessWidget {
                       ),
 
                       Text(
-                        '₹${package.price.toInt()}',
+                        'AED ${package.price.toInt()}',
                         style: Theme.of(context)
                             .textTheme
                             .titleMedium

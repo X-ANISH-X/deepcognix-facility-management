@@ -422,14 +422,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return;
       }
 
-      await _bookingService.completeJob(widget.job.id, notes: notes);
+      await _bookingService.reportPaymentReceived(widget.job.id, notes: notes);
       _stopLocationTracking(clearMessage: true);
       await _loadBooking();
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Job marked as completed.')),
+        const SnackBar(content: Text('Payment received report sent to admin for approval.')),
       );
     } on AuthException catch (error) {
       if (!mounted) {
@@ -465,12 +465,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Completion Request Form',
+                'Payment Received Report',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               const Text(
-                'This sends a completion approval request to the admin operations queue.',
+                'Confirm payment was collected from customer. This sends an approval request to admin before final completion.',
               ),
               const SizedBox(height: 16),
               Text('Booking: ${booking.title}'),
@@ -482,8 +482,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   completionNotes = value;
                 },
                 decoration: const InputDecoration(
-                  labelText: 'Completion notes',
-                  hintText: 'Add notes for admin/customer handover',
+                  labelText: 'Payment notes',
+                  hintText: 'Example: Cash collected at site',
                 ),
               ),
               const SizedBox(height: 16),
@@ -491,7 +491,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Submit Request'),
+                  child: const Text('Report Payment Received'),
                 ),
               ),
             ],
@@ -692,7 +692,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text('Submit Completion Request'),
+                              : const Text('Report Payment Received'),
                         ),
                       ),
                     ),
