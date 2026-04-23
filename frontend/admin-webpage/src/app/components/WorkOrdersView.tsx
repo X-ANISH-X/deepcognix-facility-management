@@ -47,6 +47,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [scheduledTimeSlot, setScheduledTimeSlot] = useState<string>('09:00:00');
@@ -221,6 +222,20 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
     }
   };
 
+  const formatMoney = (amount?: number) => {
+    if (typeof amount !== 'number' || Number.isNaN(amount)) {
+      return 'AED 0';
+    }
+    return `AED ${amount}`;
+  };
+
+  const DetailRow = ({ label, value }: { label: string; value: string }) => (
+    <div className="flex flex-col gap-1 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-800/60 px-4 py-3">
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 wrap-break-word">{value}</span>
+    </div>
+  );
+
   if (isLoading) {
     return <LoadingSpinner message={t('common.loading')} />;
   }
@@ -237,7 +252,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
           {canCreateRequest && (
             <DialogTrigger asChild>
               <Button className="rounded-full bg-blue-600 hover:bg-blue-700 whitespace-nowrap">
-                <Plus className="w-4 h-4 mt-[2px]" />
+                <Plus className="w-4 h-4 mt-0.5" />
                 {t('workorders.createBtn')}
               </Button>
             </DialogTrigger>
@@ -409,28 +424,28 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
 
               <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
                     <Calendar className="w-4 h-4 text-blue-600" />
                   </div>
                   <span className="text-gray-600 dark:text-gray-400">{order.serviceType}</span>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
                     <MapPin className="w-4 h-4 text-green-600" />
                   </div>
                   <span className="text-gray-600 dark:text-gray-400">{order.location}</span>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center shrink-0">
                     <Clock className="w-4 h-4 text-orange-600" />
                   </div>
                   <span className="text-gray-600 dark:text-gray-400">{order.scheduledDate} at {formatScheduledTime(order.scheduledTime)}</span>
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
                     <DollarSign className="w-4 h-4 text-purple-600" />
                   </div>
                   <span className="text-gray-600 dark:text-gray-400">AED {order.estimatedCost}</span>
@@ -438,7 +453,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
 
                 {order.technicianName && (
                   <div className="flex items-center gap-2 text-sm">
-                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center shrink-0">
                       <User className="w-4 h-4 text-indigo-600" />
                     </div>
                     <span className="text-gray-600 dark:text-gray-400">{order.technicianName}</span>
@@ -452,7 +467,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                 {canManage && (order.status === 'submitted' || order.status === 'approved') && (
                   <Button 
                     onClick={() => { setSelectedOrder(order); setIsAssignDialogOpen(true); }}
-                    className="flex-1 min-w-[150px] rounded-full bg-blue-600 hover:bg-blue-700 dark:text-white"
+                    className="flex-1 min-w-37.5 rounded-full bg-blue-600 hover:bg-blue-700 dark:text-white"
                   >
                     <User className="w-4 h-4 mr-2" />
                     Assign Technician
@@ -462,7 +477,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                   <Button 
                     onClick={() => { setSelectedOrder(order); setIsAssignDialogOpen(true); }}
                     variant="outline"
-                    className="flex-1 min-w-[150px] rounded-full"
+                    className="flex-1 min-w-37.5 rounded-full"
                   >
                     Reassign
                   </Button>
@@ -470,7 +485,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                 {canManage && order.status === 'completion-requested' && (
                   <Button
                     onClick={() => void handleApproveCompletion(order.id)}
-                    className="flex-1 min-w-[150px] rounded-full bg-emerald-600 hover:bg-emerald-700 dark:text-white"
+                    className="flex-1 min-w-37.5 rounded-full bg-emerald-600 hover:bg-emerald-700 dark:text-white"
                   >
                     Approve Completion
                   </Button>
@@ -478,12 +493,16 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                 {canManage && order.status === 'rejection-requested' && (
                   <Button
                     onClick={() => void handleApproveRejection(order.id)}
-                    className="flex-1 min-w-[150px] rounded-full bg-rose-600 hover:bg-rose-700 dark:text-white"
+                    className="flex-1 min-w-37.5 rounded-full bg-rose-600 hover:bg-rose-700 dark:text-white"
                   >
                     Approve Rejection
                   </Button>
                 )}
-                <Button variant="outline" className="flex-1 min-w-[150px] rounded-full">
+                <Button
+                  variant="outline"
+                  className="flex-1 min-w-37.5 rounded-full"
+                  onClick={() => { setSelectedOrder(order); setIsDetailsDialogOpen(true); }}
+                >
                   View Details
                 </Button>
               </div>
@@ -508,7 +527,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                   className={`p-4 rounded-2xl bg-gray-50 hover:bg-blue-50 dark:bg-gray-800 dark:hover:bg-blue-950/40 transition-colors border-2 border-transparent hover:border-blue-500 dark:hover:border-blue-600 flex flex-col ${canManage ? 'cursor-pointer' : 'cursor-not-allowed opacity-80'}`}
                 >
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                    <div className={`w-12 h-12 ${getTechnicianStatusColor(tech.status)} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0`}>
+                    <div className={`w-12 h-12 ${getTechnicianStatusColor(tech.status)} rounded-full flex items-center justify-center text-white font-bold shrink-0`}>
                       {tech.avatar}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -522,7 +541,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                         </span>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-green-600">{tech.completionRate}%</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">completion</p>
                     </div>
@@ -537,6 +556,74 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
                 </div>
               ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Work Order Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-4xl rounded-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Work Order Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedOrder ? (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Booking</p>
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedOrder.id}</h3>
+                  <p className="mt-1 text-gray-600 dark:text-gray-300">{selectedOrder.customerName}</p>
+                </div>
+                <Badge className={`${getStatusColor(selectedOrder.status)} whitespace-nowrap`} variant="outline">
+                  {selectedOrder.status}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <DetailRow label="Service" value={selectedOrder.serviceType} />
+                <DetailRow label="Estimated Cost" value={formatMoney(selectedOrder.estimatedCost)} />
+                <DetailRow label="Schedule" value={`${selectedOrder.scheduledDate} at ${formatScheduledTime(selectedOrder.scheduledTime)}`} />
+                <DetailRow label="Location" value={selectedOrder.location} />
+                <DetailRow label="Building" value={selectedOrder.buildingName || 'N/A'} />
+                <DetailRow label="Floor / Apartment" value={`${selectedOrder.floorNumber || 'N/A'} / ${selectedOrder.apartmentNumber || 'N/A'}`} />
+                <DetailRow label="Technician" value={selectedOrder.technicianName || 'Not assigned yet'} />
+                <DetailRow label="Created At" value={new Date(selectedOrder.createdAt).toLocaleString()} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <DetailRow label="Priority" value={selectedOrder.priority} />
+                <DetailRow label="Actual Cost" value={selectedOrder.actualCost ? formatMoney(selectedOrder.actualCost) : 'Pending'} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-800/60 px-4 py-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Description</span>
+                  <p className="mt-2 text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{selectedOrder.description}</p>
+                </div>
+                <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-800/60 px-4 py-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Customer Notes</span>
+                  <p className="mt-2 text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">{selectedOrder.customerNotes || 'No customer notes provided.'}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2">
+                {canManage && (selectedOrder.status === 'submitted' || selectedOrder.status === 'approved') && (
+                  <Button
+                    onClick={() => {
+                      setIsDetailsDialogOpen(false);
+                      setIsAssignDialogOpen(true);
+                    }}
+                    className="rounded-full bg-blue-600 hover:bg-blue-700 dark:text-white"
+                  >
+                    Assign Technician
+                  </Button>
+                )}
+                <Button variant="outline" className="rounded-full" onClick={() => setIsDetailsDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

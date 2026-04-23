@@ -215,7 +215,28 @@ def complete_booking(
     if not success:
         raise HTTPException(status_code=400, detail=error)
 
-    return {"message": "Completion request sent to admin"}
+    return {"message": "Payment received confirmation sent to admin for completion approval"}
+
+
+@router.post("/{booking_id}/payment-received")
+def report_payment_received(
+    booking_id: int,
+    payload: CompleteBookingRequest | None = None,
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"technician"})
+    success, error = request_job_completion(
+        conn=conn,
+        booking_id=booking_id,
+        technician_id=current_user["id"],
+        notes=payload.notes if payload else None,
+    )
+
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Payment received confirmation sent to admin for completion approval"}
 
 
 @router.post("/{booking_id}/completion/approve")

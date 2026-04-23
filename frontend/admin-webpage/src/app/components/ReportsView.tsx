@@ -8,7 +8,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { api as mockApi, type WorkOrder, type Technician, type RevenueStats } from '@/app/services/api';
 import { useLanguage } from '@/app/context/LanguageContext';
-import { Download, Filter, FileText, Calendar, DollarSign, TrendingUp } from 'lucide-react';
+import { Download, Filter, FileText, Calendar, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { toast } from 'sonner';
 
@@ -286,7 +286,7 @@ export function ReportsView() {
     .filter(wo => wo.status === 'completed')
     .reduce((sum, wo) => sum + (wo.actualCost ?? wo.estimatedCost), 0);
   const totalRevenue = paymentRevenueInRange > 0 ? paymentRevenueInRange : bookingRevenue;
-  const revenueSource = paymentRevenueInRange > 0 ? 'Payments' : 'Bookings (fallback)';
+  const revenueSource = paymentRevenueInRange > 0 ? 'Recorded Bookings' : 'Bookings (fallback)';
   const avgOrderValue = completedOrders > 0 ? bookingRevenue / completedOrders : 0;
 
   if (isLoading) {
@@ -347,7 +347,9 @@ export function ReportsView() {
                 <div className="text-sm opacity-90 mt-1">{t('reports.totalRevenue')}</div>
                 <Badge className="mt-2 bg-white/20 text-white hover:bg-white/20">{revenueSource}</Badge>
               </div>
-              <DollarSign className="w-8 h-8 opacity-80" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold tracking-wide">
+                AED
+              </div>
             </div>
           </CardContent>
         </Card>

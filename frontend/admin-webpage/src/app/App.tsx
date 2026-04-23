@@ -11,6 +11,7 @@ import { ReportsView } from '@/app/components/ReportsView';
 import { SettingsView } from '@/app/components/SettingsView';
 import { LayoutDashboard, Map, ClipboardList, Settings, FileText, LogOut, Menu, X, Sun, Moon, Package2, Bell } from 'lucide-react';
 import { Toaster } from '@/app/components/ui/sonner';
+import { toast } from 'sonner';
 import { canAccessView, canManageDispatch, type AuthUser, type UserRole } from '@/app/utils/accessControl';
 import { api as mockApi, type NotificationItem } from '@/app/services/api';
 
@@ -84,15 +85,70 @@ function AppContent() {
     await loadNotifications(true);
   };
 
+  const extractBookingId = (message: string): number | null => {
+    const match = message.match(/booking\s*#\s*(\d+)/i);
+    if (!match) {
+      return null;
+    }
+    const parsed = Number(match[1]);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const isApprovalNotification = (notification: NotificationItem): boolean => {
+    const normalizedType = notification.type.toLowerCase();
+    return normalizedType === 'completion_requested';
+  };
+
+  const handleQuickApproveFromNotification = async (notification: NotificationItem) => {
+    const bookingId = extractBookingId(notification.message);
+    if (!bookingId) {
+      toast.error('Could not find booking ID in this notification.');
+      return;
+    }
+
+    try {
+      const workOrder = await mockApi.getWorkOrderById(String(bookingId));
+      if (!workOrder) {
+        toast.error(`Booking #${bookingId} could not be found.`);
+        return;
+      }
+
+      if (workOrder.status !== 'completion-requested') {
+        await loadNotifications(true);
+        setCurrentView('orders');
+        setIsNotificationOpen(false);
+        toast.info(`Booking #${bookingId} is already ${workOrder.status.replace(/-/g, ' ')}.`);
+        return;
+      }
+
+      await mockApi.approveWorkOrderCompletion(String(bookingId));
+      if (!notification.isRead) {
+        await mockApi.markNotificationAsRead(notification.id);
+      }
+      await loadNotifications(true);
+      setCurrentView('orders');
+      setIsNotificationOpen(false);
+      toast.success(`Approved booking #${bookingId}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to approve this booking.';
+      toast.error(message);
+    }
+  };
+
   const handleOpenNotification = async (notification: NotificationItem) => {
     if (!notification.isRead) {
       await mockApi.markNotificationAsRead(notification.id);
       await loadNotifications(true);
     }
+
+    if (extractBookingId(notification.message)) {
+      setCurrentView('orders');
+      setIsNotificationOpen(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-slate-900">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-slate-900">
       {/* Show login page if not authenticated */}
       {!isAuthenticated ? (
         <LoginPage
@@ -117,13 +173,13 @@ function AppContent() {
           <div className="flex items-center justify-between">
             {isSidebarOpen ? (
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-linear-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
                   DeepCognix
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Mission Control</p>
               </div>
             ) : (
-              <div className="w-8 h-8 bg-gradient-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-xl"></div>
+              <div className="w-8 h-8 bg-linear-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-xl"></div>
             )}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -146,11 +202,11 @@ function AppContent() {
                 onClick={() => setCurrentView(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-500 dark:to-emerald-500 text-white shadow-lg shadow-teal-500/30'
+                    ? 'bg-linear-to-r from-teal-600 to-emerald-600 dark:from-teal-500 dark:to-emerald-500 text-white shadow-lg shadow-teal-500/30'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className="w-5 h-5 shrink-0" />
                 {isSidebarOpen && <span className="font-medium">{item.label}</span>}
               </button>
             );
@@ -165,12 +221,12 @@ function AppContent() {
           >
             {theme === 'light' ? (
               <>
-                <Moon className="w-5 h-5 flex-shrink-0" />
+                <Moon className="w-5 h-5 shrink-0" />
                 {isSidebarOpen && <span className="font-medium">Dark Mode</span>}
               </>
             ) : (
               <>
-                <Sun className="w-5 h-5 flex-shrink-0" />
+                <Sun className="w-5 h-5 shrink-0" />
                 {isSidebarOpen && <span className="font-medium">Light Mode</span>}
               </>
             )}
@@ -182,11 +238,11 @@ function AppContent() {
               onClick={() => setCurrentView('settings')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${
                 currentView === 'settings'
-                  ? 'bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-500 dark:to-emerald-500 text-white shadow-lg shadow-teal-500/30'
+                  ? 'bg-linear-to-r from-teal-600 to-emerald-600 dark:from-teal-500 dark:to-emerald-500 text-white shadow-lg shadow-teal-500/30'
                   : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
-              <Settings className="w-5 h-5 flex-shrink-0" />
+              <Settings className="w-5 h-5 shrink-0" />
               {isSidebarOpen && <span className="font-medium">Settings</span>}
             </button>
           )}
@@ -196,7 +252,7 @@ function AppContent() {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200/50 dark:border-gray-700/50">
           {isSidebarOpen ? (
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50">
-              <div className="w-10 h-10 bg-gradient-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 bg-linear-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-full flex items-center justify-center text-white font-bold">
                 {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
               <div className="flex-1">
@@ -213,7 +269,7 @@ function AppContent() {
             </div>
           ) : (
             <div className="flex justify-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-10 h-10 bg-linear-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-full flex items-center justify-center text-white font-bold">
                 {currentUser?.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
             </div>
@@ -260,7 +316,7 @@ function AppContent() {
                   </button>
 
                   {isNotificationOpen && (
-                    <div className="absolute right-0 mt-2 w-[360px] max-h-[460px] overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-slate-900 z-50">
+                    <div className="absolute right-0 mt-2 w-90 max-h-115 overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-slate-900 z-50">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
                         <h3 className="font-semibold text-sm">Notifications</h3>
                         <button
@@ -274,17 +330,32 @@ function AppContent() {
                         <div className="px-4 py-6 text-sm text-gray-500 dark:text-gray-400">No notifications yet.</div>
                       ) : (
                         notifications.slice(0, 12).map((notification) => (
-                          <button
+                          <div
                             key={notification.id}
-                            onClick={() => void handleOpenNotification(notification)}
-                            className={`w-full text-left px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-slate-800 ${notification.isRead ? 'opacity-80' : 'bg-blue-50/60 dark:bg-blue-950/20'}`}
+                            className={`px-4 py-3 border-b border-gray-100 dark:border-gray-800 ${notification.isRead ? 'opacity-80' : 'bg-blue-50/60 dark:bg-blue-950/20'}`}
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-sm text-gray-800 dark:text-gray-100">{notification.message}</p>
-                              {!notification.isRead && <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5"></span>}
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
-                          </button>
+                            <button
+                              onClick={() => void handleOpenNotification(notification)}
+                              className="w-full text-left hover:bg-transparent"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm text-gray-800 dark:text-gray-100">{notification.message}</p>
+                                {!notification.isRead && <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5"></span>}
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(notification.createdAt).toLocaleString()}</p>
+                            </button>
+
+                            {isApprovalNotification(notification) && extractBookingId(notification.message) && (
+                              <div className="mt-2 flex justify-end">
+                                <button
+                                  onClick={() => void handleQuickApproveFromNotification(notification)}
+                                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
+                                >
+                                  Approve Now
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         ))
                       )}
                     </div>

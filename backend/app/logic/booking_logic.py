@@ -37,6 +37,53 @@ def _fetch_booking(cursor, booking_id: int):
     return cursor.fetchone()
 
 
+def _upsert_payment_record(
+    cursor,
+    *,
+    booking_id: int,
+    amount: float,
+    status: str,
+    payment_method: str,
+    transaction_reference: str,
+    mark_paid: bool = False,
+):
+    cursor.execute(
+        """
+        SELECT id
+        FROM payments
+        WHERE booking_id = %s
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (booking_id,),
+    )
+    existing = cursor.fetchone()
+
+    if existing:
+        cursor.execute(
+            """
+            UPDATE payments
+            SET amount = %s,
+                status = %s,
+                payment_method = %s,
+                transaction_reference = %s,
+                paid_at = CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE paid_at END
+            WHERE id = %s
+            """,
+            (amount, status, payment_method, transaction_reference, mark_paid, existing["id"]),
+        )
+        return existing["id"]
+
+    cursor.execute(
+        """
+        INSERT INTO payments (booking_id, amount, status, payment_method, transaction_reference, paid_at)
+        VALUES (%s, %s, %s, %s, %s, CASE WHEN %s THEN CURRENT_TIMESTAMP ELSE NULL END)
+        """,
+        (booking_id, amount, status, payment_method, transaction_reference, mark_paid),
+    )
+    return cursor.lastrowid
+
+
 def _create_or_refresh_booking_request(
     cursor,
     *,
@@ -496,14 +543,23 @@ def request_job_completion(conn, booking_id: int, technician_id: int, notes: str
             message=(
                 notes.strip()
                 if notes and notes.strip()
-                else f"Technician requested completion approval for booking #{booking_id}."
+                else f"Technician confirmed payment was received for booking #{booking_id}. Awaiting admin approval to complete job."
             ),
+        )
+        _upsert_payment_record(
+            cursor,
+            booking_id=booking_id,
+            amount=float(booking.get("final_price") or 0),
+            status="pending",
+            payment_method="cash_on_completion",
+            transaction_reference=f"TECHNICIAN_REPORTED_{booking_id}",
+            mark_paid=False,
         )
         create_notification(
             cursor,
             user_id=technician_id,
-            title="Completion Requested",
-            message=f"Completion approval request was sent to admin for booking #{booking_id}.",
+            title="Payment Received Submitted",
+            message=f"Payment received confirmation was sent to admin for booking #{booking_id}.",
             notification_type="completion_requested",
         )
         cursor.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")
@@ -511,8 +567,8 @@ def request_job_completion(conn, booking_id: int, technician_id: int, notes: str
             create_notification(
                 cursor,
                 user_id=admin["id"],
-                title="Completion Approval Needed",
-                message=f"Technician requested completion approval for booking #{booking_id}.",
+                title="Payment Received Approval Needed",
+                message=f"Technician reported payment received for booking #{booking_id}. Review and approve to mark completed.",
                 notification_type="completion_requested",
             )
         conn.commit()
@@ -534,6 +590,15 @@ def approve_job_completion(conn, booking_id: int, admin_id: int):
         cursor.execute(
             "UPDATE bookings SET status = 'completed' WHERE id = %s",
             (booking_id,),
+        )
+        _upsert_payment_record(
+            cursor,
+            booking_id=booking_id,
+            amount=float(booking.get("final_price") or 0),
+            status="paid",
+            payment_method="cash_on_completion",
+            transaction_reference=f"ADMIN_APPROVED_{booking_id}",
+            mark_paid=True,
         )
         cursor.execute(
             """

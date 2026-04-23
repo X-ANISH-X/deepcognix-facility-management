@@ -116,7 +116,7 @@ class BookingScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            "₹${p["price"]}",
+                            "AED ${p["price"]}",
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF0E8F83),
@@ -149,7 +149,7 @@ class BookingScreen extends StatelessWidget {
               spacing: 10,
               children: addOns.map((a) {
                 return Obx(() => FilterChip(
-                  label: Text("${a["name"]} (+₹${a["price"]})"),
+                  label: Text("${a["name"]} (+AED ${a["price"]})"),
                   selected: selectedAddOns.contains(a["name"]),
                   selectedColor: const Color(0xFF0E8F83),
                   labelStyle: TextStyle(

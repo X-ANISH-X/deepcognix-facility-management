@@ -21,9 +21,11 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FB), // ✅ soft background
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Our Services"),
         elevation: 0,
@@ -39,31 +41,29 @@ class HomeScreen extends StatelessWidget {
           ),
           Obx(() => IconButton(
                 icon: Icon(
-                  _theme.isDark.value
-                      ? Icons.dark_mode
-                      : Icons.light_mode,
+                  _theme.isDark.value ? Icons.dark_mode : Icons.light_mode,
                 ),
                 onPressed: _theme.toggleTheme,
               )),
         ],
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             /// 🔹 WELCOME CARD (UPGRADED LOOK)
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: colorScheme.surface,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(
+                    color: colorScheme.outlineVariant.withOpacity(0.6)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: theme.shadowColor.withOpacity(
+                        theme.brightness == Brightness.dark ? 0.28 : 0.06),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -71,18 +71,17 @@ class HomeScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-
                   /// ICON (NEW)
                   Container(
                     height: 45,
                     width: 45,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE6F4F1),
+                      color: colorScheme.primaryContainer.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.cleaning_services,
-                      color: Color(0xFF0F9D8A),
+                      color: colorScheme.primary,
                     ),
                   ),
 
@@ -95,13 +94,17 @@ class HomeScreen extends StatelessWidget {
                       children: [
                         Text(
                           "Welcome back, ${_auth.fullName ?? ""} 👋",
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text("What would you like cleaned today?"),
+                        Text(
+                          "What would you like cleaned today?",
+                          style: TextStyle(color: colorScheme.onSurfaceVariant),
+                        ),
                       ],
                     ),
                   ),
@@ -111,9 +114,13 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            const Text(
+            Text(
               "Select Apartment Type",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
             ),
 
             const SizedBox(height: 16),
@@ -122,8 +129,7 @@ class HomeScreen extends StatelessWidget {
             Expanded(
               child: GridView.builder(
                 itemCount: apartmentTypes.length,
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
@@ -134,7 +140,6 @@ class HomeScreen extends StatelessWidget {
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),
                     onTap: () {
-
                       /// 🔥 SAME LOGIC (UNTOUCHED)
                       _booking.serviceId.value = item["id"];
 
@@ -143,33 +148,36 @@ class HomeScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: Colors.grey.shade200),
+                        border: Border.all(
+                            color: colorScheme.outlineVariant.withOpacity(0.6)),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: theme.shadowColor.withOpacity(
+                                theme.brightness == Brightness.dark
+                                    ? 0.28
+                                    : 0.06),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-
                           /// ICON (NEW)
                           Container(
                             height: 50,
                             width: 50,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE6F4F1),
+                              color:
+                                  colorScheme.primaryContainer.withOpacity(0.5),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               _getIcon(item["title"]),
-                              color: const Color(0xFF0F9D8A),
+                              color: colorScheme.primary,
                               size: 26,
                             ),
                           ),
@@ -179,9 +187,10 @@ class HomeScreen extends StatelessWidget {
                           /// TEXT (UNCHANGED)
                           Text(
                             item["title"],
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
                             ),
                           ),
                         ],

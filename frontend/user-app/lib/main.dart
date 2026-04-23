@@ -92,15 +92,25 @@ class MyApp extends StatelessWidget {
           child: child!,
         ),
 
-        theme: ThemeData.light().copyWith(
-          primaryColor: brandColor,
-          scaffoldBackgroundColor: Colors.white,
+        theme: ThemeData(
+          brightness: Brightness.light,
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: brandColor,
+            brightness: Brightness.light,
+          ).copyWith(
+            primary: brandColor,
+            secondary: const Color(0xFF16A085),
+            surface: Colors.white,
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF4F7FB),
           appBarTheme: const AppBarTheme(
             elevation: 0,
             centerTitle: true,
-            backgroundColor: Colors.white,
+            backgroundColor: Colors.transparent,
             foregroundColor: Color(0xFF1C1C1E),
           ),
+          cardColor: Colors.white,
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: brandColor,
@@ -126,11 +136,29 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(color: brandColor, width: 1.5),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
-        darkTheme: ThemeData.dark().copyWith(
-          primaryColor: brandColor,
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: brandColor,
+            brightness: Brightness.dark,
+          ).copyWith(
+            primary: brandColor,
+            secondary: const Color(0xFF55D6BE),
+            surface: const Color(0xFF172033),
+          ),
+          scaffoldBackgroundColor: const Color(0xFF0B1220),
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            centerTitle: true,
+            backgroundColor: Colors.transparent,
+            foregroundColor: Color(0xFFF8FAFC),
+          ),
+          cardColor: const Color(0xFF172033),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               backgroundColor: brandColor,
@@ -141,10 +169,27 @@ class MyApp extends StatelessWidget {
               ),
             ),
           ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: const Color(0xFF172033),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: brandColor, width: 1.5),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
         ),
-        themeMode: themeController.isDark.value
-            ? ThemeMode.dark
-            : ThemeMode.light,
+        themeMode:
+            themeController.isDark.value ? ThemeMode.dark : ThemeMode.light,
 
         /// 🔥 ALWAYS START FROM SPLASH
         initialRoute: '/splash',
@@ -162,7 +207,9 @@ class MyApp extends StatelessWidget {
           /// 🔥 REQUIRED ROUTES
           GetPage(name: '/map-picker', page: () => MapPickerScreen()),
           GetPage(name: '/tracking', page: () => TrackingScreen()),
-          GetPage(name: '/checklist-progress', page: () => ChecklistProgressScreen()),
+          GetPage(
+              name: '/checklist-progress',
+              page: () => ChecklistProgressScreen()),
         ],
       );
     });
