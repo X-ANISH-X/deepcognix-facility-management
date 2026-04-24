@@ -97,21 +97,23 @@ class BookingController extends GetxController {
         "service_id": serviceId.value,
         "package_id": packageId.value,
 
-        // ✅ CORRECT FIELDS
         "scheduled_date": selectedDate.value,
         "scheduled_time_slot": normalizeTime(selectedTime.value),
 
         "address_line": selectedAddress.value,
 
-        // required fillers
-        "building_name": "",
-        "floor_number": "",
-        "apartment_number": "",
+        // ✅ ONLY SEND IF VALID (NO EMPTY STRINGS)
+        if (selectedAddress.value.trim().isNotEmpty)
+          "building_name": selectedAddress.value,
+
+        if (selectedAddress.value.trim().isNotEmpty)
+          "floor_number": "1",
+
+        if (selectedAddress.value.trim().isNotEmpty)
+          "apartment_number": "101",
 
         "latitude": selectedLat.value,
         "longitude": selectedLng.value,
-
-        "final_price": price.value,
       };
 
       debugPrint("🚀 FINAL BODY → $body");
