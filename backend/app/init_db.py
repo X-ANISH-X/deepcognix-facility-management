@@ -30,6 +30,19 @@ def _index_exists(cursor, table_name: str, index_name: str) -> bool:
     return cursor.fetchone() is not None
 
 
+def _table_exists(cursor, table_name: str) -> bool:
+    cursor.execute(
+        """
+        SELECT 1
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = %s
+          AND TABLE_NAME = %s
+        """,
+        (settings.DB_NAME, table_name),
+    )
+    return cursor.fetchone() is not None
+
+
 def _run_safe_alter(cursor, statement: str):
     try:
         cursor.execute(statement)
@@ -59,6 +72,87 @@ def _cleanup_duplicate_checklist_rows(cursor):
          AND bc1.id > bc2.id
         """
     )
+
+
+def _cleanup_duplicate_packages(cursor):
+    cursor.execute(
+        """
+        SELECT name, MIN(id) AS keep_id
+        FROM packages
+        GROUP BY name
+        HAVING COUNT(*) > 1
+        """
+    )
+    duplicate_groups = cursor.fetchall()
+
+    for package_name, keep_id in duplicate_groups:
+        cursor.execute(
+            "SELECT id FROM packages WHERE name = %s AND id <> %s",
+            (package_name, keep_id),
+        )
+        duplicate_ids = [row[0] for row in cursor.fetchall()]
+
+        for duplicate_id in duplicate_ids:
+            cursor.execute(
+                """
+                INSERT IGNORE INTO package_checklist (package_id, task_name, order_index)
+                SELECT %s, task_name, order_index
+                FROM package_checklist
+                WHERE package_id = %s
+                """,
+                (keep_id, duplicate_id),
+            )
+            cursor.execute("DELETE FROM package_checklist WHERE package_id = %s", (duplicate_id,))
+            cursor.execute("UPDATE bookings SET package_id = %s WHERE package_id = %s", (keep_id, duplicate_id))
+
+            if _table_exists(cursor, "service_package_meta"):
+                cursor.execute("SELECT COUNT(*) FROM service_package_meta WHERE package_id = %s", (keep_id,))
+                keep_has_meta = cursor.fetchone()[0] > 0
+                if keep_has_meta:
+                    cursor.execute("DELETE FROM service_package_meta WHERE package_id = %s", (duplicate_id,))
+                else:
+                    cursor.execute(
+                        "UPDATE service_package_meta SET package_id = %s WHERE package_id = %s",
+                        (keep_id, duplicate_id),
+                    )
+
+            cursor.execute("DELETE FROM packages WHERE id = %s", (duplicate_id,))
+
+
+def _cleanup_duplicate_services(cursor):
+    cursor.execute(
+        """
+        SELECT name, MIN(id) AS keep_id
+        FROM services
+        GROUP BY name
+        HAVING COUNT(*) > 1
+        """
+    )
+    duplicate_groups = cursor.fetchall()
+
+    for service_name, keep_id in duplicate_groups:
+        cursor.execute(
+            "SELECT id FROM services WHERE name = %s AND id <> %s",
+            (service_name, keep_id),
+        )
+        duplicate_ids = [row[0] for row in cursor.fetchall()]
+
+        for duplicate_id in duplicate_ids:
+            cursor.execute("UPDATE bookings SET service_id = %s WHERE service_id = %s", (keep_id, duplicate_id))
+
+            if _table_exists(cursor, "service_package_items"):
+                cursor.execute(
+                    """
+                    INSERT IGNORE INTO service_package_items (service_package_id, service_id, quantity)
+                    SELECT service_package_id, %s, quantity
+                    FROM service_package_items
+                    WHERE service_id = %s
+                    """,
+                    (keep_id, duplicate_id),
+                )
+                cursor.execute("DELETE FROM service_package_items WHERE service_id = %s", (duplicate_id,))
+
+            cursor.execute("DELETE FROM services WHERE id = %s", (duplicate_id,))
 
 
 def _ensure_booking_status_values(cursor):
@@ -227,6 +321,20 @@ def ensure_schema_updates(cursor):
     _ensure_booking_status_values(cursor)
     _ensure_booking_time_slot_values(cursor)
     _cleanup_duplicate_checklist_rows(cursor)
+    _cleanup_duplicate_packages(cursor)
+    _cleanup_duplicate_services(cursor)
+
+    if not _index_exists(cursor, "packages", "unique_package_name"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE packages ADD CONSTRAINT unique_package_name UNIQUE (name)",
+        )
+
+    if not _index_exists(cursor, "services", "unique_service_name"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE services ADD CONSTRAINT unique_service_name UNIQUE (name)",
+        )
 
     if not _index_exists(cursor, "package_checklist", "unique_package_task"):
         _run_safe_alter(
@@ -263,11 +371,27 @@ def init_db():
         sql_script = f.read()
     
     commands = sql_script.split(';')
+    schema_commands: list[str] = []
+    data_commands: list[str] = []
+
     for command in commands:
-        if command.strip():
-            cursor.execute(command)
+        statement = command.strip()
+        if not statement:
+            continue
+
+        upper_statement = statement.upper()
+        if upper_statement.startswith("INSERT INTO ") or upper_statement.startswith("INSERT IGNORE INTO "):
+            data_commands.append(statement)
+        else:
+            schema_commands.append(statement)
+
+    for statement in schema_commands:
+        cursor.execute(statement)
 
     ensure_schema_updates(cursor)
+
+    for statement in data_commands:
+        cursor.execute(statement)
 
     conn.commit()
 

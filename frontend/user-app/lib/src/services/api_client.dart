@@ -7,14 +7,22 @@ import 'package:get/get.dart';
 class ApiClient {
   static const int _port = 8000;
   static const Duration _timeout = Duration(seconds: 15);
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
 
   static String get baseUrl {
-    // kIsWeb is safe on all platforms (including web)
-    if (!kIsWeb) {
-      // On native Android emulator the host machine is 10.0.2.2
-      // For real device / iOS / desktop use 127.0.0.1
-      // We use 127.0.0.1 since we target Chrome for dev
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl.endsWith('/')
+          ? _configuredBaseUrl.substring(0, _configuredBaseUrl.length - 1)
+          : _configuredBaseUrl;
     }
+
+    // Chrome/local desktop testing can use localhost. For a USB-connected
+    // Android phone, run `adb reverse tcp:8000 tcp:8000` and keep localhost.
+    // Android emulator uses 10.0.2.2. Physical phones over Wi-Fi must pass
+    // --dart-define=API_BASE_URL=http://YOUR_LAPTOP_IP:8000.
     return "http://127.0.0.1:$_port";
   }
 
