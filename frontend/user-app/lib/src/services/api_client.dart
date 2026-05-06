@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:get_storage/get_storage.dart';
 import 'package:get/get.dart';
@@ -48,8 +47,7 @@ class ApiClient {
   // ================================================================== //
   Future<dynamic> get(String endpoint) async {
     final url = Uri.parse("$baseUrl$endpoint");
-    final response =
-        await http.get(url, headers: _headers).timeout(_timeout);
+    final response = await http.get(url, headers: _headers).timeout(_timeout);
 
     return _handleResponse(response);
   }
@@ -107,11 +105,33 @@ class ApiClient {
     return _handleResponse(response);
   }
 
+  Future<dynamic> postSupportContact({
+    required String subject,
+    required String message,
+    String? name,
+    String? email,
+    String? phone,
+  }) async {
+    final body = <String, dynamic>{
+      "subject": subject,
+      "message": message,
+      if (name != null) "name": name,
+      if (email != null) "email": email,
+      if (phone != null) "phone": phone,
+    };
+
+    final url = Uri.parse("$baseUrl/support/contact");
+    final response = await http
+        .post(url, headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
+
+    return _handleResponse(response);
+  }
+
   // ================================================================== //
   // RESPONSE HANDLER
   // ================================================================== //
   dynamic _handleResponse(http.Response response) {
-
     if (response.statusCode == 401) {
       _storage.erase();
       Get.offAllNamed('/login');

@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import HTTPException
+from starlette.responses import Response
 
 from app.main import app
 from app.model.auth_model import UserLogin, UserRegister
@@ -27,6 +28,11 @@ class RouteFlowTests(unittest.TestCase):
             ("/bookings/", ("GET",)),
             ("/bookings/", ("POST",)),
             ("/location/", ("POST",)),
+            ("/technicians", ("POST",)),
+            ("/technicians/{technician_id}", ("DELETE",)),
+            ("/customers/previous", ("GET",)),
+            ("/notifications/admin/send", ("POST",)),
+            ("/support/contact", ("POST",)),
         }
 
         for route in expected:
@@ -79,10 +85,27 @@ class RouteFlowTests(unittest.TestCase):
         ), patch("app.transport.auth.verify_password", return_value=True), patch(
             "app.transport.auth.create_access_token", return_value="jwt-token"
         ):
-            response = auth.login(payload, db=object())
+            response = auth.login(payload, response=Response(), db=object())
 
         self.assertEqual(response["access_token"], "jwt-token")
         self.assertEqual(response["role"], "customer")
+
+    def test_refresh_session_returns_new_access_token(self):
+        response = Response()
+        refresh_token = "refresh-jwt"
+
+        with patch("app.transport.auth.decode_access_token", return_value={"id": 7, "sub": "customer@example.com", "role": "customer"}), patch(
+            "app.transport.auth.user_logic.get_user_by_id",
+            return_value={
+                "id": 7,
+                "email": "customer@example.com",
+                "role": "customer",
+                "is_active": True,
+            },
+        ), patch("app.transport.auth.create_access_token", return_value="new-jwt"):
+            payload = auth.refresh_session(response=response, db=object(), refresh_token=refresh_token)
+
+        self.assertEqual(payload["access_token"], "new-jwt")
 
     def test_me_returns_current_user(self):
         with patch(
@@ -143,7 +166,7 @@ class RouteFlowTests(unittest.TestCase):
             service_id=10,
             package_id=2,
             scheduled_date="2026-04-10",
-            scheduled_time_slot="morning",
+            scheduled_time_slot="09:00 AM",
             address_line="Flat 1",
             building_name="Tower A",
             floor_number="3",

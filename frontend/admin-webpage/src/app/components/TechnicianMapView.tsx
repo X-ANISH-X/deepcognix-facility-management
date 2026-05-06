@@ -16,6 +16,14 @@ export function TechnicianMapView() {
   const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
   const [techSearch, setTechSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [newTechForm, setNewTechForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+  });
 
   const loadTechnicians = async (showLoader = false, silent = true) => {
     if (showLoader) {
@@ -48,7 +56,11 @@ export function TechnicianMapView() {
 
     const unsubscribe = mockApi.subscribeRealtime((event) => {
       const eventName = event.event;
-      if (eventName === 'technician.location_updated' || eventName === 'technician.status_updated') {
+      if (
+        eventName === 'technician.location_updated'
+        || eventName === 'technician.status_updated'
+        || eventName === 'technician.updated'
+      ) {
         void loadTechnicians(false, true);
       }
     });
@@ -144,6 +156,62 @@ export function TechnicianMapView() {
     });
   }, [filteredTechnicians]);
 
+  const handleCreateTechnician = async () => {
+    if (!newTechForm.fullName.trim() || !newTechForm.email.trim() || !newTechForm.password.trim()) {
+      toast.error('Name, email, and password are required');
+      return;
+    }
+
+    if (newTechForm.password.trim().length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const created = await mockApi.createTechnician({
+        fullName: newTechForm.fullName.trim(),
+        email: newTechForm.email.trim(),
+        phone: newTechForm.phone.trim(),
+        password: newTechForm.password,
+      });
+
+      toast.success(`Technician added: ${created.name}`);
+      setNewTechForm({ fullName: '', email: '', phone: '', password: '' });
+      await loadTechnicians(false, true);
+      setSelectedTech(created);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to add technician';
+      toast.error(message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleDeactivateSelectedTechnician = async () => {
+    if (!selectedTech) {
+      toast.error('Select a technician first');
+      return;
+    }
+
+    const approved = window.confirm(`Deactivate technician ${selectedTech.name}?`);
+    if (!approved) {
+      return;
+    }
+
+    setIsRemoving(true);
+    try {
+      await mockApi.removeTechnician(selectedTech.id);
+      toast.success(`Technician removed: ${selectedTech.name}`);
+      await loadTechnicians(false, true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to remove technician';
+      toast.error(message);
+    } finally {
+      setIsRemoving(false);
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner message={t('technician.loading')} />;
   }
@@ -155,6 +223,59 @@ export function TechnicianMapView() {
         <h1 className="text-3xl font-bold tracking-tight">{t('technician.title')}</h1>
         <p className="text-gray-500 mt-1">{t('technician.subtitle')}</p>
       </div>
+
+      <Card className="rounded-3xl border-none shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-gray-900 dark:text-white">Technician Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <Input
+              placeholder="Full name"
+              value={newTechForm.fullName}
+              onChange={(event) => setNewTechForm((prev) => ({ ...prev, fullName: event.target.value }))}
+              className="rounded-xl"
+            />
+            <Input
+              placeholder="Email"
+              type="email"
+              value={newTechForm.email}
+              onChange={(event) => setNewTechForm((prev) => ({ ...prev, email: event.target.value }))}
+              className="rounded-xl"
+            />
+            <Input
+              placeholder="Phone (optional)"
+              value={newTechForm.phone}
+              onChange={(event) => setNewTechForm((prev) => ({ ...prev, phone: event.target.value }))}
+              className="rounded-xl"
+            />
+            <Input
+              placeholder="Temporary password"
+              type="password"
+              value={newTechForm.password}
+              onChange={(event) => setNewTechForm((prev) => ({ ...prev, password: event.target.value }))}
+              className="rounded-xl"
+            />
+            <Button
+              onClick={handleCreateTechnician}
+              disabled={isCreating}
+              className="rounded-xl"
+            >
+              {isCreating ? 'Adding...' : 'Add Technician'}
+            </Button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              onClick={handleDeactivateSelectedTechnician}
+              disabled={isRemoving || !selectedTech}
+              className="rounded-xl"
+            >
+              {isRemoving ? 'Removing...' : 'Remove Selected Technician'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Map Area - Mock Map */}

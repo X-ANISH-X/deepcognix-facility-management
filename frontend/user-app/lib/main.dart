@@ -9,6 +9,7 @@ import 'src/screens/home_screen.dart';
 import 'src/screens/login_screen.dart';
 import 'src/screens/register_screen.dart';
 import 'src/screens/booking_screen.dart';
+import 'src/screens/support_contact_screen.dart';
 import 'src/screens/upcoming_bookings_screen.dart';
 import 'src/screens/booking_status_screen.dart';
 import 'src/screens/profile_screen.dart';
@@ -200,6 +201,9 @@ class MyApp extends StatelessWidget {
           GetPage(name: '/register', page: () => RegisterScreen()),
           GetPage(name: '/home', page: () => HomeScreen()),
           GetPage(name: '/booking', page: () => BookingScreen()),
+          GetPage(
+              name: '/support-contact',
+              page: () => const SupportContactScreen()),
           GetPage(name: '/upcoming', page: () => UpcomingBookingsScreen()),
           GetPage(name: '/booking-status', page: () => BookingStatusScreen()),
           GetPage(name: '/profile', page: () => ProfileScreen()),

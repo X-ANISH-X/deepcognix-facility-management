@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 
-from app.core.security import get_current_user_payload
+from app.core.security import get_current_user_payload, get_password_hash
 from app.database import get_db_connection
 from app.logic import booking_logic, category_logic, notification_logic, package_logic
 
@@ -461,6 +461,302 @@ def list_technicians(
         return {"technicians": technicians}
     finally:
         cursor.close()
+
+
+@router.post("/technicians", status_code=201)
+def create_technician(
+    payload: dict,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _require_admin(current_user)
+
+    full_name = str(payload.get("full_name") or "").strip()
+    email = str(payload.get("email") or "").strip().lower()
+    password = str(payload.get("password") or "")
+    phone_number = str(payload.get("phone_number") or "").strip()
+
+    if not full_name:
+        raise HTTPException(status_code=400, detail="Technician full_name is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Technician email is required")
+    if len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        cursor.execute(
+            """
+            INSERT INTO users (full_name, email, password_hash, phone_number, role, is_active)
+            VALUES (%s, %s, %s, %s, 'technician', TRUE)
+            """,
+            (full_name, email, get_password_hash(password), phone_number or None),
+        )
+        technician_id = int(cursor.lastrowid)
+        db.commit()
+
+        cursor.execute(
+            """
+            SELECT id, full_name, email, phone_number, is_active
+            FROM users
+            WHERE id = %s AND role = 'technician'
+            """,
+            (technician_id,),
+        )
+        created = cursor.fetchone()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+    _publish_event("technician.updated", technician_id=technician_id, action="created")
+    return {"technician": _map_technician(created or {"id": technician_id, "full_name": full_name, "email": email})}
+
+
+@router.delete("/technicians/{technician_id}")
+def deactivate_technician(
+    technician_id: int,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _require_admin(current_user)
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT id, role, is_active FROM users WHERE id = %s",
+            (technician_id,),
+        )
+        row = cursor.fetchone()
+        if not row or row.get("role") != "technician":
+            raise HTTPException(status_code=404, detail="Technician not found")
+
+        if not bool(row.get("is_active", True)):
+            return {"message": "Technician already inactive", "technician_id": technician_id, "is_active": False}
+
+        cursor.execute("UPDATE users SET is_active = FALSE WHERE id = %s", (technician_id,))
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+    _publish_event("technician.updated", technician_id=technician_id, action="deactivated")
+    return {"message": "Technician deactivated", "technician_id": technician_id, "is_active": False}
+
+
+@router.get("/customers/previous")
+def list_previous_customers(
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _require_admin(current_user)
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT
+                u.id,
+                u.full_name,
+                u.email,
+                u.phone_number,
+                stats.total_bookings,
+                stats.completed_bookings,
+                stats.total_spent,
+                stats.first_booking_at,
+                stats.last_booking_at
+            FROM users u
+            INNER JOIN (
+                SELECT
+                    b.customer_id,
+                    COUNT(*) AS total_bookings,
+                    SUM(CASE WHEN b.status = 'completed' THEN 1 ELSE 0 END) AS completed_bookings,
+                    COALESCE(SUM(CASE WHEN b.status = 'completed' THEN b.final_price ELSE 0 END), 0) AS total_spent,
+                    MIN(b.created_at) AS first_booking_at,
+                    MAX(COALESCE(b.updated_at, b.created_at)) AS last_booking_at
+                FROM bookings b
+                GROUP BY b.customer_id
+            ) stats ON stats.customer_id = u.id
+            WHERE u.role = 'customer'
+            ORDER BY stats.last_booking_at DESC, u.id DESC
+            """
+        )
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+
+    customers = [
+        {
+            "id": row.get("id"),
+            "full_name": row.get("full_name") or "",
+            "email": row.get("email") or "",
+            "phone_number": row.get("phone_number") or "",
+            "total_bookings": int(row.get("total_bookings") or 0),
+            "completed_bookings": int(row.get("completed_bookings") or 0),
+            "total_spent": float(row.get("total_spent") or 0),
+            "first_booking_at": str(row.get("first_booking_at") or ""),
+            "last_booking_at": str(row.get("last_booking_at") or ""),
+        }
+        for row in rows
+    ]
+
+    return {"customers": customers}
+
+
+@router.post("/notifications/admin/send")
+def admin_send_customer_notification(
+    payload: dict,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _require_admin(current_user)
+
+    title = str(payload.get("title") or "Admin Update").strip()
+    message = str(payload.get("message") or "").strip()
+    raw_customer_ids = payload.get("customer_ids")
+
+    if not message:
+        raise HTTPException(status_code=400, detail="Notification message is required")
+
+    customer_ids: list[int] = []
+    if isinstance(raw_customer_ids, list):
+        for value in raw_customer_ids:
+            try:
+                parsed = int(value)
+            except (TypeError, ValueError):
+                continue
+            if parsed > 0 and parsed not in customer_ids:
+                customer_ids.append(parsed)
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        if customer_ids:
+            placeholders = ",".join(["%s"] * len(customer_ids))
+            cursor.execute(
+                f"""
+                SELECT id
+                FROM users
+                WHERE role = 'customer' AND is_active = TRUE AND id IN ({placeholders})
+                """,
+                tuple(customer_ids),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT id
+                FROM users
+                WHERE role = 'customer' AND is_active = TRUE
+                """
+            )
+
+        recipients = [int(row.get("id") or 0) for row in cursor.fetchall() if int(row.get("id") or 0) > 0]
+
+        if not recipients:
+            raise HTTPException(status_code=404, detail="No customer recipients found")
+
+        for customer_id in recipients:
+            notification_logic.create_notification(
+                cursor,
+                user_id=customer_id,
+                title=title,
+                message=message,
+                notification_type="admin_broadcast",
+            )
+
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+    _publish_event("notification.broadcast", sent_count=len(recipients))
+    return {"message": "Notification sent", "sent_count": len(recipients)}
+
+
+@router.post("/support/contact")
+def contact_support(
+    payload: dict,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    if current_user.get("role") != "customer":
+        raise HTTPException(status_code=403, detail="Customer access required")
+
+    subject = str(payload.get("subject") or "Customer Support").strip()
+    message = str(payload.get("message") or "").strip()
+    contact_name = str(payload.get("name") or "").strip()
+    contact_email = str(payload.get("email") or "").strip()
+    contact_phone = str(payload.get("phone") or "").strip()
+
+    if not message:
+        raise HTTPException(status_code=400, detail="Support message is required")
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT full_name, email, phone_number FROM users WHERE id = %s AND role = 'customer'",
+            (current_user["id"],),
+        )
+        customer = cursor.fetchone() or {}
+
+        customer_name = contact_name or str(customer.get("full_name") or "Customer")
+        customer_email = contact_email or str(customer.get("email") or current_user.get("email") or "")
+        customer_phone = contact_phone or str(customer.get("phone_number") or "")
+
+        cursor.execute(
+            "SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE"
+        )
+        admin_rows = cursor.fetchall()
+        admin_ids = [int(row.get("id") or 0) for row in admin_rows if int(row.get("id") or 0) > 0]
+
+        if not admin_ids:
+            raise HTTPException(status_code=404, detail="No admin recipients found")
+
+        notification_message = (
+            f"Support request from {customer_name}"
+            + (f" ({customer_email})" if customer_email else "")
+            + (f" | Phone: {customer_phone}" if customer_phone else "")
+            + f"\nSubject: {subject}\nMessage: {message}"
+        )
+
+        for admin_id in admin_ids:
+            notification_logic.create_notification(
+                cursor,
+                user_id=admin_id,
+                title=f"Support Request - {subject}",
+                message=notification_message,
+                notification_type="support_contact",
+            )
+
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+    _publish_event("notification.support_contact", sent_count=len(admin_ids))
+    return {"message": "Support request sent", "sent_count": len(admin_ids)}
 
 
 @router.get("/technicians/{technician_id}")

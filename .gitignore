@@ -31,3 +31,6 @@ frontend/technician-app/.flutter-plugins
 frontend/technician-app/.flutter-plugins-dependencies
 frontend/technician-app/.packages
 frontend/technician-app/.metadata
+
+# Admin requirements checklist
+ADMIN_REQUIREMENTS_CHECKLIST.md

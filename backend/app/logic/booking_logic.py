@@ -212,6 +212,8 @@ def list_bookings(conn, user_id: int | None = None, role: str | None = None):
             p.name AS package_name,
             s.name AS service_name,
             c.full_name AS customer_name,
+            c.email AS customer_email,
+            c.phone_number AS customer_phone,
             t.full_name AS technician_name
         FROM bookings b
         JOIN packages p ON p.id = b.package_id
@@ -245,6 +247,8 @@ def get_booking_by_id(conn, booking_id: int):
                 p.name AS package_name,
                 s.name AS service_name,
                 c.full_name AS customer_name,
+                c.email AS customer_email,
+                c.phone_number AS customer_phone,
                 t.full_name AS technician_name
             FROM bookings b
             JOIN packages p ON p.id = b.package_id
