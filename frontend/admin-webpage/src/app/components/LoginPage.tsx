@@ -30,6 +30,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           email: normalizedEmail,
           password,
@@ -78,7 +79,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-600 via-emerald-500 to-cyan-600 dark:from-teal-900 dark:via-emerald-900 dark:to-cyan-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-linear-to-br from-teal-600 via-emerald-500 to-cyan-600 dark:from-teal-900 dark:via-emerald-900 dark:to-cyan-950 flex flex-col items-center justify-center p-4 relative overflow-hidden">
       {/* Decorative paint-like background elements */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-teal-200 dark:bg-teal-700 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-emerald-300 dark:bg-emerald-700 rounded-full mix-blend-multiply filter blur-3xl opacity-45 animate-blob animation-delay-2000"></div>
@@ -208,7 +209,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full mt-6 py-3 bg-gradient-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 dark:from-teal-600 dark:to-cyan-600 dark:hover:from-teal-500 dark:hover:to-cyan-500 disabled:from-gray-400 disabled:to-gray-500 rounded-xl font-semibold text-white dark:text-slate-50 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+              className="w-full mt-6 py-3 bg-linear-to-r from-teal-400 to-cyan-400 hover:from-teal-300 hover:to-cyan-300 dark:from-teal-600 dark:to-cyan-600 dark:hover:from-teal-500 dark:hover:to-cyan-500 disabled:from-gray-400 disabled:to-gray-500 rounded-xl font-semibold text-white dark:text-slate-50 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -224,15 +225,15 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             {/* Divider - Flexbox implementation for split lines */}
             <div className="relative my-6 flex items-center">
             {/* Left Line Segment */}
-            <div className="flex-grow border-t border-white/20 dark:border-white/10"></div>
+            <div className="grow border-t border-white/20 dark:border-white/10"></div>
             
             {/* Text with precise 2px horizontal margin */}
-            <span className="flex-shrink mx-[4px] text-sm text-white/80 dark:text-white/70 whitespace-nowrap">
+            <span className="shrink mx-1 text-sm text-white/80 dark:text-white/70 whitespace-nowrap">
                 or continue with
             </span>
             
             {/* Right Line Segment */}
-            <div className="flex-grow border-t border-white/20 dark:border-white/10"></div>
+            <div className="grow border-t border-white/20 dark:border-white/10"></div>
             </div>
 
           {/* Social Login */}

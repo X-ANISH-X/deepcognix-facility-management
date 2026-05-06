@@ -6,7 +6,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Badge } from '@/app/components/ui/badge';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
-import { api as mockApi, type WorkOrder, type Technician, type RevenueStats } from '@/app/services/api';
+import { api as mockApi, type WorkOrder, type Technician, type RevenueStats, type PreviousCustomer, type CustomerReportRow, type Service, type BookingTask } from '@/app/services/api';
 import { useLanguage } from '@/app/context/LanguageContext';
 import { Download, Filter, FileText, Calendar, TrendingUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -20,31 +20,68 @@ const emptyRevenueStats: RevenueStats = {
   trendPeriod: 'week',
 };
 
+const buildDateRange = (start: string, end: string): string[] => {
+  if (!start || !end) {
+    return [];
+  }
+
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) {
+    return [];
+  }
+
+  const dates: string[] = [];
+  const current = new Date(startDate);
+  while (current <= endDate) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+};
+
 export function ReportsView() {
   const { t } = useLanguage();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
-  const [reportType, setReportType] = useState<'date' | 'technician' | 'service'>('date');
+  const [reportType, setReportType] = useState<'date' | 'technician' | 'service' | 'customer'>('date');
   const [startDate, setStartDate] = useState('2026-01-01');
   const [endDate, setEndDate] = useState('2026-01-31');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [revenueStats, setRevenueStats] = useState<RevenueStats>(emptyRevenueStats);
+  const [previousCustomers, setPreviousCustomers] = useState<PreviousCustomer[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [selectedOngoingBookingId, setSelectedOngoingBookingId] = useState('');
+  const [bookingTasks, setBookingTasks] = useState<BookingTask[]>([]);
+  const [isLoadingBookingTasks, setIsLoadingBookingTasks] = useState(false);
+  const [dateBreakdownMode, setDateBreakdownMode] = useState<'category' | 'service'>('category');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   const loadData = async (showLoader = false, silent = true) => {
     if (showLoader) {
       setIsLoading(true);
     }
     try {
-      const [orders, techs, revenue] = await Promise.all([
+      const [orders, techs, revenue, customers, serviceList] = await Promise.all([
         mockApi.getWorkOrders(),
         mockApi.getTechnicians(),
         mockApi.getRevenueStats(),
+        mockApi.getPreviousCustomers(),
+        mockApi.getServices(),
       ]);
       setWorkOrders(orders);
       setTechnicians(techs);
       setRevenueStats(revenue);
+      setPreviousCustomers(customers);
+      setServices(serviceList);
     } catch (error) {
       if (!silent) {
         const message = error instanceof Error ? error.message : 'Failed to load reports';
@@ -53,6 +90,8 @@ export function ReportsView() {
       setWorkOrders([]);
       setTechnicians([]);
       setRevenueStats(emptyRevenueStats);
+      setPreviousCustomers([]);
+      setServices([]);
     } finally {
       if (showLoader) {
         setIsLoading(false);
@@ -248,6 +287,186 @@ export function ReportsView() {
     ? paymentDateWiseArray
     : dateWiseArray.map((entry) => ({ date: entry.date, revenue: entry.revenue }));
 
+  const serviceLookup = useMemo(() => {
+    return new Map(
+      services.map((service) => [service.name.trim().toLowerCase(), service]),
+    );
+  }, [services]);
+
+  const selectedDateRange = useMemo(() => buildDateRange(startDate, endDate), [startDate, endDate]);
+
+  const categorySummaries = useMemo(() => {
+    const categoryMap = new Map<string, { name: string; color: string; services: Service[] }>();
+
+    services.forEach((service) => {
+      const categoryName = (service.category || 'Uncategorized').trim() || 'Uncategorized';
+      const key = categoryName.toLowerCase();
+      const existing = categoryMap.get(key);
+      if (existing) {
+        existing.services.push(service);
+        return;
+      }
+
+      categoryMap.set(key, {
+        name: categoryName,
+        color: service.color || '#3b82f6',
+        services: [service],
+      });
+    });
+
+    return Array.from(categoryMap.values()).sort((left, right) => left.name.localeCompare(right.name));
+  }, [services]);
+
+  useEffect(() => {
+    if (selectedCategory === 'all' && categorySummaries.length > 0) {
+      setSelectedCategory(categorySummaries[0].name);
+      return;
+    }
+
+    const categoryExists = categorySummaries.some((category) => category.name === selectedCategory);
+    if (!categoryExists && categorySummaries.length > 0) {
+      setSelectedCategory(categorySummaries[0].name);
+    }
+  }, [categorySummaries, selectedCategory]);
+
+  const selectedCategorySummary = useMemo(() => {
+    if (selectedCategory === 'all') {
+      return null;
+    }
+    return categorySummaries.find((category) => category.name === selectedCategory) || null;
+  }, [categorySummaries, selectedCategory]);
+
+  const categoryRevenueSeries = useMemo(() => {
+    const completedOrders = filteredWorkOrders.filter((order) => order.status === 'completed');
+    const seriesByDate = new Map<string, Record<string, number>>();
+
+    selectedDateRange.forEach((date) => {
+      seriesByDate.set(date, { date });
+    });
+
+    completedOrders.forEach((order) => {
+      const matchedService = serviceLookup.get(order.serviceType.trim().toLowerCase());
+      const categoryName = (matchedService?.category || 'Uncategorized').trim() || 'Uncategorized';
+      const dateKey = order.scheduledDate;
+      const bucket = seriesByDate.get(dateKey) || { date: dateKey };
+      bucket[categoryName] = (bucket[categoryName] || 0) + (order.actualCost ?? order.estimatedCost);
+      seriesByDate.set(dateKey, bucket);
+    });
+
+    return selectedDateRange.map((date) => seriesByDate.get(date) || { date });
+  }, [filteredWorkOrders, serviceLookup, selectedDateRange]);
+
+  const selectedCategoryServiceSeries = useMemo(() => {
+    if (!selectedCategorySummary) {
+      return [];
+    }
+
+    const serviceNames = new Set(
+      selectedCategorySummary.services.map((service) => service.name.trim().toLowerCase()),
+    );
+    const completedOrders = filteredWorkOrders.filter((order) => order.status === 'completed');
+    const seriesByDate = new Map<string, Record<string, number>>();
+
+    selectedDateRange.forEach((date) => {
+      seriesByDate.set(date, { date });
+    });
+
+    completedOrders.forEach((order) => {
+      const matchedService = serviceLookup.get(order.serviceType.trim().toLowerCase());
+      if (!matchedService || !serviceNames.has(matchedService.name.trim().toLowerCase())) {
+        return;
+      }
+
+      const dateKey = order.scheduledDate;
+      const bucket = seriesByDate.get(dateKey) || { date: dateKey };
+      bucket[matchedService.name] = (bucket[matchedService.name] || 0) + (order.actualCost ?? order.estimatedCost);
+      seriesByDate.set(dateKey, bucket);
+    });
+
+    return selectedDateRange.map((date) => seriesByDate.get(date) || { date });
+  }, [filteredWorkOrders, selectedCategorySummary, serviceLookup, selectedDateRange]);
+
+  const customerReportRows: CustomerReportRow[] = useMemo(() => {
+    return filteredWorkOrders.map((order) => ({
+      orderId: order.id,
+      customerId: order.customerId,
+      customerName: order.customerName || 'N/A',
+      customerEmail: order.customerEmail || 'N/A',
+      customerPhone: order.customerPhone || 'N/A',
+      packageName: order.packageName || 'N/A',
+      amount: order.actualCost ?? order.estimatedCost,
+    }));
+  }, [filteredWorkOrders]);
+
+  const selectedCustomer = useMemo(() => {
+    return previousCustomers.find((customer) => customer.id === selectedCustomerId) || null;
+  }, [previousCustomers, selectedCustomerId]);
+
+  const selectedCustomerBookings = useMemo(() => {
+    if (!selectedCustomer) {
+      return [];
+    }
+
+    return workOrders
+      .filter((order) => order.customerId === selectedCustomer.id)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }, [selectedCustomer, workOrders]);
+
+  const selectedCustomerRevenue = useMemo(() => {
+    return selectedCustomerBookings
+      .filter((order) => order.status === 'completed')
+      .reduce((sum, order) => sum + (order.actualCost ?? order.estimatedCost), 0);
+  }, [selectedCustomerBookings]);
+
+  const selectedCustomerCompletedBookings = selectedCustomerBookings.filter((order) => order.status === 'completed');
+  const ongoingBookings = useMemo(() => {
+    const ongoingStatuses = new Set(['approved', 'assigned', 'in-progress', 'completion-requested', 'rejection-requested']);
+    return selectedCustomerBookings.filter((order) => ongoingStatuses.has(order.status));
+  }, [selectedCustomerBookings]);
+
+  const selectedOngoingBooking = useMemo(() => {
+    return ongoingBookings.find((booking) => booking.id === selectedOngoingBookingId) || ongoingBookings[0] || null;
+  }, [ongoingBookings, selectedOngoingBookingId]);
+
+  useEffect(() => {
+    if (!isCustomerModalOpen) {
+      setBookingTasks([]);
+      setSelectedOngoingBookingId('');
+      return;
+    }
+
+    if (ongoingBookings.length === 0) {
+      setSelectedOngoingBookingId('');
+      setBookingTasks([]);
+      return;
+    }
+
+    if (!selectedOngoingBookingId || !ongoingBookings.some((booking) => booking.id === selectedOngoingBookingId)) {
+      setSelectedOngoingBookingId(ongoingBookings[0].id);
+    }
+  }, [isCustomerModalOpen, ongoingBookings, selectedOngoingBookingId]);
+
+  useEffect(() => {
+    const loadBookingTasks = async () => {
+      if (!isCustomerModalOpen || !selectedOngoingBooking) {
+        setBookingTasks([]);
+        return;
+      }
+
+      setIsLoadingBookingTasks(true);
+      try {
+        const tasks = await mockApi.getBookingTasks(selectedOngoingBooking.id);
+        setBookingTasks(tasks.sort((left, right) => left.orderIndex - right.orderIndex));
+      } catch {
+        setBookingTasks([]);
+      } finally {
+        setIsLoadingBookingTasks(false);
+      }
+    };
+
+    void loadBookingTasks();
+  }, [isCustomerModalOpen, selectedOngoingBooking]);
+
   // Technician-wise report data
   const technicianWiseData = technicians
     .filter((tech) => selectedTechnician === 'all' || tech.id === selectedTechnician)
@@ -264,20 +483,6 @@ export function ReportsView() {
       completionRate: tech.completionRate
     };
   });
-
-  // Service-wise report data
-  const serviceWiseData = filteredWorkOrders.reduce((acc, wo) => {
-    if (!acc[wo.serviceType]) {
-      acc[wo.serviceType] = { service: wo.serviceType, count: 0, revenue: 0 };
-    }
-    acc[wo.serviceType].count += 1;
-    if (wo.status === 'completed') {
-      acc[wo.serviceType].revenue += wo.actualCost ?? wo.estimatedCost;
-    }
-    return acc;
-  }, {} as Record<string, { service: string; count: number; revenue: number }>);
-
-  const serviceWiseArray = (Object.values(serviceWiseData) as Array<{ service: string; count: number; revenue: number }>).sort((a, b) => b.revenue - a.revenue);
 
   // Summary Statistics
   const totalOrders = filteredWorkOrders.length;
@@ -315,7 +520,7 @@ export function ReportsView() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="rounded-3xl border-none shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+        <Card className="rounded-3xl border-none shadow-lg bg-linear-to-br from-blue-500 to-blue-600 text-white">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -327,7 +532,7 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border-none shadow-lg bg-gradient-to-br from-green-500 to-green-600 text-white">
+        <Card className="rounded-3xl border-none shadow-lg bg-linear-to-br from-green-500 to-green-600 text-white">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -339,7 +544,7 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border-none shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+        <Card className="rounded-3xl border-none shadow-lg bg-linear-to-br from-purple-500 to-purple-600 text-white">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -354,7 +559,7 @@ export function ReportsView() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border-none shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+        <Card className="rounded-3xl border-none shadow-lg bg-linear-to-br from-orange-500 to-orange-600 text-white">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -386,7 +591,7 @@ export function ReportsView() {
                 <SelectContent>
                   <SelectItem value="date">{t('reports.dateWise')}</SelectItem>
                   <SelectItem value="technician">{t('reports.technicianWise')}</SelectItem>
-                  <SelectItem value="service">{t('reports.serviceWise')}</SelectItem>
+                  <SelectItem value="customer">Customer Reports</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -451,55 +656,146 @@ export function ReportsView() {
         <div className="space-y-6">
           <Card className="rounded-3xl border-none shadow-lg">
             <CardHeader>
-              <CardTitle>{t('reports.ordersByDate')}</CardTitle>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <CardTitle>{t('reports.ordersByDate')}</CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={dateBreakdownMode === 'category' ? 'default' : 'outline'}
+                    className="rounded-full"
+                    onClick={() => setDateBreakdownMode('category')}
+                  >
+                    Categories
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={dateBreakdownMode === 'service' ? 'default' : 'outline'}
+                    className="rounded-full"
+                    onClick={() => setDateBreakdownMode('service')}
+                  >
+                    Services
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent dir="ltr">
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={dateWiseArray}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" stroke="#888" />
-                  <YAxis stroke="#888" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: 'none', 
-                      borderRadius: '12px', 
-                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
-                    }} 
-                  />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
+            <CardContent className="space-y-4">
+              {dateBreakdownMode === 'category' && categoryRevenueSeries.length > 0 && (
+                <div className="overflow-x-auto pb-2">
+                  <div style={{ minWidth: Math.max(800, categoryRevenueSeries.length * 15) + 'px' }}>
+                    <ResponsiveContainer width="100%" height={420}>
+                      <LineChart data={categoryRevenueSeries} margin={{ left: 15, right: 20, top: 10, bottom: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis 
+                          dataKey="date" 
+                          stroke="#888" 
+                          angle={-30}
+                          textAnchor="end"
+                          height={70}
+                          interval={Math.max(0, Math.ceil(categoryRevenueSeries.length / 10) - 1)}
+                        />
+                        <YAxis stroke="#888" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'white',
+                            border: 'none',
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                          }}
+                          labelStyle={{ color: '#111827' }}
+                          formatter={(value, name) => {
+                            return [`AED ${Number(value).toFixed(2)}`, name];
+                          }}
+                          labelFormatter={(label) => `Date: ${label}`}
+                        />
+                          {categorySummaries.map((category) => (
+                          <Line
+                            key={category.name}
+                            type="monotone"
+                            dataKey={category.name}
+                            stroke={category.color}
+                            strokeWidth={3}
+                            dot={{ fill: category.color, r: 5 }}
+                            connectNulls
+                            name={category.name}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
 
-          <Card className="rounded-3xl border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>{t('reports.revenueByDate')}</CardTitle>
-            </CardHeader>
-            <CardContent dir="ltr">
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={revenueDateSeries}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="date" stroke="#888" />
-                  <YAxis stroke="#888" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: 'none', 
-                      borderRadius: '12px', 
-                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
-                    }} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#10b981" 
-                    strokeWidth={3}
-                    dot={{ fill: '#10b981', r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {dateBreakdownMode === 'service' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="text-sm text-gray-500">
+                      {categorySummaries.length === 0 ? 'No services found.' : 'Pick a category to drill into individual services.'}
+                    </div>
+                    <div className="w-full md:w-80">
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="rounded-xl">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categorySummaries.map((category) => (
+                            <SelectItem key={category.name} value={category.name}>
+                              {category.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {selectedCategorySummary && selectedCategoryServiceSeries.length > 0 ? (
+                    <div className="overflow-x-auto pb-2">
+                      <div style={{ minWidth: Math.max(800, selectedCategoryServiceSeries.length * 15) + 'px' }}>
+                        <ResponsiveContainer width="100%" height={420}>
+                          <LineChart data={selectedCategoryServiceSeries} margin={{ left: 15, right: 20, top: 10, bottom: 30 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="#888" 
+                              angle={-30}
+                              textAnchor="end"
+                              height={70}
+                              interval={Math.max(0, Math.ceil(selectedCategoryServiceSeries.length / 10) - 1)}
+                            />
+                            <YAxis stroke="#888" />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                              }}
+                              labelStyle={{ color: '#111827' }}
+                              formatter={(value, name) => {
+                                return [`AED ${Number(value).toFixed(2)}`, name];
+                              }}
+                              labelFormatter={(label) => `Date: ${label}`}
+                            />
+                            {selectedCategorySummary.services.map((service) => (
+                              <Line
+                                key={service.name}
+                                type="monotone"
+                                dataKey={service.name}
+                                stroke={service.color || '#3b82f6'}
+                                strokeWidth={3}
+                                dot={{ fill: service.color || '#3b82f6', r: 5 }}
+                                connectNulls
+                                name={service.name}
+                              />
+                            ))}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No revenue data for the selected category and date range.</p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -543,58 +839,218 @@ export function ReportsView() {
         </Card>
       )}
 
-      {reportType === 'service' && (
-        <div className="space-y-6">
-          <Card className="rounded-3xl border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>{t('reports.revenueByServiceType')}</CardTitle>
-            </CardHeader>
-            <CardContent dir="ltr">
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={serviceWiseArray}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="service" stroke="#888" />
-                  <YAxis stroke="#888" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'white', 
-                      border: 'none', 
-                      borderRadius: '12px', 
-                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
-                    }} 
-                  />
-                  <Bar dataKey="revenue" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-3xl border-none shadow-lg">
-            <CardHeader>
-              <CardTitle>{t('reports.servicePerformanceSummary')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {serviceWiseArray.map((service, index) => (
-                  <div key={service.service} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-800">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center text-white font-bold">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">{service.service}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{service.count} {t('reports.ordersCount')}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-green-600">AED {service.revenue}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{t('reports.revenueLabel')}</p>
-                    </div>
-                  </div>
-                ))}
+      {reportType === 'customer' && (
+        <Card className="rounded-3xl border-none shadow-lg">
+          <CardHeader>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <CardTitle>Customer Reports</CardTitle>
+              <div className="text-sm text-gray-500">
+                Customer name, package, contact details, order ID, and amount
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-275 text-sm">
+                <thead>
+                  <tr className="border-b text-left text-gray-500">
+                    <th className="py-3 pr-4">Order ID</th>
+                    <th className="py-3 pr-4">Customer ID</th>
+                    <th className="py-3 pr-4">Customer Name</th>
+                    <th className="py-3 pr-4">Package</th>
+                    <th className="py-3 pr-4">Email</th>
+                    <th className="py-3 pr-4">Phone</th>
+                    <th className="py-3">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customerReportRows.map((row) => (
+                    <tr
+                      key={row.orderId}
+                      className="cursor-pointer border-b last:border-none hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      onClick={() => {
+                        setSelectedCustomerId(row.customerId);
+                        setIsCustomerModalOpen(true);
+                      }}
+                    >
+                      <td className="py-3 pr-4 font-medium text-gray-900 dark:text-gray-100">#{row.orderId}</td>
+                      <td className="py-3 pr-4 text-gray-600 dark:text-gray-300">#{row.customerId}</td>
+                      <td className="py-3 pr-4">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedCustomerId(row.customerId);
+                            setIsCustomerModalOpen(true);
+                          }}
+                          className="font-medium text-left text-teal-700 hover:text-teal-800 dark:text-teal-300 dark:hover:text-teal-200"
+                        >
+                          {row.customerName}
+                        </button>
+                      </td>
+                      <td className="py-3 pr-4">{row.packageName}</td>
+                      <td className="py-3 pr-4">{row.customerEmail}</td>
+                      <td className="py-3 pr-4">{row.customerPhone}</td>
+                      <td className="py-3">AED {row.amount.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {customerReportRows.length === 0 && (
+              <p className="pt-4 text-sm text-gray-500">No customer report rows found for the current filters.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isCustomerModalOpen && selectedCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-slate-900">
+            <div className="flex items-start justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+              <div>
+                <p className="text-sm uppercase tracking-wide text-gray-500">Customer Deep Dive</p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedCustomer.fullName || 'N/A'}</h3>
+                <p className="text-sm text-gray-500">Tap a customer report row to inspect bookings and checklist progress.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCustomerModalOpen(false)}
+                className="rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-6 space-y-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Customer ID</div>
+                  <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">#{selectedCustomer.id}</div>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Total Bookings</div>
+                  <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{selectedCustomerBookings.length}</div>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Completed</div>
+                  <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{selectedCustomerCompletedBookings.length}</div>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Total Revenue</div>
+                  <div className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">AED {selectedCustomerRevenue.toFixed(2)}</div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Name</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{selectedCustomer.fullName || 'N/A'}</div>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Email</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{selectedCustomer.email || 'N/A'}</div>
+                </div>
+                <div className="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800">
+                  <div className="text-xs uppercase tracking-wide text-gray-500">Phone</div>
+                  <div className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{selectedCustomer.phone || 'N/A'}</div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-700">
+                <table className="w-full min-w-225 text-sm">
+                  <thead>
+                    <tr className="border-b bg-gray-50 text-left text-gray-500 dark:border-gray-700 dark:bg-gray-800/70">
+                      <th className="py-3 pr-4 pl-4">Booking ID</th>
+                      <th className="py-3 pr-4">Date</th>
+                      <th className="py-3 pr-4">Service / Package</th>
+                      <th className="py-3 pr-4">Status</th>
+                      <th className="py-3 pr-4">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedCustomerBookings.map((booking) => (
+                      <tr key={booking.id} className="border-b last:border-none dark:border-gray-800">
+                        <td className="py-3 pr-4 pl-4 font-medium text-gray-900 dark:text-gray-100">#{booking.id}</td>
+                        <td className="py-3 pr-4">{booking.scheduledDate}</td>
+                        <td className="py-3 pr-4">
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{booking.serviceType}</div>
+                          <div className="text-xs text-gray-500">{booking.packageName || 'N/A'}</div>
+                        </td>
+                        <td className="py-3 pr-4 capitalize text-gray-600 dark:text-gray-300">{booking.status.replace(/-/g, ' ')}</td>
+                        <td className="py-3 pr-4">AED {(booking.actualCost ?? booking.estimatedCost).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {selectedCustomerBookings.length === 0 && (
+                <p className="text-sm text-gray-500">This customer has no booking history in the current data set.</p>
+              )}
+
+              <div className="rounded-2xl border border-gray-200 p-4 dark:border-gray-700">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Ongoing Service Package</h4>
+                    <p className="text-sm text-gray-500">Choose an active booking to see checklist progress reported by the technician.</p>
+                  </div>
+                  <div className="w-full md:w-96">
+                    <Select
+                      value={selectedOngoingBooking?.id || ''}
+                      onValueChange={setSelectedOngoingBookingId}
+                      disabled={ongoingBookings.length === 0}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder={ongoingBookings.length === 0 ? 'No ongoing bookings' : 'Select ongoing booking'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ongoingBookings.map((booking) => (
+                          <SelectItem key={booking.id} value={booking.id}>
+                            #{booking.id} - {booking.serviceType} ({booking.packageName || 'N/A'})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {selectedOngoingBooking ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                        <Badge className="bg-teal-600 text-white hover:bg-teal-600">{selectedOngoingBooking.status.replace(/-/g, ' ')}</Badge>
+                        <span>{selectedOngoingBooking.serviceType}</span>
+                        <span>•</span>
+                        <span>{selectedOngoingBooking.packageName || 'N/A'}</span>
+                      </div>
+                      {isLoadingBookingTasks ? (
+                        <p className="text-sm text-gray-500">Loading checklist...</p>
+                      ) : bookingTasks.length > 0 ? (
+                        <div className="space-y-2">
+                          {bookingTasks.map((task) => (
+                            <div key={task.id} className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-800">
+                              <div>
+                                <div className="font-medium text-gray-900 dark:text-white">{task.taskName}</div>
+                                <div className="text-xs text-gray-500">Step {task.orderIndex || task.id}</div>
+                              </div>
+                              <Badge className={task.isCompleted ? 'bg-emerald-600 text-white hover:bg-emerald-600' : 'bg-amber-500 text-white hover:bg-amber-500'}>
+                                {task.isCompleted ? 'Completed' : 'Pending'}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No checklist items found for the selected booking.</p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500">There is no ongoing service package for this customer right now.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

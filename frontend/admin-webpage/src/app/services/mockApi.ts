@@ -19,7 +19,10 @@ export interface WorkOrder {
   id: string;
   customerId: string;
   customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
   serviceType: string;
+  packageName?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completion-requested' | 'rejection-requested' | 'completed' | 'cancelled';
   technicianId?: string;
@@ -36,6 +39,24 @@ export interface WorkOrder {
   actualCost?: number;
   createdAt: string;
   completedAt?: string;
+}
+
+export interface BookingTask {
+  id: number;
+  bookingId: string;
+  taskName: string;
+  orderIndex: number;
+  isCompleted: boolean;
+}
+
+export interface CustomerReportRow {
+  orderId: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  packageName: string;
+  amount: number;
 }
 
 export interface Service {
@@ -74,6 +95,18 @@ export interface RevenueStats {
   trendPeriod: 'day' | 'week' | 'month' | 'year';
 }
 
+export interface PreviousCustomer {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  totalBookings: number;
+  completedBookings: number;
+  totalSpent: number;
+  firstBookingAt: string;
+  lastBookingAt: string;
+}
+
 export interface NotificationItem {
   id: number;
   message: string;
@@ -81,6 +114,19 @@ export interface NotificationItem {
   isRead: boolean;
   createdAt: string;
   readAt?: string;
+}
+
+export interface CreateTechnicianInput {
+  fullName: string;
+  email: string;
+  phone?: string;
+  password: string;
+}
+
+export interface AdminNotificationInput {
+  title?: string;
+  message: string;
+  customerIds?: string[];
 }
 
 export interface RealtimeEvent {
@@ -96,6 +142,9 @@ const API_BASE =
   'http://127.0.0.1:8000';
 const TOKEN_KEY = 'admin_token';
 const LEGACY_TOKEN_KEY = 'backend_access_token';
+export const ADMIN_SESSION_EXPIRED_EVENT = 'admin-session-expired';
+
+let refreshPromise: Promise<boolean> | null = null;
 
 function getRealtimeWsUrl(): string {
   const trimmed = API_BASE.replace(/\/+$/, '');
@@ -125,6 +174,55 @@ function getDefaultCategoryColor(category: string): string {
 
 function readToken(): string | null {
   return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+}
+
+function clearStoredAuth(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+  localStorage.removeItem('admin_user');
+}
+
+function emitSessionExpired(): void {
+  clearStoredAuth();
+  window.dispatchEvent(new Event(ADMIN_SESSION_EXPIRED_EVENT));
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+
+      const body = (await response.json().catch(() => ({}))) as Dict;
+      if (!response.ok) {
+        return false;
+      }
+
+      const accessToken = typeof body.access_token === 'string' ? body.access_token : '';
+      if (!accessToken) {
+        return false;
+      }
+
+      localStorage.setItem(TOKEN_KEY, accessToken);
+      localStorage.setItem(LEGACY_TOKEN_KEY, accessToken);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshPromise = null;
+  });
+
+  return refreshPromise;
 }
 
 function pickString(obj: Dict, key: string): string {
@@ -244,10 +342,46 @@ async function request<T>(path: string, init?: RequestInit, requireAuth = false)
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
+    credentials: 'include',
   });
 
   const body = (await response.json().catch(() => ({}))) as Dict;
   if (!response.ok) {
+    if (response.status === 401 && requireAuth && path !== '/auth/refresh') {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        const retryHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+          ...(init?.headers as Record<string, string> | undefined),
+          Authorization: `Bearer ${readToken()}`,
+        };
+
+        const retryResponse = await fetch(`${API_BASE}${path}`, {
+          ...init,
+          headers: retryHeaders,
+          credentials: 'include',
+        });
+
+        const retryBody = (await retryResponse.json().catch(() => ({}))) as Dict;
+        if (retryResponse.ok) {
+          return retryBody as T;
+        }
+
+        if (retryResponse.status === 401) {
+          emitSessionExpired();
+        }
+
+        const retryDetail = typeof retryBody.detail === 'string'
+          ? retryBody.detail
+          : typeof retryBody.error === 'string'
+            ? retryBody.error
+            : `Request failed (${retryResponse.status})`;
+        throw new Error(retryDetail);
+      }
+
+      emitSessionExpired();
+    }
+
     const detail = typeof body.detail === 'string' ? body.detail : typeof body.error === 'string' ? body.error : `Request failed (${response.status})`;
     throw new Error(detail);
   }
@@ -301,7 +435,10 @@ function mapWorkOrder(item: Dict): WorkOrder {
     id: String(item.id ?? ''),
     customerId: String(item.customer_id ?? item.user_id ?? ''),
     customerName: pickString(item, 'customer_name'),
+    customerEmail: pickString(item, 'customer_email'),
+    customerPhone: pickString(item, 'customer_phone'),
     serviceType: pickString(item, 'service_name') || pickString(item, 'serviceType'),
+    packageName: pickString(item, 'package_name') || pickString(item, 'packageName'),
     priority: (pickString(item, 'priority') as WorkOrder['priority']) || 'medium',
     status,
     technicianId: item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined,
@@ -348,6 +485,20 @@ function mapServicePackage(item: Dict): ServicePackage {
       ? (item.estimated_times as Record<string, string>)
       : {},
     isActive: item.is_active !== false,
+  };
+}
+
+function mapPreviousCustomer(item: Dict): PreviousCustomer {
+  return {
+    id: String(item.id ?? ''),
+    fullName: pickString(item, 'full_name') || pickString(item, 'name'),
+    email: pickString(item, 'email'),
+    phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
+    totalBookings: pickFirstNumber(item, ['total_bookings', 'totalBookings']),
+    completedBookings: pickFirstNumber(item, ['completed_bookings', 'completedBookings']),
+    totalSpent: pickFirstNumber(item, ['total_spent', 'totalSpent']),
+    firstBookingAt: pickString(item, 'first_booking_at') || pickString(item, 'firstBookingAt'),
+    lastBookingAt: pickString(item, 'last_booking_at') || pickString(item, 'lastBookingAt'),
   };
 }
 
@@ -468,6 +619,32 @@ export const mockApi = {
     return technician;
   },
 
+  createTechnician: async (input: CreateTechnicianInput): Promise<Technician> => {
+    const data = await request<{ technician?: Dict }>(
+      '/technicians',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          full_name: input.fullName,
+          email: input.email,
+          phone_number: input.phone || '',
+          password: input.password,
+        }),
+      },
+      true,
+    );
+
+    if (!data.technician) {
+      throw new Error('Technician creation did not return a technician payload');
+    }
+
+    return mapTechnician(data.technician);
+  },
+
+  removeTechnician: async (id: string): Promise<void> => {
+    await request(`/technicians/${id}`, { method: 'DELETE' }, true);
+  },
+
   getWorkOrders: async (): Promise<WorkOrder[]> => {
     const data = await request<Dict[] | { bookings?: Dict[] }>('/bookings/', undefined, true);
     const list = Array.isArray(data) ? data : (data.bookings || []);
@@ -478,6 +655,18 @@ export const mockApi = {
     const data = await request<Dict | { booking?: Dict }>(`/bookings/${id}`, undefined, true);
     const booking = 'booking' in data ? data.booking : data;
     return booking ? mapWorkOrder(booking as Dict) : undefined;
+  },
+
+  getBookingTasks: async (bookingId: string): Promise<BookingTask[]> => {
+    const data = await request<Dict[] | { tasks?: Dict[] }>(`/bookings/${bookingId}/tasks`, undefined, true);
+    const list = Array.isArray(data) ? data : (data.tasks || []);
+    return list.map((item) => ({
+      id: Number(item.id ?? 0),
+      bookingId: String(item.booking_id ?? item.bookingId ?? bookingId),
+      taskName: pickString(item, 'task_name') || pickString(item, 'taskName'),
+      orderIndex: pickNumber(item, 'order_index'),
+      isCompleted: Boolean(item.is_completed),
+    }));
   },
 
   createWorkOrder: async (data: Partial<WorkOrder>): Promise<WorkOrder> => {
@@ -723,6 +912,30 @@ export const mockApi = {
     };
   },
 
+  getPreviousCustomers: async (): Promise<PreviousCustomer[]> => {
+    const data = await request<{ customers?: Dict[] }>(`/customers/previous`, undefined, true);
+    return (data.customers || []).map(mapPreviousCustomer);
+  },
+
+  sendCustomerNotification: async (payload: AdminNotificationInput): Promise<{ sentCount: number }> => {
+    const data = await request<{ sent_count?: number }>(
+      '/notifications/admin/send',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          title: payload.title?.trim() || undefined,
+          message: payload.message,
+          customer_ids: payload.customerIds && payload.customerIds.length > 0
+            ? payload.customerIds.map((id) => Number(id)).filter((value) => Number.isInteger(value) && value > 0)
+            : undefined,
+        }),
+      },
+      true,
+    );
+
+    return { sentCount: Number(data.sent_count ?? 0) };
+  },
+
   getNotifications: async (): Promise<NotificationItem[]> => {
     const data = await request<Dict[] | { notifications?: Dict[] }>('/notifications/', undefined, true);
     const list = Array.isArray(data) ? data : (data.notifications || []);
@@ -763,5 +976,21 @@ export const mockApi = {
       totalTechnicians: technicians.length,
       completedToday: pickFirstNumber(stats, ['completed_today', 'completed_bookings_today', 'completedToday']),
     };
+  },
+
+  logoutSession: async (): Promise<void> => {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+    } catch {
+      // Ignore logout transport errors; local state still gets cleared.
+    } finally {
+      clearStoredAuth();
+    }
   },
 };

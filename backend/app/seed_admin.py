@@ -463,6 +463,14 @@ def seed_admin_dashboard_data():
             "Technician Started Job",
             "job_started",
         )
+        ensure_notification(
+            cursor,
+            admin_id,
+            "Commercial support request from Sam Customer needs a callback.",
+            False,
+            "Support Request Received",
+            "support_contact",
+        )
 
         ensure_location(cursor, booking_ids[3], technician_ids[2], 17.3852, 78.4870, 6.7)
         ensure_location(cursor, booking_ids[3], technician_ids[2], 17.3854, 78.4872, 5.1)
@@ -482,6 +490,7 @@ def seed_admin_dashboard_data():
         print("  - Pending, assigned, in-progress, completion-requested, and completed work orders")
         print("  - Service-package metadata for Silver, Gold, Platinum, and Move-Out Refresh")
         print("  - Notifications and live technician locations")
+        print("  - Demo support-contact notification for admin inbox validation")
     finally:
         cursor.close()
         conn.close()

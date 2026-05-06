@@ -20,8 +20,9 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, token_use: str = "access"):
     to_encode = data.copy()
+    to_encode["token_use"] = token_use
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -32,9 +33,29 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-def decode_access_token(token: str):
+def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
+    if expires_delta is None:
+        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return create_access_token(data, expires_delta=expires_delta, token_use="refresh")
+
+
+def decode_access_token(token: str, expected_use: str = "access"):
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        token_use = payload.get("token_use", "access")
+        if expected_use == "access" and token_use not in {"access", None}:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if expected_use == "refresh" and token_use != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return payload
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -44,7 +65,7 @@ def decode_access_token(token: str):
 
 
 def get_current_user_payload(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token)
+    payload = decode_access_token(token, expected_use="access")
     user_id = payload.get("id")
     role = payload.get("role")
     email = payload.get("sub")
