@@ -1,80 +1,253 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'package:user_a/src/controllers/booking_controller.dart';
+import 'package:user_a/src/controllers/user_controller.dart';
 
 class MapPickerScreen extends StatelessWidget {
-  MapPickerScreen({super.key});
 
-  final BookingController controller = Get.find<BookingController>();
-  final TextEditingController addressController = TextEditingController();
+  MapPickerScreen({
+    super.key,
+  });
+
+  final BookingController
+      bookingController =
+          Get.find<BookingController>();
+
+  final UserController
+      userController =
+          Get.find<UserController>();
+
+  final TextEditingController
+      addressController =
+          TextEditingController();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
 
-    /// Pre-fill if already selected
-    addressController.text = controller.selectedAddress.value;
+    // ===========================================
+    // PREFILL EXISTING ADDRESS
+    // ===========================================
+    addressController.text =
+        bookingController
+            .selectedAddress
+            .value;
 
     return Scaffold(
+      backgroundColor:
+          const Color(
+        0xFFF7F9FB,
+      ),
+
       appBar: AppBar(
-        title: Text('select_location'.tr),
+        title: Text(
+          'select_location'
+              .tr,
+        ),
+
         elevation: 0,
+
+        backgroundColor:
+            Colors.white,
+
+        foregroundColor:
+            Colors.black,
       ),
 
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding:
+            const EdgeInsets
+                .all(20),
 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment
+                  .start,
+
           children: [
 
             const Text(
               "Enter your address",
+
               style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontSize: 18,
+
+                fontWeight:
+                    FontWeight
+                        .bold,
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(
+              height: 8,
+            ),
+
+            const Text(
+              "Provide complete apartment/building details for accurate service location.",
+            ),
+
+            const SizedBox(
+              height: 24,
+            ),
 
             TextField(
-              controller: addressController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: "Flat / Building / Area / Landmark",
-                border: OutlineInputBorder(),
+              controller:
+                  addressController,
+
+              maxLines: 4,
+
+              decoration:
+                  InputDecoration(
+                hintText:
+                    "Flat / Building / Area / Landmark",
+
+                filled: true,
+
+                fillColor:
+                    Colors.white,
+
+                border:
+                    OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(
+                    16,
+                  ),
+
+                  borderSide:
+                      BorderSide(
+                    color: Colors
+                        .grey
+                        .shade300,
+                  ),
+                ),
+
+                enabledBorder:
+                    OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius
+                          .circular(
+                    16,
+                  ),
+
+                  borderSide:
+                      BorderSide(
+                    color: Colors
+                        .grey
+                        .shade300,
+                  ),
+                ),
+
+                focusedBorder:
+                    OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius
+                          .circular(
+                    16,
+                  ),
+
+                  borderSide:
+                      const BorderSide(
+                    color: Color(
+                      0xFF0F9D8A,
+                    ),
+
+                    width: 1.4,
+                  ),
+                ),
+
+                contentPadding:
+                    const EdgeInsets
+                        .all(18),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(
+              height: 24,
+            ),
 
             SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
+              width:
+                  double.infinity,
+
+              child:
+                  ElevatedButton(
                 onPressed: () {
 
-                  final address = addressController.text.trim();
+                  final address =
+                      addressController
+                          .text
+                          .trim();
 
-                  if (address.isEmpty) {
+                  if (address
+                      .isEmpty) {
+
                     Get.snackbar(
-                      "Error",
-                      "Please enter address",
-                      snackPosition: SnackPosition.BOTTOM,
+                      "Address Required",
+                      "Please enter your service location.",
                     );
+
                     return;
                   }
 
-                  /// 🔥 SAVE ADDRESS
-                  controller.selectedAddress.value = address;
+                  // ===================================
+                  // SAVE BOOKING ADDRESS
+                  // ===================================
+                  bookingController
+                          .selectedAddress
+                          .value =
+                      address;
 
-                  if (!controller.addresses.contains(address)) {
-                    controller.addresses.add(address);
-                  }
+                  // ===================================
+                  // SAVE TO USER ADDRESSES
+                  // ===================================
+                  userController
+                      .addAddress(
+                    address,
+                  );
 
                   Get.back();
                 },
-                child: Text('confirm_location'.tr),
+
+                style:
+                    ElevatedButton
+                        .styleFrom(
+                  minimumSize:
+                      const Size
+                          .fromHeight(
+                    54,
+                  ),
+
+                  backgroundColor:
+                      const Color(
+                    0xFF0F9D8A,
+                  ),
+
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      16,
+                    ),
+                  ),
+                ),
+
+                child: Text(
+                  'confirm_location'
+                      .tr,
+
+                  style:
+                      const TextStyle(
+                    fontWeight:
+                        FontWeight
+                            .w600,
+
+                    fontSize: 15,
+                  ),
+                ),
               ),
             ),
           ],
@@ -83,3 +256,4 @@ class MapPickerScreen extends StatelessWidget {
     );
   }
 }
+
