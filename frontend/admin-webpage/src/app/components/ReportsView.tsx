@@ -67,6 +67,15 @@ export function ReportsView() {
   const [dateBreakdownMode, setDateBreakdownMode] = useState<'category' | 'service'>('category');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [customerSearch, setCustomerSearch] = useState('');
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({
+    orderId: '',
+    customerId: '',
+    customerName: '',
+    package: '',
+    technician: '',
+    email: '',
+    phone: '',
+  });
 
   const loadData = async (showLoader = false, silent = true) => {
     if (showLoader) {
@@ -147,37 +156,52 @@ export function ReportsView() {
     return text;
   };
 
-  const handleExportCSV = () => {
-    const lines: string[] = [];
-    lines.push(`Report Type,${csvEscape(reportType)}`);
-    lines.push(`Start Date,${csvEscape(startDate)}`);
-    lines.push(`End Date,${csvEscape(endDate)}`);
-    lines.push(`Revenue Source,${csvEscape(revenueSource)}`);
-    lines.push('');
-    lines.push('Order ID,Date,Status,Service,Technician,Revenue');
+  const handleExportCSV = async () => {
+    // Export an XLSX workbook with three sheets: Date, Technician, Customer.
+    try {
+      // Load SheetJS (xlsx) from CDN if not already loaded to avoid local dependency issues during quick testing.
+      const globalAny: any = window as any;
+      if (!globalAny.XLSX) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js';
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('Failed to load xlsx script'));
+          document.head.appendChild(s);
+        });
+      }
+      const XLSX: any = (window as any).XLSX;
 
-    filteredWorkOrders.forEach((order) => {
-      const orderRevenue = order.actualCost ?? order.estimatedCost;
-      lines.push([
-        csvEscape(order.id),
-        csvEscape(order.scheduledDate),
-        csvEscape(order.status),
-        csvEscape(order.serviceType),
-        csvEscape(order.technicianName || ''),
-        csvEscape(orderRevenue),
-      ].join(','));
-    });
+      const dateSheetData = dateWiseArray.map((d) => ({ Date: d.date, CompletedOrders: d.count, Revenue: Number(d.revenue).toFixed(2) }));
+      const techSheetData = technicianWiseData.map((t) => ({ Technician: t.name, TotalJobs: t.totalJobs, CompletedJobs: t.completedJobs, Revenue: Number(t.revenue).toFixed(2), CompletionRate: t.completionRate }));
+      const customerSheetData = filteredCustomerReportRows.map((r) => ({ OrderID: r.orderId, CustomerID: r.customerId, CustomerName: r.customerName, Package: r.packageName, Technician: r.technicianName, Email: r.customerEmail, Phone: r.customerPhone, Amount: Number(r.amount).toFixed(2) }));
 
-    lines.push('');
-    lines.push('Summary Metric,Value');
-    lines.push(`Total Orders,${csvEscape(totalOrders)}`);
-    lines.push(`Completed Orders,${csvEscape(completedOrders)}`);
-    lines.push(`Total Revenue,${csvEscape(totalRevenue.toFixed(2))}`);
-    lines.push(`Average Order Value,${csvEscape(avgOrderValue.toFixed(2))}`);
+      const wb = XLSX.utils.book_new();
+      const wsDate = XLSX.utils.json_to_sheet(dateSheetData);
+      const wsTech = XLSX.utils.json_to_sheet(techSheetData);
+      const wsCustomer = XLSX.utils.json_to_sheet(customerSheetData);
 
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    downloadBlob(lines.join('\n'), `reports-${timestamp}.csv`, 'text/csv;charset=utf-8');
-    toast.success(t('reports.exportedCSV'));
+      XLSX.utils.book_append_sheet(wb, wsDate, 'Date');
+      XLSX.utils.book_append_sheet(wb, wsTech, 'Technician');
+      XLSX.utils.book_append_sheet(wb, wsCustomer, 'Customer');
+
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const fileName = `reports-${timestamp}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(t('reports.exportedCSV'));
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export workbook.');
+    }
   };
 
   const handleExportPDF = () => {
@@ -341,7 +365,7 @@ export function ReportsView() {
 
   const categoryRevenueSeries = useMemo(() => {
     const completedOrders = filteredWorkOrders.filter((order) => order.status === 'completed');
-    const seriesByDate = new Map<string, Record<string, number>>();
+    const seriesByDate = new Map<string, Record<string, number | string>>();
 
     selectedDateRange.forEach((date) => {
       seriesByDate.set(date, { date });
@@ -352,7 +376,7 @@ export function ReportsView() {
       const categoryName = (matchedService?.category || 'Uncategorized').trim() || 'Uncategorized';
       const dateKey = order.scheduledDate;
       const bucket = seriesByDate.get(dateKey) || { date: dateKey };
-      bucket[categoryName] = (bucket[categoryName] || 0) + (order.actualCost ?? order.estimatedCost);
+      bucket[categoryName] = (Number(bucket[categoryName]) || 0) + (order.actualCost ?? order.estimatedCost);
       seriesByDate.set(dateKey, bucket);
     });
 
@@ -368,7 +392,7 @@ export function ReportsView() {
       selectedCategorySummary.services.map((service) => service.name.trim().toLowerCase()),
     );
     const completedOrders = filteredWorkOrders.filter((order) => order.status === 'completed');
-    const seriesByDate = new Map<string, Record<string, number>>();
+    const seriesByDate = new Map<string, Record<string, number | string>>();
 
     selectedDateRange.forEach((date) => {
       seriesByDate.set(date, { date });
@@ -382,7 +406,7 @@ export function ReportsView() {
 
       const dateKey = order.scheduledDate;
       const bucket = seriesByDate.get(dateKey) || { date: dateKey };
-      bucket[matchedService.name] = (bucket[matchedService.name] || 0) + (order.actualCost ?? order.estimatedCost);
+      bucket[matchedService.name] = (Number(bucket[matchedService.name]) || 0) + (order.actualCost ?? order.estimatedCost);
       seriesByDate.set(dateKey, bucket);
     });
 
@@ -403,10 +427,18 @@ export function ReportsView() {
   }, [filteredWorkOrders]);
 
   const filteredCustomerReportRows = useMemo(() => {
-    const q = customerSearch.trim().toLowerCase();
-    if (!q) return customerReportRows;
-    return customerReportRows.filter((r) => (r.customerName || '').toLowerCase().includes(q));
-  }, [customerReportRows, customerSearch]);
+    const filters = Object.fromEntries(Object.entries(columnFilters).map(([k, v]) => [k, v.trim().toLowerCase()]));
+    return customerReportRows.filter((r) => {
+      const orderMatch = !filters.orderId || String(r.orderId).toLowerCase().includes(filters.orderId.replace('#', '')) || String(r.orderId).toLowerCase().includes(filters.orderId);
+      const customerIdMatch = !filters.customerId || String(r.customerId).toLowerCase().includes(filters.customerId.replace('#', '')) || String(r.customerId).toLowerCase().includes(filters.customerId);
+      const nameMatch = !filters.customerName || (r.customerName || '').toLowerCase().includes(filters.customerName);
+      const packageMatch = !filters.package || (r.packageName || '').toLowerCase().includes(filters.package);
+      const techMatch = !filters.technician || (r.technicianName || '').toLowerCase().includes(filters.technician);
+      const emailMatch = !filters.email || (r.customerEmail || '').toLowerCase().includes(filters.email);
+      const phoneMatch = !filters.phone || (r.customerPhone || '').toLowerCase().includes(filters.phone.replace(/[^0-9+]/g, '')) || (r.customerPhone || '').toLowerCase().includes(filters.phone);
+      return orderMatch && customerIdMatch && nameMatch && packageMatch && techMatch && emailMatch && phoneMatch;
+    });
+  }, [customerReportRows, columnFilters]);
 
   const selectedCustomer = useMemo(() => {
     return previousCustomers.find((customer) => customer.id === selectedCustomerId) || null;
@@ -850,31 +882,77 @@ export function ReportsView() {
       {reportType === 'customer' && (
         <Card className="rounded-3xl border-none shadow-lg">
           <CardHeader>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <CardTitle>Customer Reports</CardTitle>
-              <div className="flex items-center gap-3">
-                <div className="text-sm text-gray-500 hidden sm:block">Tap on a row for additional details</div>
-                <Input
-                  placeholder={t('Search by customer name') || 'Search by customer name'}
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  className="w-64"
-                />
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <CardTitle>Customer Reports</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm text-gray-500 hidden sm:block">Tap on a row for additional details</div>
+                </div>
               </div>
-            </div>
+              <p className="mt-3 text-sm text-gray-500">
+                Type in any header box to filter that column. Filters combine together, so matching Order ID and Customer Name narrows the rows to both values.
+              </p>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full min-w-275 text-sm">
                 <thead>
                   <tr className="border-b text-left text-gray-500">
-                    <th className="py-3 pr-4">Order ID</th>
-                    <th className="py-3 pr-4">Customer ID</th>
-                    <th className="py-3 pr-4">Customer Name</th>
-                    <th className="py-3 pr-4">Package</th>
-                    <th className="py-3 pr-4">Technician</th>
-                    <th className="py-3 pr-4">Email</th>
-                    <th className="py-3 pr-4">Phone</th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Order ID"
+                        value={columnFilters.orderId}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, orderId: e.target.value })}
+                        className="w-36 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Customer ID"
+                        value={columnFilters.customerId}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, customerId: e.target.value })}
+                        className="w-36 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Customer Name"
+                        value={columnFilters.customerName}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, customerName: e.target.value })}
+                        className="w-48 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Package"
+                        value={columnFilters.package}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, package: e.target.value })}
+                        className="w-36 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Technician"
+                        value={columnFilters.technician}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, technician: e.target.value })}
+                        className="w-36 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Email"
+                        value={columnFilters.email}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, email: e.target.value })}
+                        className="w-48 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
+                    <th className="py-3 pr-4">
+                      <input
+                        placeholder="Phone"
+                        value={columnFilters.phone}
+                        onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                        className="w-36 rounded-md border px-2 py-1 text-sm font-medium placeholder:font-medium placeholder:text-[0.95rem] placeholder:text-gray-500"
+                      />
+                    </th>
                     <th className="py-3">Amount</th>
                   </tr>
                 </thead>
