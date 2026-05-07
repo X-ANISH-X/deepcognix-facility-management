@@ -20,42 +20,33 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None, token_use: str = "access"):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    to_encode["token_use"] = token_use
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "token_type": "access"})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
 def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
-    if expires_delta is None:
-        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    return create_access_token(data, expires_delta=expires_delta, token_use="refresh")
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    to_encode.update({"exp": expire, "token_type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
 
 
-def decode_access_token(token: str, expected_use: str = "access"):
+def _decode_token(token: str, expected_token_type: Optional[str] = None):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        token_use = payload.get("token_use", "access")
-        if expected_use == "access" and token_use not in {"access", None}:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        if expected_use == "refresh" and token_use != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return payload
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -63,9 +54,36 @@ def decode_access_token(token: str, expected_use: str = "access"):
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
+    token_type = payload.get("token_type")
+    if expected_token_type == "refresh":
+        if token_type != "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    elif expected_token_type == "access":
+        # Backward compatibility: allow legacy access tokens without token_type claim.
+        if token_type not in (None, "access"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid access token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+    return payload
+
+
+def decode_access_token(token: str):
+    return _decode_token(token, expected_token_type="access")
+
+
+def decode_refresh_token(token: str):
+    return _decode_token(token, expected_token_type="refresh")
+
 
 def get_current_user_payload(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token, expected_use="access")
+    payload = decode_access_token(token)
     user_id = payload.get("id")
     role = payload.get("role")
     email = payload.get("sub")

@@ -49,8 +49,10 @@ export function ReportsView() {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [reportType, setReportType] = useState<'date' | 'technician' | 'service' | 'customer'>('date');
-  const [startDate, setStartDate] = useState('2026-01-01');
-  const [endDate, setEndDate] = useState('2026-01-31');
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const firstOfYear = `${new Date().getFullYear()}-01-01`;
+  const [startDate, setStartDate] = useState(firstOfYear);
+  const [endDate, setEndDate] = useState(todayIso);
   const [selectedTechnician, setSelectedTechnician] = useState<string>('all');
   const [selectedService, setSelectedService] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
@@ -64,6 +66,7 @@ export function ReportsView() {
   const [isLoadingBookingTasks, setIsLoadingBookingTasks] = useState(false);
   const [dateBreakdownMode, setDateBreakdownMode] = useState<'category' | 'service'>('category');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [customerSearch, setCustomerSearch] = useState('');
 
   const loadData = async (showLoader = false, silent = true) => {
     if (showLoader) {
@@ -394,9 +397,16 @@ export function ReportsView() {
       customerEmail: order.customerEmail || 'N/A',
       customerPhone: order.customerPhone || 'N/A',
       packageName: order.packageName || 'N/A',
+      technicianName: order.technicianName || 'N/A',
       amount: order.actualCost ?? order.estimatedCost,
     }));
   }, [filteredWorkOrders]);
+
+  const filteredCustomerReportRows = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return customerReportRows;
+    return customerReportRows.filter((r) => (r.customerName || '').toLowerCase().includes(q));
+  }, [customerReportRows, customerSearch]);
 
   const selectedCustomer = useMemo(() => {
     return previousCustomers.find((customer) => customer.id === selectedCustomerId) || null;
@@ -684,7 +694,7 @@ export function ReportsView() {
                   <div style={{ minWidth: Math.max(800, categoryRevenueSeries.length * 15) + 'px' }}>
                     <ResponsiveContainer width="100%" height={420}>
                       <LineChart data={categoryRevenueSeries} margin={{ left: 15, right: 20, top: 10, bottom: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <CartesianGrid stroke="var(--chart-grid)" />
                         <XAxis 
                           dataKey="date" 
                           stroke="#888" 
@@ -701,7 +711,6 @@ export function ReportsView() {
                             borderRadius: '12px',
                             boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                           }}
-                          labelStyle={{ color: '#111827' }}
                           formatter={(value, name) => {
                             return [`AED ${Number(value).toFixed(2)}`, name];
                           }}
@@ -752,7 +761,7 @@ export function ReportsView() {
                       <div style={{ minWidth: Math.max(800, selectedCategoryServiceSeries.length * 15) + 'px' }}>
                         <ResponsiveContainer width="100%" height={420}>
                           <LineChart data={selectedCategoryServiceSeries} margin={{ left: 15, right: 20, top: 10, bottom: 30 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <CartesianGrid stroke="var(--chart-grid)" />
                             <XAxis 
                               dataKey="date" 
                               stroke="#888" 
@@ -769,7 +778,6 @@ export function ReportsView() {
                                 borderRadius: '12px',
                                 boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                               }}
-                              labelStyle={{ color: '#111827' }}
                               formatter={(value, name) => {
                                 return [`AED ${Number(value).toFixed(2)}`, name];
                               }}
@@ -844,8 +852,14 @@ export function ReportsView() {
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <CardTitle>Customer Reports</CardTitle>
-              <div className="text-sm text-gray-500">
-                Customer name, package, contact details, order ID, and amount
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-500 hidden sm:block">Tap on a row for additional details</div>
+                <Input
+                  placeholder={t('Search by customer name') || 'Search by customer name'}
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="w-64"
+                />
               </div>
             </div>
           </CardHeader>
@@ -858,13 +872,14 @@ export function ReportsView() {
                     <th className="py-3 pr-4">Customer ID</th>
                     <th className="py-3 pr-4">Customer Name</th>
                     <th className="py-3 pr-4">Package</th>
+                    <th className="py-3 pr-4">Technician</th>
                     <th className="py-3 pr-4">Email</th>
                     <th className="py-3 pr-4">Phone</th>
                     <th className="py-3">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {customerReportRows.map((row) => (
+                  {filteredCustomerReportRows.map((row) => (
                     <tr
                       key={row.orderId}
                       className="cursor-pointer border-b last:border-none hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -889,6 +904,7 @@ export function ReportsView() {
                         </button>
                       </td>
                       <td className="py-3 pr-4">{row.packageName}</td>
+                      <td className="py-3 pr-4">{row.technicianName}</td>
                       <td className="py-3 pr-4">{row.customerEmail}</td>
                       <td className="py-3 pr-4">{row.customerPhone}</td>
                       <td className="py-3">AED {row.amount.toFixed(2)}</td>

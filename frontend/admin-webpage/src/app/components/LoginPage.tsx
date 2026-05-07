@@ -52,6 +52,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       localStorage.setItem('admin_token', payload.access_token);
       localStorage.setItem('backend_access_token', payload.access_token);
+      if (payload.refresh_token) {
+        localStorage.setItem('admin_refresh_token', payload.refresh_token);
+      }
       localStorage.setItem('admin_user', JSON.stringify({
         id: payload.user_id,
         full_name: payload.full_name || getDisplayNameFromEmail(normalizedEmail),

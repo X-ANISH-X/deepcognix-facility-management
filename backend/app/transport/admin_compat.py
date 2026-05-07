@@ -821,6 +821,37 @@ def update_technician_profile_alias(
         cursor.close()
 
 
+@router.get("/customers/previous")
+def get_previous_customers(
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _require_admin(current_user)
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Query customers who have made at least one booking, ordered by most recent booking
+        cursor.execute(
+            """
+            SELECT DISTINCT
+                u.id,
+                u.full_name,
+                u.email,
+                u.phone_number,
+                MAX(b.created_at) AS last_booking_at,
+                COUNT(b.id) AS total_bookings
+            FROM users u
+            JOIN bookings b ON u.id = b.customer_id
+            WHERE u.role = 'customer' AND u.is_active = TRUE
+            GROUP BY u.id, u.full_name, u.email, u.phone_number
+            ORDER BY MAX(b.created_at) DESC
+            """
+        )
+        customers = cursor.fetchall()
+        return {"customers": customers or []}
+    finally:
+        cursor.close()
+
+
 @router.get("/notifications/unread")
 def unread_notifications_alias(
     db=Depends(get_db_connection),
