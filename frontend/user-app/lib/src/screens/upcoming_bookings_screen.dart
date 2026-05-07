@@ -1,135 +1,479 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import 'package:user_a/src/services/api_client.dart';
 import 'package:user_a/src/controllers/booking_controller.dart';
 
-class UpcomingBookingsScreen extends StatefulWidget {
-  const UpcomingBookingsScreen({super.key});
+class UpcomingBookingsScreen
+    extends StatefulWidget {
+
+  const UpcomingBookingsScreen({
+    super.key,
+  });
 
   @override
-  State<UpcomingBookingsScreen> createState() =>
-      _UpcomingBookingsScreenState();
+  State<UpcomingBookingsScreen>
+      createState() =>
+          _UpcomingBookingsScreenState();
 }
 
-class _UpcomingBookingsScreenState extends State<UpcomingBookingsScreen> {
+class _UpcomingBookingsScreenState
+    extends State<
+        UpcomingBookingsScreen> {
 
-  final ApiClient api = ApiClient();
-  final BookingController bookingController = Get.find();
+  final ApiClient api =
+      ApiClient();
 
-  final bookings = <Map<String, dynamic>>[].obs;
-  final isLoading = true.obs;
+  final BookingController
+      bookingController =
+          Get.find();
+
+  final bookings =
+      <Map<String, dynamic>>[]
+          .obs;
+
+  final isLoading =
+      true.obs;
+
+  final hasError =
+      false.obs;
 
   @override
   void initState() {
     super.initState();
+
     fetchBookings();
   }
 
-  /// ---------------- FETCH BOOKINGS ----------------
-  Future<void> fetchBookings() async {
+  // =====================================================
+  // FETCH BOOKINGS
+  // =====================================================
+  Future<void>
+      fetchBookings() async {
 
     try {
 
       isLoading.value = true;
 
-      final response = await api.get("/bookings");
+      hasError.value = false;
+
+      final response =
+          await api.get(
+        "/bookings",
+      );
 
       if (response is List) {
+
         bookings.value =
-            List<Map<String, dynamic>>.from(response);
+            List<Map<String,
+                dynamic>>.from(
+          response,
+        );
+
+      } else {
+
+        bookings.clear();
       }
 
-    } catch (e) {
+    } catch (_) {
 
-      debugPrint("Bookings fetch failed → $e");
+      hasError.value = true;
+
       bookings.clear();
-
-      Get.snackbar(
-        "Error",
-        "Failed to load bookings",
-        snackPosition: SnackPosition.BOTTOM,
-      );
 
     } finally {
 
-      isLoading.value = false;
+      isLoading.value =
+          false;
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
 
     return Scaffold(
+      backgroundColor:
+          const Color(
+        0xFFF7F9FB,
+      ),
+
       appBar: AppBar(
-        title: Text('upcoming_bookings'.tr),
+        title: Text(
+          'upcoming_bookings'
+              .tr,
+        ),
+
         elevation: 0,
+
+        backgroundColor:
+            Colors.white,
+
+        foregroundColor:
+            Colors.black,
       ),
 
       body: Obx(() {
 
+        // ===========================================
+        // LOADING
+        // ===========================================
         if (isLoading.value) {
+
           return const Center(
-            child: CircularProgressIndicator(),
+            child:
+                CircularProgressIndicator(),
           );
         }
 
-        if (bookings.isEmpty) {
+        // ===========================================
+        // ERROR
+        // ===========================================
+        if (hasError.value) {
+
           return Center(
-            child: Text('no_bookings'.tr),
+            child: Padding(
+              padding:
+                  const EdgeInsets
+                      .all(24),
+
+              child: Column(
+                mainAxisAlignment:
+                    MainAxisAlignment
+                        .center,
+
+                children: [
+
+                  const Icon(
+                    Icons
+                        .cloud_off,
+
+                    size: 60,
+
+                    color:
+                        Colors.grey,
+                  ),
+
+                  const SizedBox(
+                    height: 16,
+                  ),
+
+                  const Text(
+                    "Unable to load bookings.",
+                  ),
+
+                  const SizedBox(
+                    height: 20,
+                  ),
+
+                  ElevatedButton(
+                    onPressed:
+                        fetchBookings,
+
+                    child:
+                        const Text(
+                      "Retry",
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
-        return RefreshIndicator(
+        // ===========================================
+        // EMPTY
+        // ===========================================
+        if (bookings.isEmpty) {
 
-          onRefresh: fetchBookings,
+          return Center(
+            child: Padding(
+              padding:
+                  const EdgeInsets
+                      .all(24),
 
-          child: ListView.builder(
+              child: Column(
+                mainAxisAlignment:
+                    MainAxisAlignment
+                        .center,
 
-            padding: const EdgeInsets.all(16),
+                children: [
 
-            itemCount: bookings.length,
+                  Icon(
+                    Icons
+                        .event_busy,
 
-            itemBuilder: (context, index) {
+                    size: 70,
 
-              final booking = bookings[index];
+                    color: Colors
+                        .grey
+                        .shade400,
+                  ),
 
-              final int bookingId =
-                  booking["id"] ?? 0;
+                  const SizedBox(
+                    height: 18,
+                  ),
 
-              final date = booking["date"] ?? "";
-              final time = booking["time"] ?? "";
-              final address = booking["address"] ?? "";
-              final status = booking["status"] ?? "requested";
+                  const Text(
+                    "No bookings yet",
 
-              return Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ListTile(
+                    style: TextStyle(
+                      fontSize: 18,
 
-                  contentPadding:
-                      const EdgeInsets.all(16),
-
-                  title: Text(
-                    "$date • $time",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                      fontWeight:
+                          FontWeight
+                              .bold,
                     ),
                   ),
 
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(address),
+                  const SizedBox(
+                    height: 8,
                   ),
 
-                  trailing: _statusBadge(status),
+                  const Text(
+                    "Your upcoming cleaning services will appear here.",
 
-                  onTap: () {
+                    textAlign:
+                        TextAlign
+                            .center,
+                  ),
 
-                    bookingController.bookingId.value = bookingId;
+                  const SizedBox(
+                    height: 22,
+                  ),
 
-                    Get.toNamed('/booking-status');
-                  },
+                  ElevatedButton(
+                    onPressed:
+                        () {
+
+                      Get.offAllNamed(
+                        '/home',
+                      );
+                    },
+
+                    child:
+                        const Text(
+                      "Book Cleaning",
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // ===========================================
+        // BOOKING LIST
+        // ===========================================
+        return RefreshIndicator(
+          onRefresh:
+              fetchBookings,
+
+          child: ListView.separated(
+            padding:
+                const EdgeInsets
+                    .all(16),
+
+            itemCount:
+                bookings.length,
+
+            separatorBuilder:
+                (_, __) =>
+                    const SizedBox(
+              height: 14,
+            ),
+
+            itemBuilder:
+                (context, index) {
+
+              final booking =
+                  bookings[index];
+
+              final bookingId =
+                  booking["id"] ??
+                      0;
+
+              final date =
+                  booking[
+                          "scheduled_date"] ??
+                      "--";
+
+              final time =
+                  booking[
+                          "scheduled_time_slot"] ??
+                      "--";
+
+              final address =
+                  booking[
+                          "address_line"] ??
+                      "No address";
+
+              final package =
+                  booking[
+                          "package_name"] ??
+                      "Cleaning Package";
+
+              final status =
+                  booking[
+                          "status"] ??
+                      "submitted";
+
+              return InkWell(
+                borderRadius:
+                    BorderRadius
+                        .circular(
+                  20,
+                ),
+
+                onTap: () {
+
+                  bookingController
+                          .bookingId
+                          .value =
+                      bookingId;
+
+                  Get.toNamed(
+                    '/tracking',
+                  );
+                },
+
+                child: Container(
+                  padding:
+                      const EdgeInsets
+                          .all(18),
+
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        Colors.white,
+
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      20,
+                    ),
+
+                    boxShadow: [
+
+                      BoxShadow(
+                        color: Colors
+                            .black
+                            .withOpacity(
+                          0.04,
+                        ),
+
+                        blurRadius: 12,
+
+                        offset:
+                            const Offset(
+                          0,
+                          4,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+
+                    children: [
+
+                      Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .spaceBetween,
+
+                        children: [
+
+                          Expanded(
+                            child: Text(
+                              package,
+
+                              style:
+                                  const TextStyle(
+                                fontSize:
+                                    16,
+
+                                fontWeight:
+                                    FontWeight
+                                        .bold,
+                              ),
+                            ),
+                          ),
+
+                          _statusBadge(
+                            status,
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 14,
+                      ),
+
+                      Row(
+                        children: [
+
+                          const Icon(
+                            Icons
+                                .calendar_today,
+
+                            size: 16,
+
+                            color:
+                                Colors
+                                    .grey,
+                          ),
+
+                          const SizedBox(
+                            width: 8,
+                          ),
+
+                          Text(
+                            "$date • $time",
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(
+                        height: 10,
+                      ),
+
+                      Row(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+
+                        children: [
+
+                          const Icon(
+                            Icons
+                                .location_on,
+
+                            size: 16,
+
+                            color:
+                                Colors
+                                    .grey,
+                          ),
+
+                          const SizedBox(
+                            width: 8,
+                          ),
+
+                          Expanded(
+                            child: Text(
+                              address,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -139,42 +483,85 @@ class _UpcomingBookingsScreenState extends State<UpcomingBookingsScreen> {
     );
   }
 
-  /// ---------------- STATUS BADGE ----------------
-  Widget _statusBadge(String status) {
+  // =====================================================
+  // STATUS BADGE
+  // =====================================================
+  Widget _statusBadge(
+    String status,
+  ) {
+
+    final normalized =
+        status
+            .toLowerCase();
 
     Color color;
 
-    switch (status) {
+    String label;
+
+    switch (normalized) {
+
       case "completed":
         color = Colors.green;
+        label = "Completed";
         break;
+
       case "in_progress":
         color = Colors.orange;
+        label = "In Progress";
         break;
+
+      case "on_the_way":
+        color = Colors.blue;
+        label = "On The Way";
+        break;
+
       case "cancelled":
         color = Colors.red;
+        label = "Cancelled";
         break;
+
       default:
-        color = Colors.blueGrey;
+        color =
+            Colors.blueGrey;
+        label =
+            "Submitted";
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
+      padding:
+          const EdgeInsets
+              .symmetric(
+        horizontal: 12,
+        vertical: 7,
       ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
+
+      decoration:
+          BoxDecoration(
+        color:
+            color.withOpacity(
+          0.1,
+        ),
+
+        borderRadius:
+            BorderRadius
+                .circular(
+          14,
+        ),
       ),
+
       child: Text(
-        status.tr,
+        label,
+
         style: TextStyle(
           color: color,
-          fontWeight: FontWeight.w500,
+
+          fontWeight:
+              FontWeight.w600,
+
           fontSize: 12,
         ),
       ),
     );
   }
 }
+

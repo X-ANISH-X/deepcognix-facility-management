@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -9,18 +10,31 @@ class ChecklistPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bookingController = Get.find<BookingController>();
-    final packageController = Get.find<PackageController>();
+    final bookingController =
+        Get.find<BookingController>();
 
-    final package = packageController.selectedPackage.value;
+    final packageController =
+        Get.find<PackageController>();
 
-    /// SAFETY CHECK (in case user lands here incorrectly)
+    final package =
+        packageController.selectedPackage.value;
+
+    final apartmentType =
+        (Get.arguments?['apartmentType']
+                as String?) ??
+            "1 BHK";
+
+    // =====================================================
+    // SAFETY
+    // =====================================================
     if (package == null) {
       return Scaffold(
         body: Center(
           child: Text(
-            'No package selected',
-            style: Theme.of(context).textTheme.titleMedium,
+            "No package selected",
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium,
           ),
         ),
       );
@@ -28,164 +42,302 @@ class ChecklistPreviewScreen extends StatelessWidget {
 
     final checklist = package.checklist;
 
+    final duration =
+        package.durationByApartment[
+                apartmentType] ??
+            "N/A";
+
     return Scaffold(
+      backgroundColor:
+          const Color(0xFFF7F9FB),
+
       appBar: AppBar(
-        title: Text(
-          'service_checklist'.tr,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+        backgroundColor: Colors.white,
         elevation: 0,
+
+        title: const Text(
+          "Package Checklist",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+
+        iconTheme:
+            const IconThemeData(
+          color: Colors.black,
+        ),
       ),
 
       body: Padding(
         padding: const EdgeInsets.all(16),
 
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+
           children: [
 
-            /// PACKAGE CARD
+            // =================================================
+            // PACKAGE SUMMARY CARD
+            // =================================================
             Container(
-              padding: const EdgeInsets.all(20),
+              padding:
+                  const EdgeInsets.all(20),
 
               decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.white,
+
+                borderRadius:
+                    BorderRadius.circular(
+                  22,
+                ),
 
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? 0.2
-                          : 0.05,
-                    ),
+                    color: Colors.black
+                        .withOpacity(0.04),
+
                     blurRadius: 12,
-                    offset: const Offset(0, 4),
+
+                    offset:
+                        const Offset(0, 4),
                   ),
                 ],
               ),
 
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
+
                 children: [
 
-                  /// NAME + PRICE
+                  // =============================================
+                  // TITLE + PRICE
+                  // =============================================
                   Row(
                     mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
+                        MainAxisAlignment
+                            .spaceBetween,
 
                     children: [
 
-                      Text(
-                        package.name,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                      Expanded(
+                        child: Text(
+                          package.name,
+
+                          style:
+                              const TextStyle(
+                            fontSize: 18,
+                            fontWeight:
+                                FontWeight
+                                    .w700,
+                          ),
+                        ),
                       ),
 
                       Text(
-                        'AED ${package.price.toInt()}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).primaryColor,
-                            ),
+                        "AED ${package.price.toInt()}",
+
+                        style:
+                            const TextStyle(
+                          fontSize: 18,
+                          fontWeight:
+                              FontWeight
+                                  .bold,
+
+                          color: Color(
+                            0xFF0F9D8A,
+                          ),
+                        ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(
+                      height: 10),
 
-                  /// CLEANING DURATION
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children:
-                        package.durationByApartment.entries.map((e) {
+                  // =============================================
+                  // DESCRIPTION
+                  // =============================================
+                  Text(
+                    package.description,
 
-                      return Padding(
-                        padding:
-                            const EdgeInsets.only(bottom: 4),
+                    style:
+                        const TextStyle(
+                      color:
+                          Colors.black54,
+                      fontSize: 14,
+                    ),
+                  ),
 
-                        child: Text(
-                          "${e.key}: ${e.value}",
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall,
+                  const SizedBox(
+                      height: 18),
+
+                  // =============================================
+                  // APARTMENT TYPE
+                  // =============================================
+                  Row(
+                    children: [
+
+                      const Icon(
+                        Icons.home_work_outlined,
+                        size: 18,
+                        color: Color(
+                          0xFF0F9D8A,
                         ),
-                      );
+                      ),
 
-                    }).toList(),
+                      const SizedBox(
+                          width: 8),
+
+                      Text(
+                        apartmentType,
+
+                        style:
+                            const TextStyle(
+                          fontWeight:
+                              FontWeight
+                                  .w600,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                      height: 10),
+
+                  // =============================================
+                  // DURATION
+                  // =============================================
+                  Row(
+                    children: [
+
+                      const Icon(
+                        Icons.access_time,
+                        size: 18,
+                        color: Color(
+                          0xFF0F9D8A,
+                        ),
+                      ),
+
+                      const SizedBox(
+                          width: 8),
+
+                      Text(
+                        "Estimated Duration: $duration",
+
+                        style:
+                            const TextStyle(
+                          fontWeight:
+                              FontWeight
+                                  .w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 26),
 
-            /// TASK TITLE
-            Text(
-              'tasks_included'.tr,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w600),
+            // =================================================
+            // TITLE
+            // =================================================
+            const Text(
+              "Services Included",
+
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight:
+                    FontWeight.w700,
+              ),
             ),
 
             const SizedBox(height: 16),
 
-            /// CHECKLIST
+            // =================================================
+            // CHECKLIST
+            // =================================================
             Expanded(
               child: checklist.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Text(
-                        'No tasks available',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        "No checklist items available",
                       ),
                     )
                   : ListView.separated(
+                      itemCount:
+                          checklist.length,
 
-                      itemCount: checklist.length,
+                      separatorBuilder:
+                          (_, __) =>
+                              const SizedBox(
+                        height: 12,
+                      ),
 
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 12),
-
-                      itemBuilder: (context, index) {
-
-                        final task = checklist[index];
+                      itemBuilder:
+                          (context, index) {
+                        final task =
+                            checklist[index];
 
                         return Container(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 14, horizontal: 16),
+                          padding:
+                              const EdgeInsets
+                                  .symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
 
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).cardColor,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Theme.of(context).dividerColor,
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                Colors.white,
+
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              18,
+                            ),
+
+                            border:
+                                Border.all(
+                              color: Colors
+                                  .grey
+                                  .shade200,
                             ),
                           ),
 
                           child: Row(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .start,
+
                             children: [
 
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: 22,
-                                color:
-                                    Theme.of(context).primaryColor,
+                              const Icon(
+                                Icons
+                                    .check_circle,
+                                size: 20,
+                                color: Color(
+                                  0xFF0F9D8A,
+                                ),
                               ),
 
-                              const SizedBox(width: 12),
+                              const SizedBox(
+                                  width: 12),
 
                               Expanded(
                                 child: Text(
                                   task,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium,
+
+                                  style:
+                                      const TextStyle(
+                                    fontSize:
+                                        14,
+                                  ),
                                 ),
                               ),
                             ],
@@ -197,34 +349,64 @@ class ChecklistPreviewScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            /// CONTINUE BUTTON
+            // =================================================
+            // CONTINUE BUTTON
+            // =================================================
             SizedBox(
               width: double.infinity,
 
               child: ElevatedButton(
-
                 onPressed: () {
-                  Get.toNamed('/booking');
+
+                  bookingController
+                          .checklist.value =
+                      List<String>.from(
+                    checklist,
+                  );
+
+                  Get.toNamed(
+                    '/booking',
+                  );
                 },
 
-                style: ElevatedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 16),
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      const Color(
+                    0xFF0F9D8A,
+                  ),
 
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    vertical: 16,
+                  ),
+
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius
+                            .circular(16),
                   ),
                 ),
 
-                child: Text(
-                  'continue'.tr,
-                  style: const TextStyle(fontSize: 16),
+                child: const Text(
+                  "Continue Booking",
+
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
                 ),
               ),
             ),
+
+            const SizedBox(height: 10),
           ],
         ),
       ),
     );
   }
 }
+
