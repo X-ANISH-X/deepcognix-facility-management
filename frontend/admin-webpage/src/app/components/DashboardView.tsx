@@ -537,7 +537,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           <CardContent className="flex-1 flex flex-col justify-center" dir="ltr">
             <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={weeklyCompletionData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid stroke="#e5e7eb" />
                 <XAxis dataKey="day" stroke="#888" />
                 <YAxis stroke="#888" width={50} />
                 <Tooltip 
@@ -733,7 +733,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
         <CardContent className="flex-1 flex flex-col justify-center" dir="ltr">
             <ResponsiveContainer width="100%" height={250}>
             <LineChart data={revenueTrend} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <CartesianGrid stroke="#e5e7eb" />
               <XAxis dataKey="label" stroke="#888" />
               <YAxis stroke="#888" width={50} />
               <Tooltip 

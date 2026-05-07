@@ -14,7 +14,6 @@ import { Toaster } from '@/app/components/ui/sonner';
 import { toast } from 'sonner';
 import { canAccessView, canManageDispatch, type AuthUser, type UserRole } from '@/app/utils/accessControl';
 import { api as mockApi, type NotificationItem } from '@/app/services/api';
-import { ADMIN_SESSION_EXPIRED_EVENT } from '@/app/services/mockApi';
 
 type View = 'dashboard' | 'map' | 'orders' | 'services' | 'service-packages' | 'reports' | 'settings';
 
@@ -28,31 +27,6 @@ function AppContent() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('admin_user');
-    const storedToken = localStorage.getItem('admin_token') || localStorage.getItem('backend_access_token');
-    if (!storedUser || !storedToken) {
-      return;
-    }
-
-    try {
-      const parsedUser = JSON.parse(storedUser) as AuthUser;
-      setCurrentUser(parsedUser);
-      setIsAuthenticated(true);
-    } catch {
-      localStorage.removeItem('admin_user');
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleSessionExpired = () => {
-      void handleLogout();
-    };
-
-    window.addEventListener(ADMIN_SESSION_EXPIRED_EVENT, handleSessionExpired);
-    return () => window.removeEventListener(ADMIN_SESSION_EXPIRED_EVENT, handleSessionExpired);
-  }, []);
-
   const role: UserRole = currentUser?.role ?? 'customer';
   const allowedNavItems = [
     { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
@@ -63,8 +37,11 @@ function AppContent() {
     { id: 'reports' as View, label: 'Reports', icon: FileText },
   ].filter(item => canAccessView(role, item.id));
 
-  const handleLogout = async () => {
-    await mockApi.logoutSession();
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_user');
+    localStorage.removeItem('backend_access_token');
+    localStorage.removeItem('admin_refresh_token');
     setIsAuthenticated(false);
     setCurrentUser(null);
     setCurrentView('dashboard');
@@ -198,7 +175,7 @@ function AppContent() {
             {isSidebarOpen ? (
               <div>
                 <h1 className="text-2xl font-bold bg-linear-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                  Cartel Star
+                  DeepCognix
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Mission Control</p>
               </div>

@@ -21,6 +21,7 @@ export interface WorkOrder {
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
+  packageName?: string;
   serviceType: string;
   packageName?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
@@ -97,14 +98,31 @@ export interface RevenueStats {
 
 export interface PreviousCustomer {
   id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  totalBookings: number;
-  completedBookings: number;
-  totalSpent: number;
-  firstBookingAt: string;
-  lastBookingAt: string;
+  name?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  lastBookingAt?: string;
+  totalBookings?: number;
+}
+
+export interface BookingTask {
+  id: string;
+  title: string;
+  description?: string;
+  orderIndex: number;
+  completed: boolean;
+}
+
+export interface CustomerReportRow {
+  orderId: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  packageName: string;
+  technicianName?: string;
+  amount: number;
 }
 
 export interface NotificationItem {
@@ -142,9 +160,9 @@ const API_BASE =
   'http://127.0.0.1:8000';
 const TOKEN_KEY = 'admin_token';
 const LEGACY_TOKEN_KEY = 'backend_access_token';
-export const ADMIN_SESSION_EXPIRED_EVENT = 'admin-session-expired';
+const REFRESH_TOKEN_KEY = 'admin_refresh_token';
 
-let refreshPromise: Promise<boolean> | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
 
 function getRealtimeWsUrl(): string {
   const trimmed = API_BASE.replace(/\/+$/, '');
@@ -176,53 +194,67 @@ function readToken(): string | null {
   return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
 }
 
-function clearStoredAuth(): void {
+function readRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+function persistAccessToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(LEGACY_TOKEN_KEY, token);
+}
+
+function clearStoredAuthTokens(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
-  localStorage.removeItem('admin_user');
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
-function emitSessionExpired(): void {
-  clearStoredAuth();
-  window.dispatchEvent(new Event(ADMIN_SESSION_EXPIRED_EVENT));
-}
-
-async function refreshAccessToken(): Promise<boolean> {
-  if (refreshPromise) {
-    return refreshPromise;
+async function tryRefreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) {
+    return refreshInFlight;
   }
 
-  refreshPromise = (async () => {
+  const refreshToken = readRefreshToken();
+  if (!refreshToken) {
+    return null;
+  }
+
+  refreshInFlight = (async () => {
     try {
       const response = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
 
-      const body = (await response.json().catch(() => ({}))) as Dict;
+      const payload = (await response.json().catch(() => ({}))) as Dict;
       if (!response.ok) {
-        return false;
+        clearStoredAuthTokens();
+        return null;
       }
 
-      const accessToken = typeof body.access_token === 'string' ? body.access_token : '';
-      if (!accessToken) {
-        return false;
+      const nextAccessToken = typeof payload.access_token === 'string' ? payload.access_token : null;
+      const nextRefreshToken = typeof payload.refresh_token === 'string' ? payload.refresh_token : null;
+      if (!nextAccessToken) {
+        clearStoredAuthTokens();
+        return null;
       }
 
-      localStorage.setItem(TOKEN_KEY, accessToken);
-      localStorage.setItem(LEGACY_TOKEN_KEY, accessToken);
-      return true;
+      persistAccessToken(nextAccessToken);
+      if (nextRefreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken);
+      }
+      return nextAccessToken;
     } catch {
-      return false;
+      return null;
+    } finally {
+      refreshInFlight = null;
     }
-  })().finally(() => {
-    refreshPromise = null;
-  });
+  })();
 
-  return refreshPromise;
+  return refreshInFlight;
 }
 
 function pickString(obj: Dict, key: string): string {
@@ -326,24 +358,41 @@ function toAvatar(name: string): string {
 }
 
 async function request<T>(path: string, init?: RequestInit, requireAuth = false): Promise<T> {
-  const headers: Record<string, string> = {
+  const baseHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   };
 
+  const execute = (token?: string) => {
+    const headers = { ...baseHeaders };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+    });
+  };
+
+  let tokenForRequest: string | null = null;
   if (requireAuth) {
-    const token = readToken();
-    if (!token) {
+    tokenForRequest = readToken();
+    if (!tokenForRequest) {
+      tokenForRequest = await tryRefreshAccessToken();
+    }
+    if (!tokenForRequest) {
       throw new Error('Missing auth token. Please sign in again.');
     }
-    headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers,
-    credentials: 'include',
-  });
+  let response = await execute(tokenForRequest || undefined);
+
+  if (requireAuth && response.status === 401) {
+    const refreshedToken = await tryRefreshAccessToken();
+    if (refreshedToken) {
+      response = await execute(refreshedToken);
+    }
+  }
 
   const body = (await response.json().catch(() => ({}))) as Dict;
   if (!response.ok) {
@@ -435,10 +484,10 @@ function mapWorkOrder(item: Dict): WorkOrder {
     id: String(item.id ?? ''),
     customerId: String(item.customer_id ?? item.user_id ?? ''),
     customerName: pickString(item, 'customer_name'),
-    customerEmail: pickString(item, 'customer_email'),
-    customerPhone: pickString(item, 'customer_phone'),
+    customerEmail: pickString(item, 'customer_email') || pickString(item, 'email'),
+    customerPhone: pickString(item, 'customer_phone') || pickString(item, 'phone_number') || pickString(item, 'phone'),
     serviceType: pickString(item, 'service_name') || pickString(item, 'serviceType'),
-    packageName: pickString(item, 'package_name') || pickString(item, 'packageName'),
+    packageName: pickString(item, 'package_name') || pickString(item, 'packageName') || pickString(item, 'package') || undefined,
     priority: (pickString(item, 'priority') as WorkOrder['priority']) || 'medium',
     status,
     technicianId: item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined,
@@ -489,16 +538,25 @@ function mapServicePackage(item: Dict): ServicePackage {
 }
 
 function mapPreviousCustomer(item: Dict): PreviousCustomer {
+  const name = pickString(item, 'full_name') || pickString(item, 'name') || '';
+  return {
+    id: String(item.id ?? item.customer_id ?? ''),
+    name: name || undefined,
+    fullName: name || undefined,
+    email: pickString(item, 'email'),
+    phone: pickString(item, 'phone') || pickString(item, 'phone_number'),
+    lastBookingAt: pickString(item, 'last_booking_at') || pickString(item, 'lastBookingAt') || undefined,
+    totalBookings: pickNumber(item, 'total_bookings') || pickNumber(item, 'booking_count') || undefined,
+  };
+}
+
+function mapBookingTask(item: Dict): BookingTask {
   return {
     id: String(item.id ?? ''),
-    fullName: pickString(item, 'full_name') || pickString(item, 'name'),
-    email: pickString(item, 'email'),
-    phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
-    totalBookings: pickFirstNumber(item, ['total_bookings', 'totalBookings']),
-    completedBookings: pickFirstNumber(item, ['completed_bookings', 'completedBookings']),
-    totalSpent: pickFirstNumber(item, ['total_spent', 'totalSpent']),
-    firstBookingAt: pickString(item, 'first_booking_at') || pickString(item, 'firstBookingAt'),
-    lastBookingAt: pickString(item, 'last_booking_at') || pickString(item, 'lastBookingAt'),
+    title: pickString(item, 'title') || pickString(item, 'name') || 'Task',
+    description: pickString(item, 'description') || pickString(item, 'notes') || undefined,
+    orderIndex: pickNumber(item, 'order_index') || pickNumber(item, 'orderIndex') || 0,
+    completed: Boolean(item.completed || item.is_done || item.done),
   };
 }
 
@@ -913,27 +971,15 @@ export const mockApi = {
   },
 
   getPreviousCustomers: async (): Promise<PreviousCustomer[]> => {
-    const data = await request<{ customers?: Dict[] }>(`/customers/previous`, undefined, true);
-    return (data.customers || []).map(mapPreviousCustomer);
+    const data = await request<Dict[] | { customers?: Dict[] }>('/customers/previous', undefined, true);
+    const list = Array.isArray(data) ? data : (data.customers || []);
+    return list.map(mapPreviousCustomer);
   },
 
-  sendCustomerNotification: async (payload: AdminNotificationInput): Promise<{ sentCount: number }> => {
-    const data = await request<{ sent_count?: number }>(
-      '/notifications/admin/send',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          title: payload.title?.trim() || undefined,
-          message: payload.message,
-          customer_ids: payload.customerIds && payload.customerIds.length > 0
-            ? payload.customerIds.map((id) => Number(id)).filter((value) => Number.isInteger(value) && value > 0)
-            : undefined,
-        }),
-      },
-      true,
-    );
-
-    return { sentCount: Number(data.sent_count ?? 0) };
+  getBookingTasks: async (bookingId: string): Promise<BookingTask[]> => {
+    const data = await request<Dict[] | { tasks?: Dict[] }>(`/bookings/${encodeURIComponent(String(bookingId))}/tasks`, undefined, true);
+    const list = Array.isArray(data) ? data : (data.tasks || []);
+    return list.map(mapBookingTask);
   },
 
   getNotifications: async (): Promise<NotificationItem[]> => {
