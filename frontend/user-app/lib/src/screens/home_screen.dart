@@ -38,6 +38,14 @@ class HomeScreen extends StatelessWidget {
     },
   ];
 
+  final List<Map<String, dynamic>> supportOptions = [
+    {
+      "title": "Commercial",
+      "subtitle": "For offices, shops, and business spaces"
+    },
+    {"title": "Others", "subtitle": "For custom help or special requests"},
+  ];
+
   @override
   Widget build(
     BuildContext context,
@@ -140,6 +148,112 @@ class HomeScreen extends StatelessWidget {
                     0,
                     4,
                   ),
+<<<<<<< HEAD
+=======
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            Text(
+              "Select Apartment Type",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            Row(
+              children: supportOptions.map((option) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () {
+                        Get.toNamed('/support-contact',
+                            arguments: option['title']);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surface,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                              color:
+                                  colorScheme.outlineVariant.withOpacity(0.6)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.shadowColor.withOpacity(
+                                  theme.brightness == Brightness.dark
+                                      ? 0.28
+                                      : 0.06),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              height: 44,
+                              width: 44,
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer
+                                    .withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                option['title'] == 'Commercial'
+                                    ? Icons.business
+                                    : Icons.support_agent,
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              option['title'],
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              option['subtitle'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+
+            const SizedBox(height: 16),
+
+            /// 🔹 GRID WITH ICONS (MAIN UPGRADE)
+            Expanded(
+              child: GridView.builder(
+                itemCount: apartmentTypes.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+>>>>>>> origin/main
                 ),
               ],
             ),

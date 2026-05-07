@@ -336,12 +336,18 @@ class BookingController extends GetxController {
 
       final body = {
 
+<<<<<<< HEAD
         "service_id":
             serviceId.value,
+=======
+        "scheduled_date": selectedDate.value,
+        "scheduled_time_slot": normalizeTime(selectedTime.value),
+>>>>>>> origin/main
 
         "package_id":
             packageId.value,
 
+<<<<<<< HEAD
         "scheduled_date":
             selectedDate.value,
 
@@ -387,6 +393,20 @@ class BookingController extends GetxController {
                     .isEmpty
                 ? "-"
                 : specialInstructions.value,
+=======
+        // ✅ ONLY SEND IF VALID (NO EMPTY STRINGS)
+        if (selectedAddress.value.trim().isNotEmpty)
+          "building_name": selectedAddress.value,
+
+        if (selectedAddress.value.trim().isNotEmpty)
+          "floor_number": "1",
+
+        if (selectedAddress.value.trim().isNotEmpty)
+          "apartment_number": "101",
+
+        "latitude": selectedLat.value,
+        "longitude": selectedLng.value,
+>>>>>>> origin/main
       };
 
       debugPrint(

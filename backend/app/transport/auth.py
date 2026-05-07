@@ -1,15 +1,40 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.config import settings
-from app.core.security import create_access_token, get_current_user_payload, verify_password
+from app.core.security import create_access_token, create_refresh_token, decode_access_token, get_current_user_payload, verify_password
 from app.database import get_db_connection
 from app.logic import user_logic
 from app.model.auth_model import CurrentUserResponse, Token, UserLogin, UserRegister
 
 router = APIRouter()
+REFRESH_COOKIE_NAME = "admin_refresh_token"
+REFRESH_COOKIE_MAX_AGE = settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+
+
+def _issue_session_tokens(user: dict, response: Response):
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["email"], "id": user["id"], "role": user["role"]},
+        expires_delta=access_token_expires,
+    )
+    refresh_token = create_refresh_token(
+        data={"sub": user["email"], "id": user["id"], "role": user["role"]},
+    )
+
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=REFRESH_COOKIE_MAX_AGE,
+        path="/",
+    )
+
+    return access_token
 
 @router.post("/register", response_model=dict, status_code=201)
 def register(user: UserRegister, db = Depends(get_db_connection)):
@@ -57,7 +82,7 @@ def register(user: UserRegister, db = Depends(get_db_connection)):
         raise HTTPException(status_code=500, detail="Unable to register user") from exc
 
 @router.post("/login", response_model=Token)
-def login(form_data: UserLogin, db = Depends(get_db_connection)):
+def login(form_data: UserLogin, response: Response, db = Depends(get_db_connection)):
     # 1. Fetch user
     user = user_logic.get_user_by_email(db, form_data.email)
     if not user:
@@ -71,12 +96,8 @@ def login(form_data: UserLogin, db = Depends(get_db_connection)):
     if not user['is_active']:
         raise HTTPException(status_code=400, detail="User account is inactive")
 
-    # 4. Generate Token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user['email'], "id": user['id'], "role": user['role']},
-        expires_delta=access_token_expires
-    )
+    # 4. Generate session tokens
+    access_token = _issue_session_tokens(user, response)
     
     return {
         "access_token": access_token, 
@@ -89,6 +110,7 @@ def login(form_data: UserLogin, db = Depends(get_db_connection)):
 
 @router.post("/token", response_model=Token)
 def login_for_swagger(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db=Depends(get_db_connection),
 ):
@@ -102,11 +124,7 @@ def login_for_swagger(
     if not user["is_active"]:
         raise HTTPException(status_code=400, detail="User account is inactive")
 
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user["email"], "id": user["id"], "role": user["role"]},
-        expires_delta=access_token_expires,
-    )
+    access_token = _issue_session_tokens(user, response)
 
     return {
         "access_token": access_token,
@@ -115,6 +133,49 @@ def login_for_swagger(
         "role": user["role"],
         "full_name": user["full_name"],
     }
+
+
+@router.post("/refresh", response_model=dict)
+def refresh_session(
+    response: Response,
+    db=Depends(get_db_connection),
+    refresh_token: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
+):
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing refresh token")
+
+    payload = decode_access_token(refresh_token, expected_use="refresh")
+    user_id = payload.get("id")
+    email = payload.get("sub")
+    if not user_id or not email:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    user = user_logic.get_user_by_id(db, int(user_id))
+    if not user or not user.get("is_active"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+
+    access_token = create_access_token(
+        data={"sub": user["email"], "id": user["id"], "role": user["role"]},
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=REFRESH_COOKIE_MAX_AGE,
+        path="/",
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout", status_code=204)
+def logout(response: Response):
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path="/")
+    return None
 
 
 @router.get("/me", response_model=CurrentUserResponse)

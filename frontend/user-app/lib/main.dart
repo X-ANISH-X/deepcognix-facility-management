@@ -11,8 +11,11 @@ import 'src/screens/home_screen.dart';
 import 'src/screens/login_screen.dart';
 import 'src/screens/register_screen.dart';
 import 'src/screens/booking_screen.dart';
+<<<<<<< HEAD
 import 'src/screens/package_selection_screen.dart';
 import 'src/screens/booking_summary_screen.dart';
+=======
+>>>>>>> origin/main
 import 'src/screens/support_contact_screen.dart';
 import 'src/screens/upcoming_bookings_screen.dart';
 import 'src/screens/booking_status_screen.dart';
@@ -395,6 +398,20 @@ class MyApp extends StatelessWidget {
         // ROUTES
         // ==================================================
         getPages: [
+<<<<<<< HEAD
+=======
+          GetPage(name: '/splash', page: () => SplashScreen()),
+          GetPage(name: '/login', page: () => LoginScreen()),
+          GetPage(name: '/register', page: () => RegisterScreen()),
+          GetPage(name: '/home', page: () => HomeScreen()),
+          GetPage(name: '/booking', page: () => BookingScreen()),
+          GetPage(
+              name: '/support-contact',
+              page: () => const SupportContactScreen()),
+          GetPage(name: '/upcoming', page: () => UpcomingBookingsScreen()),
+          GetPage(name: '/booking-status', page: () => BookingStatusScreen()),
+          GetPage(name: '/profile', page: () => ProfileScreen()),
+>>>>>>> origin/main
 
           GetPage(
             name: '/splash',
