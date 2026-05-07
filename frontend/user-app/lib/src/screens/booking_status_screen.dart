@@ -1,55 +1,92 @@
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import 'package:user_a/src/controllers/booking_controller.dart';
 
-class BookingStatusScreen extends GetView<BookingController> {
-  const BookingStatusScreen({super.key});
+class BookingStatusScreen
+    extends GetView<
+        BookingController> {
+
+  const BookingStatusScreen({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
 
-    /// ✅ SAFE POLLING (RUNS ONCE)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!controller.isPolling.value) {
-        controller.startPolling();
-      }
-    });
+    WidgetsBinding.instance
+        .addPostFrameCallback(
+      (_) {
+
+        if (!controller
+            .isPolling
+            .value) {
+
+          controller
+              .startPolling();
+        }
+      },
+    );
 
     return Scaffold(
+      backgroundColor:
+          const Color(
+        0xFFF7F9FB,
+      ),
+
       appBar: AppBar(
-        title: const Text("Service Status"),
+        title:
+            const Text(
+          "Service Status",
+        ),
+
         elevation: 0,
+
+        backgroundColor:
+            Colors.white,
+
+        foregroundColor:
+            Colors.black,
       ),
 
       body: Obx(() {
 
-        final rawStatus = controller.bookingStatus.value;
-
-        if (rawStatus.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        /// 🔥 ONLY CHANGE: STATUS MAPPING
-        final status = _mapStatus(rawStatus);
+        final status =
+            controller
+                .mapStatus(
+          controller
+              .bookingStatus
+              .value,
+        );
 
         return Padding(
-          padding: const EdgeInsets.all(16),
+          padding:
+              const EdgeInsets
+                  .all(16),
+
           child: Column(
             children: [
 
-              /// BOOKING CARD
-              _bookingCard(context),
+              _bookingCard(),
 
-              const SizedBox(height: 20),
-
-              /// STATUS CONTENT
-              Expanded(
-                child: _statusContent(status),
+              const SizedBox(
+                height: 20,
               ),
 
-              /// ACTION BUTTON
-              _actionButton(status),
+              Expanded(
+                child:
+                    _statusContent(
+                  status,
+                ),
+              ),
+
+              _actionSection(
+                status,
+              ),
             ],
           ),
         );
@@ -57,205 +94,646 @@ class BookingStatusScreen extends GetView<BookingController> {
     );
   }
 
-  /// 🔥 STATUS MAPPING FUNCTION (ONLY ADDITION)
-  String _mapStatus(String status) {
-    final normalized = status.trim().toLowerCase();
+  // =====================================================
+  // BOOKING CARD
+  // =====================================================
+  Widget _bookingCard() {
 
-    debugPrint("STATUS MAP IN/OUT → raw='$status', normalized='$normalized'");
-
-    if (normalized == "submitted") return "requested";
-    if (normalized == "assigned") return "technician_assigned";
-    if (normalized == "in_progress" || normalized == "in progress") return "in_progress";
-    if (normalized == "completed") return "completed";
-    if (normalized == "payment_pending" || normalized == "payment pending") return "payment_pending";
-
-    return normalized;
-  }
-
-  /// ---------------- BOOKING CARD ----------------
-  Widget _bookingCard(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Theme.of(context).cardColor,
-      ),
-      child: Obx(() {
-        return Text(
-          "Booking #${controller.bookingId.value}",
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets
+              .all(18),
+
+      decoration:
+          BoxDecoration(
+        color: Colors.white,
+
+        borderRadius:
+            BorderRadius
+                .circular(
+          20,
+        ),
+
+        boxShadow: [
+
+          BoxShadow(
+            color: Colors.black
+                .withOpacity(
+              0.04,
+            ),
+
+            blurRadius: 10,
+
+            offset:
+                const Offset(
+              0,
+              4,
+            ),
           ),
-        );
-      }),
+        ],
+      ),
+
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment
+                .start,
+
+        children: [
+
+          Text(
+            "Booking #${controller.bookingId.value}",
+
+            style:
+                const TextStyle(
+              fontSize: 18,
+
+              fontWeight:
+                  FontWeight
+                      .bold,
+            ),
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          if (controller
+              .technicianName
+              .value
+              .isNotEmpty)
+
+            Row(
+              children: [
+
+                const Icon(
+                  Icons
+                      .engineering,
+
+                  size: 18,
+                ),
+
+                const SizedBox(
+                  width: 8,
+                ),
+
+                Expanded(
+                  child: Text(
+                    controller
+                        .technicianName
+                        .value,
+                  ),
+                ),
+              ],
+            ),
+
+          if (controller
+              .technicianPhone
+              .value
+              .isNotEmpty)
+
+            Padding(
+              padding:
+                  const EdgeInsets
+                      .only(
+                top: 10,
+              ),
+
+              child: Row(
+                children: [
+
+                  const Icon(
+                    Icons.phone,
+
+                    size: 18,
+                  ),
+
+                  const SizedBox(
+                    width: 8,
+                  ),
+
+                  Text(
+                    controller
+                        .technicianPhone
+                        .value,
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  /// ---------------- STATUS CONTENT ----------------
-  Widget _statusContent(String status) {
+  // =====================================================
+  // STATUS CONTENT
+  // =====================================================
+  Widget _statusContent(
+    String status,
+  ) {
 
     switch (status) {
 
-      case "requested":
+      case "submitted":
         return _statusCard(
-          "Finding Technician",
-          "Searching nearby technicians...",
+          title:
+              "Booking Submitted",
+
+          subtitle:
+              "We are assigning a cleaning team for your booking.",
+
+          icon:
+              Icons.assignment_turned_in,
         );
 
-      case "technician_assigned":
+      case "assigned":
         return _statusCard(
-          "Technician Assigned",
-          "${controller.technicianName.value}\n⭐ ${controller.technicianRating.value}",
+          title:
+              "Technician Assigned",
+
+          subtitle:
+              "Your cleaning team has been assigned.",
+
+          icon:
+              Icons.engineering,
         );
 
       case "on_the_way":
         return _statusCard(
-          "Technician On The Way",
-          "You can track technician live",
+          title:
+              "Technician On The Way",
+
+          subtitle:
+              "The technician is heading to your location.",
+
+          icon:
+              Icons.local_shipping,
         );
 
       case "arrival_approval_pending":
         return _statusCard(
-          "Technician Arrived",
-          "Please confirm arrival",
+          title:
+              "Arrival Confirmation Required",
+
+          subtitle:
+              "Please confirm that the technician has arrived.",
+
+          icon:
+              Icons.location_on,
         );
 
       case "in_progress":
         return _statusCard(
-          "Service In Progress",
-          "Cleaning is ongoing",
+          title:
+              "Cleaning In Progress",
+
+          subtitle:
+              "The cleaning service is currently ongoing.",
+
+          icon:
+              Icons.cleaning_services,
         );
 
-      case "completion_approval_pending":
+      case "customer_review_pending":
         return _statusCard(
-          "Service Completed",
-          "Review checklist before approval",
+          title:
+              "Review Service Completion",
+
+          subtitle:
+              "Please verify the completed cleaning work.",
+
+          icon:
+              Icons.fact_check,
         );
 
-      case "payment_pending":
+      case "admin_review_pending":
         return _statusCard(
-          "Payment Pending",
-          "Pay technician directly (Cash)",
+          title:
+              "Final Verification Pending",
+
+          subtitle:
+              "The service is awaiting final admin approval.",
+
+          icon:
+              Icons.verified,
         );
 
       case "completed":
         return _statusCard(
-          "Completed",
-          "Thank you! Service finished.",
+          title:
+              "Service Completed",
+
+          subtitle:
+              "Thank you for choosing Cartel Star Cleaning Services.",
+
+          icon:
+              Icons.check_circle,
+        );
+
+      case "rework_requested":
+        return _statusCard(
+          title:
+              "Rework Requested",
+
+          subtitle:
+              "Your request has been forwarded to the cleaning team.",
+
+          icon:
+              Icons.refresh,
+        );
+
+      case "cancelled":
+        return _statusCard(
+          title:
+              "Booking Cancelled",
+
+          subtitle:
+              "This booking has been cancelled.",
+
+          icon:
+              Icons.cancel,
         );
 
       default:
-        return const Center(child: Text("Updating status..."));
+        return _statusCard(
+          title:
+              "Updating Status",
+
+          subtitle:
+              "Please wait while we fetch the latest booking information.",
+
+          icon:
+              Icons.sync,
+        );
     }
   }
 
-  Widget _statusCard(String title, String subtitle) {
+  // =====================================================
+  // STATUS CARD
+  // =====================================================
+  Widget _statusCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Get.theme.cardColor,
+      width:
+          double.infinity,
+
+      padding:
+          const EdgeInsets
+              .all(24),
+
+      decoration:
+          BoxDecoration(
+        color: Colors.white,
+
+        borderRadius:
+            BorderRadius
+                .circular(
+          22,
+        ),
+
+        boxShadow: [
+
+          BoxShadow(
+            color: Colors.black
+                .withOpacity(
+              0.04,
+            ),
+
+            blurRadius: 12,
+
+            offset:
+                const Offset(
+              0,
+              4,
+            ),
+          ),
+        ],
       ),
+
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment:
+            MainAxisAlignment
+                .center,
+
         children: [
 
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          Container(
+            height: 74,
+            width: 74,
+
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFE6F4F1,
+              ),
+
+              borderRadius:
+                  BorderRadius
+                      .circular(
+                22,
+              ),
+            ),
+
+            child: Icon(
+              icon,
+
+              size: 36,
+
+              color:
+                  const Color(
+                0xFF0F9D8A,
+              ),
             ),
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(
+            height: 22,
+          ),
 
-          Text(subtitle),
+          Text(
+            title,
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                const TextStyle(
+              fontSize: 20,
+
+              fontWeight:
+                  FontWeight
+                      .bold,
+            ),
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          Text(
+            subtitle,
+
+            textAlign:
+                TextAlign.center,
+
+            style:
+                const TextStyle(
+              color:
+                  Colors.black54,
+
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  /// ---------------- ACTION BUTTONS ----------------
-  Widget _actionButton(String status) {
+  // =====================================================
+  // ACTIONS
+  // =====================================================
+  Widget _actionSection(
+    String status,
+  ) {
 
-    if (status == "on_the_way") {
+    if (status ==
+        "on_the_way") {
+
       return Column(
         children: [
-          _button("Track Technician", () {
-            Get.toNamed('/tracking');
-          }),
-          const SizedBox(height: 10),
-          _button("Call Technician", _callTechnician),
+
+          _button(
+            "Track Technician",
+
+            () {
+
+              Get.toNamed(
+                '/tracking',
+              );
+            },
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          _button(
+            "Call Technician",
+
+            _callTechnician,
+          ),
         ],
       );
     }
 
-    if (status == "technician_assigned") {
-      return _button("Call Technician", _callTechnician);
+    if (status ==
+        "assigned") {
+
+      return _button(
+        "Call Technician",
+
+        _callTechnician,
+      );
     }
 
-    if (status == "arrival_approval_pending") {
-      return _button("Confirm Arrival", () async {
-        await controller.approveArrival();
-      });
+    if (status ==
+        "arrival_approval_pending") {
+
+      return _button(
+        "Confirm Arrival",
+
+        () async {
+
+          await controller
+              .approveArrival();
+        },
+      );
     }
 
-    if (status == "in_progress") {
-      return _button("View Checklist Progress", () {
-        Get.toNamed('/checklist-progress');
-      });
+    if (status ==
+        "in_progress") {
+
+      return _button(
+        "View Checklist Progress",
+
+        () {
+
+          Get.toNamed(
+            '/checklist-progress',
+          );
+        },
+      );
     }
 
-    if (status == "completion_approval_pending") {
-      return const SizedBox();
+    if (status ==
+        "customer_review_pending") {
+
+      return Column(
+        children: [
+
+          _button(
+            "Approve Work",
+
+            () async {
+
+              await controller
+                  .approveWork();
+            },
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          OutlinedButton(
+            onPressed:
+                () async {
+
+              await controller
+                  .requestRework(
+                "Customer requested rework",
+              );
+            },
+
+            style:
+                OutlinedButton
+                    .styleFrom(
+              minimumSize:
+                  const Size
+                      .fromHeight(
+                52,
+              ),
+            ),
+
+            child: const Text(
+              "Request Rework",
+            ),
+          ),
+        ],
+      );
     }
 
-    if (status == "payment_pending") {
-      return _button("Payment Pending", () {});
-    }
+    if (status ==
+        "completed") {
 
-    if (status == "completed") {
-      return _button("Done", () {
-        Get.offAllNamed('/home');
-      });
+      return _button(
+        "Done",
+
+        () {
+
+          Get.offAllNamed(
+            '/home',
+          );
+        },
+      );
     }
 
     return const SizedBox();
   }
 
-  /// ---------------- CALL ----------------
-  Future<void> _callTechnician() async {
+  // =====================================================
+  // CALL TECHNICIAN
+  // =====================================================
+  Future<void>
+      _callTechnician() async {
 
-    final phone = controller.technicianPhone.value;
+    final phone =
+        controller
+            .technicianPhone
+            .value;
 
     if (phone.isEmpty) {
-      Get.snackbar("Unavailable", "No phone number");
+
+      Get.snackbar(
+        "Unavailable",
+        "Technician phone number is not available.",
+      );
+
       return;
     }
 
-    final uri = Uri.parse("tel:$phone");
+    final uri =
+        Uri.parse(
+      "tel:$phone",
+    );
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    if (await canLaunchUrl(
+      uri,
+    )) {
+
+      await launchUrl(
+        uri,
+      );
+
     } else {
-      Get.snackbar("Error", "Cannot open dialer");
+
+      Get.snackbar(
+        "Error",
+        "Unable to open dialer.",
+      );
     }
   }
 
-  Widget _button(String text, VoidCallback onPressed) {
+  // =====================================================
+  // BUTTON
+  // =====================================================
+  Widget _button(
+    String text,
+    VoidCallback onPressed,
+  ) {
+
     return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Text(text),
+      width:
+          double.infinity,
+
+      child:
+          ElevatedButton(
+        onPressed:
+            onPressed,
+
+        style:
+            ElevatedButton
+                .styleFrom(
+          minimumSize:
+              const Size
+                  .fromHeight(
+            54,
+          ),
+
+          backgroundColor:
+              const Color(
+            0xFF0F9D8A,
+          ),
+
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius
+                    .circular(
+              16,
+            ),
+          ),
+        ),
+
+        child: Text(
+          text,
+
+          style:
+              const TextStyle(
+            fontWeight:
+                FontWeight
+                    .w600,
+          ),
         ),
       ),
     );
   }
 }
+

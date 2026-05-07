@@ -1,216 +1,686 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+
 import '../services/api_client.dart';
 
 class BookingController extends GetxController {
-  final ApiClient _api = ApiClient();
 
-  // ================= CORE =================
+  final ApiClient _api =
+      ApiClient();
+
+  // =========================================================
+  // CORE BOOKING DATA
+  // =========================================================
   final bookingId = 0.obs;
-  final serviceId = 1.obs;
+
+  final serviceId = 0.obs;
+
   final packageId = 0.obs;
+
   final price = 0.0.obs;
 
-  final selectedDate = "".obs;
-  final selectedTime = "".obs;
-  final selectedAddress = "".obs;
+  // =========================================================
+  // LOADING
+  // =========================================================
+  final isCreatingBooking =
+      false.obs;
 
-  final selectedLat = 12.9716.obs;
-  final selectedLng = 77.5946.obs;
+  // =========================================================
+  // DATE & TIME
+  // =========================================================
+  final selectedDate =
+      "".obs;
 
-  // ================= STATUS =================
-  final bookingStatus = "submitted".obs;
-  final isPolling = false.obs;
+  final selectedTime =
+      "".obs;
 
-  // ================= TECHNICIAN =================
-  final technicianName = "".obs;
-  final technicianPhone = "".obs;
-  final technicianRating = "".obs;
+  // =========================================================
+  // ADDRESS
+  // =========================================================
+  final selectedAddress =
+      "".obs;
 
-  final technicianLat = 0.0.obs;
-  final technicianLng = 0.0.obs;
+  final buildingName =
+      "".obs;
 
-  // ================= ADDRESS =================
-  final addresses = <String>[].obs;
+  final floorNumber =
+      "".obs;
 
-  void addAddress(String address) {
-    if (!addresses.contains(address)) {
-      addresses.add(address);
+  final apartmentNumber =
+      "".obs;
+
+  final selectedLat =
+      0.0.obs;
+
+  final selectedLng =
+      0.0.obs;
+
+  // =========================================================
+  // NOTES
+  // =========================================================
+  final specialInstructions =
+      "".obs;
+
+  final preferredTechnician =
+      "".obs;
+
+  final parkingInstructions =
+      "".obs;
+
+  final petWarning =
+      "".obs;
+
+  final callBeforeArrival =
+      false.obs;
+
+  // =========================================================
+  // STATUS
+  // =========================================================
+  final bookingStatus =
+      "submitted".obs;
+
+  final isPolling =
+      false.obs;
+
+  // =========================================================
+  // ETA
+  // =========================================================
+  final estimatedArrivalMinutes =
+      45.obs;
+
+  final estimatedCompletionMinutes =
+      180.obs;
+
+  // =========================================================
+  // TECHNICIAN
+  // =========================================================
+  final technicianName =
+      "".obs;
+
+  final technicianPhone =
+      "".obs;
+
+  final technicianRating =
+      "".obs;
+
+  // =========================================================
+  // CHECKLIST
+  // =========================================================
+  final checklist =
+      <String>[].obs;
+
+  final completedTasks =
+      <String>[].obs;
+
+  double get progress {
+
+    if (checklist.isEmpty) {
+      return 0;
     }
+
+    return completedTasks.length /
+        checklist.length;
   }
 
-  // ================= CHECKLIST =================
-  final checklist = <String>[
-    "Dusting",
-    "Mopping",
-    "Kitchen Cleaning",
-    "Bathroom Cleaning",
+  // =========================================================
+  // ADDONS
+  // =========================================================
+  final addOns = [
+
+    {
+      "name":
+          "Carpet Shampoo Cleaning",
+
+      "price": 200.0,
+    },
+
+    {
+      "name":
+          "Curtain Cleaning",
+
+      "price": 250.0,
+    },
+
+    {
+      "name":
+          "Sofa Shampoo Cleaning",
+
+      "price": 300.0,
+    },
+
+    {
+      "name":
+          "Refrigerator Deep Cleaning",
+
+      "price": 180.0,
+    },
+
+    {
+      "name":
+          "Oven Deep Cleaning",
+
+      "price": 220.0,
+    },
+
+    {
+      "name":
+          "AC Duct Cleaning Coordination",
+
+      "price": 400.0,
+    },
+
+    {
+      "name":
+          "Disinfection & Sanitization",
+
+      "price": 350.0,
+    },
+
   ].obs;
 
-  final completedTasks = <String>[].obs;
+  final selectedAddOns =
+      <Map<String, dynamic>>[]
+          .obs;
 
-  double get progress =>
-      checklist.isEmpty ? 0 : completedTasks.length / checklist.length;
+  // =========================================================
+  // TOGGLE ADDON
+  // =========================================================
+  void toggleAddOn(
+    Map<String, dynamic> addon,
+  ) {
 
-  void toggleTask(String task) {
-    if (completedTasks.contains(task)) {
-      completedTasks.remove(task);
+    final exists =
+        selectedAddOns.any(
+      (a) =>
+          a["name"] ==
+          addon["name"],
+    );
+
+    final addonPrice =
+        (addon["price"] ?? 0)
+            .toDouble();
+
+    if (exists) {
+
+      selectedAddOns.removeWhere(
+        (a) =>
+            a["name"] ==
+            addon["name"],
+      );
+
+      price.value -= addonPrice;
+
     } else {
-      completedTasks.add(task);
+
+      selectedAddOns.add(addon);
+
+      price.value += addonPrice;
     }
   }
 
-  Future<void> markServiceCompleted() async {
-    await completeBooking();
-  }
+  // =========================================================
+  // AVAILABLE SLOTS
+  // =========================================================
+  final availableSlots =
+      <String>[].obs;
 
-  // ================= SLOTS =================
-  final availableSlots = <String>[].obs;
+  void loadSlotsForDate(
+    DateTime date,
+  ) {
 
-  void loadSlotsForDate(DateTime date) {
     availableSlots.value = [
+
       "09:00 AM",
+
       "11:00 AM",
+
       "01:00 PM",
+
       "03:00 PM",
+
       "05:00 PM",
     ];
   }
 
-  // ================= TIME SLOT NORMALIZATION =================
-  String normalizeTime(String slotLabel) {
-    return slotLabel.trim().toUpperCase();
+  // =========================================================
+  // VALIDATION
+  // =========================================================
+  String? validateBooking() {
+
+    if (serviceId.value <= 0) {
+      return "Invalid service selected";
+    }
+
+    if (packageId.value <= 0) {
+      return "Please select a package";
+    }
+
+    if (selectedAddress
+        .value
+        .trim()
+        .isEmpty) {
+
+      return "Please enter address";
+    }
+
+    if (selectedDate
+        .value
+        .isEmpty) {
+
+      return "Please select booking date";
+    }
+
+    if (selectedTime
+        .value
+        .isEmpty) {
+
+      return "Please select time slot";
+    }
+
+    return null;
   }
 
-  // ================= CREATE BOOKING =================
-  Future<void> createBooking() async {
+  // =========================================================
+  // STATUS MAPPING
+  // =========================================================
+  String mapStatus(
+    String status,
+  ) {
+
+    return status
+        .trim()
+        .toLowerCase();
+  }
+
+  // =========================================================
+  // NORMALIZE TIME
+  // =========================================================
+  String normalizeTime(
+    String slotLabel,
+  ) {
+
+    return slotLabel
+        .trim()
+        .toUpperCase();
+  }
+
+  // =========================================================
+  // CREATE BOOKING
+  // =========================================================
+  Future<bool>
+      createBooking() async {
+
+    if (isCreatingBooking.value) {
+      return false;
+    }
+
+    final validationError =
+        validateBooking();
+
+    if (validationError !=
+        null) {
+
+      Get.snackbar(
+        "Validation Error",
+        validationError,
+      );
+
+      return false;
+    }
+
     try {
-      if (packageId.value == 0) throw Exception("Select a package");
-      if (selectedAddress.value.isEmpty) throw Exception("Enter address");
-      if (selectedDate.value.isEmpty || selectedTime.value.isEmpty) {
-        throw Exception("Select date & time");
-      }
+
+      isCreatingBooking.value =
+          true;
 
       final body = {
-        "customer_id": 1,
-        "service_id": serviceId.value,
-        "package_id": packageId.value,
 
-        // ✅ CORRECT FIELDS
-        "scheduled_date": selectedDate.value,
-        "scheduled_time_slot": normalizeTime(selectedTime.value),
+        "service_id":
+            serviceId.value,
 
-        "address_line": selectedAddress.value,
+        "package_id":
+            packageId.value,
 
-        // required fillers
-        "building_name": "",
-        "floor_number": "",
-        "apartment_number": "",
+        "scheduled_date":
+            selectedDate.value,
 
-        "latitude": selectedLat.value,
-        "longitude": selectedLng.value,
+        "scheduled_time_slot":
+            normalizeTime(
+          selectedTime.value,
+        ),
 
-        "final_price": price.value,
+        "address_line":
+            selectedAddress.value,
+
+        "building_name":
+            buildingName.value
+                    .trim()
+                    .isEmpty
+                ? "-"
+                : buildingName.value,
+
+        "floor_number":
+            floorNumber.value
+                    .trim()
+                    .isEmpty
+                ? "-"
+                : floorNumber.value,
+
+        "apartment_number":
+            apartmentNumber.value
+                    .trim()
+                    .isEmpty
+                ? "-"
+                : apartmentNumber.value,
+
+        "latitude":
+            selectedLat.value,
+
+        "longitude":
+            selectedLng.value,
+
+        "customer_notes":
+            specialInstructions
+                    .value
+                    .trim()
+                    .isEmpty
+                ? "-"
+                : specialInstructions.value,
       };
 
-      debugPrint("🚀 FINAL BODY → $body");
+      debugPrint(
+        "BOOKING PAYLOAD => $body",
+      );
 
-      final res = await _api.post("/bookings", body);
+      final res =
+          await _api.post(
+        "/bookings/",
+        body,
+      );
 
-      final id = res["id"] ?? res["booking_id"];
-      bookingId.value = id is int ? id : int.parse(id.toString());
+      debugPrint(
+        "BOOKING RESPONSE => $res",
+      );
 
-      bookingStatus.value = "submitted";
+      if (res == null ||
+          res is! Map) {
+
+        throw Exception(
+          "Invalid booking response",
+        );
+      }
+
+      final dynamic id =
+          res["booking_id"] ??
+              res["id"];
+
+      if (id == null) {
+
+        throw Exception(
+          "Booking ID missing",
+        );
+      }
+
+      bookingId.value =
+          int.tryParse(
+                id.toString(),
+              ) ??
+              0;
+
+      debugPrint(
+        "BOOKING ID SAVED => ${bookingId.value}",
+      );
+
+      if (bookingId.value <=
+          0) {
+
+        throw Exception(
+          "Invalid booking ID",
+        );
+      }
+
+      bookingStatus.value =
+          "submitted";
 
       startPolling();
 
+      return true;
+
     } catch (e) {
-      debugPrint("❌ ERROR → $e");
-      Get.snackbar("Booking Failed", e.toString());
+
+      debugPrint(
+        "BOOKING ERROR → $e",
+      );
+
+      Get.snackbar(
+        "Booking Failed",
+        e.toString(),
+      );
+
+      return false;
+
+    } finally {
+
+      isCreatingBooking.value =
+          false;
     }
   }
 
-  // ================= STATUS =================
-  String normalizeStatus(String status) {
-    return status.trim().toLowerCase();
-  }
+  // =========================================================
+  // FETCH STATUS
+  // =========================================================
+  Future<void>
+      fetchStatus() async {
 
-  String mapStatus(String status) {
-    final normalized = normalizeStatus(status);
-
-    switch (normalized) {
-      case 'submitted':
-        return 'requested';
-      case 'assigned':
-        return 'technician_assigned';
-      case 'in_progress':
-      case 'in progress':
-        return 'in_progress';
-      case 'completed':
-        return 'completed';
-      case 'payment_pending':
-      case 'payment pending':
-        return 'payment_pending';
-      default:
-        return normalized;
-    }
-  }
-
-  Future<void> fetchStatus() async {
     try {
-      final res = await _api.get("/bookings/${bookingId.value}");
 
-      final rawStatus = (res["status"] ?? "").toString();
-      final mappedStatus = mapStatus(rawStatus);
+      if (bookingId.value <=
+          0) {
 
-      debugPrint("STATUS FETCH → raw='$rawStatus' mapped='$mappedStatus'");
+        debugPrint(
+          "POLLING STOPPED: INVALID BOOKING ID",
+        );
 
-      bookingStatus.value = mappedStatus;
-
-      final tech = res["technician"];
-      if (tech != null) {
-        technicianName.value = tech["name"] ?? "";
-        technicianPhone.value = tech["phone"] ?? "";
-        technicianRating.value = tech["rating"]?.toString() ?? "";
+        return;
       }
+
+      debugPrint(
+        "POLLING BOOKING ID => ${bookingId.value}",
+      );
+
+      final res =
+          await _api.get(
+        "/bookings/${bookingId.value}",
+      );
+
+      debugPrint(
+        "POLL RESPONSE => $res",
+      );
+
+      if (res == null ||
+          res is! Map) {
+
+        debugPrint(
+          "INVALID POLL RESPONSE",
+        );
+
+        return;
+      }
+
+      final rawStatus =
+          (res["status"] ?? "")
+              .toString();
+
+      debugPrint(
+        "RAW STATUS => $rawStatus",
+      );
+
+      bookingStatus.value =
+          mapStatus(
+        rawStatus,
+      );
+
+      debugPrint(
+        "UPDATED STATUS => ${bookingStatus.value}",
+      );
+
     } catch (e) {
-      debugPrint("STATUS ERROR → $e");
+
+      debugPrint(
+        "FETCH STATUS ERROR → $e",
+      );
     }
   }
 
-  // ================= ACTIONS =================
-  Future<void> approveArrival() async {
-    await _api.post("/bookings/${bookingId.value}/start", {});
-    bookingStatus.value = "in_progress";
+  // =========================================================
+  // ARRIVAL APPROVAL
+  // =========================================================
+  Future<void>
+  approveArrival() async {
+
+    if (bookingId.value <= 0) {
+      return;
+    }
+
+    try {
+
+      await _api.post(
+        "/bookings/${bookingId.value}/start",
+        {},
+      );
+
+      bookingStatus.value =
+          "in_progress";
+
+    } catch (e) {
+
+      debugPrint(
+        "ARRIVAL APPROVAL ERROR → $e",
+      );
+    }
   }
 
-  Future<void> completeBooking() async {
-    await _api.post("/bookings/${bookingId.value}/complete", {});
-    bookingStatus.value = "completed";
+  // =========================================================
+  // APPROVE WORK
+  // =========================================================
+  Future<void>
+  approveWork() async {
+
+    if (bookingId.value <= 0) {
+      return;
+    }
+
+    try {
+
+      await _api.post(
+        "/bookings/${bookingId.value}/approve",
+        {},
+      );
+
+      bookingStatus.value =
+          "completed";
+
+    } catch (e) {
+
+      debugPrint(
+        "APPROVE WORK ERROR → $e",
+      );
+    }
   }
 
-  // ================= POLLING =================
+  // =========================================================
+  // REQUEST REWORK
+  // =========================================================
+  Future<void>
+  requestRework(
+    String reason,
+  ) async {
+
+    if (bookingId.value <= 0) {
+      return;
+    }
+
+    try {
+
+      await _api.post(
+        "/bookings/${bookingId.value}/rework",
+        {
+          "reason": reason,
+        },
+      );
+
+      bookingStatus.value =
+          "rework_requested";
+
+    } catch (e) {
+
+      debugPrint(
+        "REWORK ERROR → $e",
+      );
+    }
+  }
+
+  // =========================================================
+  // POLLING
+  // =========================================================
   Timer? pollingTimer;
 
   void startPolling() {
-    if (bookingId.value == 0) return;
+
+    if (bookingId.value <=
+        0) {
+
+      debugPrint(
+        "POLLING NOT STARTED: INVALID ID",
+      );
+
+      return;
+    }
+
+    if (isPolling.value) {
+
+      debugPrint(
+        "POLLING ALREADY RUNNING",
+      );
+
+      return;
+    }
+
+    debugPrint(
+      "STARTING POLLING FOR BOOKING ${bookingId.value}",
+    );
 
     isPolling.value = true;
 
     pollingTimer?.cancel();
 
+    fetchStatus();
+
     pollingTimer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(
+        seconds: 5,
+      ),
+
       (_) async {
+
         await fetchStatus();
       },
     );
   }
 
+  void stopPolling() {
+
+    pollingTimer?.cancel();
+
+    isPolling.value = false;
+  }
+
   @override
   void onClose() {
-    pollingTimer?.cancel();
+
+    stopPolling();
+
     super.onClose();
   }
 }

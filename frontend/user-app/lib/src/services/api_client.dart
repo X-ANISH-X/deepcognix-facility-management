@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:get_storage/get_storage.dart';
 import 'package:get/get.dart';
@@ -7,14 +6,22 @@ import 'package:get/get.dart';
 class ApiClient {
   static const int _port = 8000;
   static const Duration _timeout = Duration(seconds: 15);
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
 
   static String get baseUrl {
-    // kIsWeb is safe on all platforms (including web)
-    if (!kIsWeb) {
-      // On native Android emulator the host machine is 10.0.2.2
-      // For real device / iOS / desktop use 127.0.0.1
-      // We use 127.0.0.1 since we target Chrome for dev
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl.endsWith('/')
+          ? _configuredBaseUrl.substring(0, _configuredBaseUrl.length - 1)
+          : _configuredBaseUrl;
     }
+
+    // Chrome/local desktop testing can use localhost. For a USB-connected
+    // Android phone, run `adb reverse tcp:8000 tcp:8000` and keep localhost.
+    // Android emulator uses 10.0.2.2. Physical phones over Wi-Fi must pass
+    // --dart-define=API_BASE_URL=http://YOUR_LAPTOP_IP:8000.
     return "http://127.0.0.1:$_port";
   }
 
@@ -40,8 +47,7 @@ class ApiClient {
   // ================================================================== //
   Future<dynamic> get(String endpoint) async {
     final url = Uri.parse("$baseUrl$endpoint");
-    final response =
-        await http.get(url, headers: _headers).timeout(_timeout);
+    final response = await http.get(url, headers: _headers).timeout(_timeout);
 
     return _handleResponse(response);
   }
@@ -99,11 +105,33 @@ class ApiClient {
     return _handleResponse(response);
   }
 
+  Future<dynamic> postSupportContact({
+    required String subject,
+    required String message,
+    String? name,
+    String? email,
+    String? phone,
+  }) async {
+    final body = <String, dynamic>{
+      "subject": subject,
+      "message": message,
+      if (name != null) "name": name,
+      if (email != null) "email": email,
+      if (phone != null) "phone": phone,
+    };
+
+    final url = Uri.parse("$baseUrl/support/contact");
+    final response = await http
+        .post(url, headers: _headers, body: jsonEncode(body))
+        .timeout(_timeout);
+
+    return _handleResponse(response);
+  }
+
   // ================================================================== //
   // RESPONSE HANDLER
   // ================================================================== //
   dynamic _handleResponse(http.Response response) {
-
     if (response.statusCode == 401) {
       _storage.erase();
       Get.offAllNamed('/login');
