@@ -17,10 +17,17 @@ class BookingStatusScreen
   Widget build(
     BuildContext context,
   ) {
+    final hasBookingContext =
+        controller.prepareTrackingBooking(
+      Get.arguments,
+    );
 
     WidgetsBinding.instance
         .addPostFrameCallback(
       (_) {
+        if (!hasBookingContext) {
+          return;
+        }
 
         if (!controller
             .isPolling
@@ -54,6 +61,13 @@ class BookingStatusScreen
       ),
 
       body: Obx(() {
+        if (!hasBookingContext) {
+          return const Center(
+            child: Text(
+              "Unable to load this booking status.",
+            ),
+          );
+        }
 
         final status =
             controller
@@ -516,6 +530,12 @@ class BookingStatusScreen
 
               Get.toNamed(
                 '/tracking',
+                arguments: {
+                  'bookingId':
+                      controller
+                          .bookingId
+                          .value,
+                },
               );
             },
           ),
@@ -579,7 +599,7 @@ class BookingStatusScreen
         children: [
 
           _button(
-            "Approve Work",
+            "Approve Completion",
 
             () async {
 

@@ -8,9 +8,31 @@ class TrackingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     final controller =
         Get.find<BookingController>();
+    final hasBookingContext =
+        controller.prepareTrackingBooking(
+      Get.arguments,
+    );
+
+    WidgetsBinding.instance
+        .addPostFrameCallback(
+      (_) {
+        if (!hasBookingContext) {
+          return;
+        }
+
+        if (controller
+                .activePollingBookingId
+                .value !=
+            controller
+                .bookingId
+                .value) {
+          controller
+              .startPolling();
+        }
+      },
+    );
 
     return Scaffold(
       backgroundColor:
@@ -31,11 +53,20 @@ class TrackingScreen extends StatelessWidget {
       ),
 
       body: Obx(() {
+        if (!hasBookingContext) {
+          return const Center(
+            child: Text(
+              "Unable to load tracking for this booking.",
+            ),
+          );
+        }
 
         final status =
-            controller
-                .bookingStatus
-                .value;
+            controller.mapStatus(
+          controller
+              .bookingStatus
+              .value,
+        );
 
         return Padding(
           padding:
@@ -379,6 +410,12 @@ class TrackingScreen extends StatelessWidget {
 
                     Get.toNamed(
                       '/live-tracking',
+                      arguments: {
+                        'bookingId':
+                            controller
+                                .bookingId
+                                .value,
+                      },
                     );
                   },
 
@@ -491,7 +528,7 @@ class TrackingScreen extends StatelessWidget {
         return 'Cleaning professionals are currently working on your service.';
 
       case 'customer_review_pending':
-        return 'Please review and approve the completed cleaning service.';
+        return 'Please review the checklist progress and approve the completed cleaning service.';
 
       case 'admin_review_pending':
         return 'Your booking is awaiting final admin verification.';

@@ -422,14 +422,14 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         return;
       }
 
-      await _bookingService.reportPaymentReceived(widget.job.id, notes: notes);
+      await _bookingService.completeJob(widget.job.id, notes: notes);
       _stopLocationTracking(clearMessage: true);
       await _loadBooking();
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment received report sent to admin for approval.')),
+        const SnackBar(content: Text('Completion approval request sent to customer.')),
       );
     } on AuthException catch (error) {
       if (!mounted) {
@@ -465,12 +465,12 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Payment Received Report',
+                'Request Completion Approval',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
               const Text(
-                'Confirm payment was collected from customer. This sends an approval request to admin before final completion.',
+                'This sends the completed job to the customer for review first. After the customer approves, admin will receive the final completion approval request.',
               ),
               const SizedBox(height: 16),
               Text('Booking: ${booking.title}'),
@@ -482,8 +482,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   completionNotes = value;
                 },
                 decoration: const InputDecoration(
-                  labelText: 'Payment notes',
-                  hintText: 'Example: Cash collected at site',
+                  labelText: 'Completion notes',
+                  hintText: 'Example: All rooms completed and final walkthrough done',
                 ),
               ),
               const SizedBox(height: 16),
@@ -491,7 +491,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Report Payment Received'),
+                  child: const Text('Send To Customer'),
                 ),
               ),
             ],
@@ -574,6 +574,10 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   if (booking.customerName != null) ...[
                     const SizedBox(height: 6),
                     Text('Customer: ${booking.customerName}'),
+                  ],
+                  if (_hasOperationalNotes(booking)) ...[
+                    const SizedBox(height: 16),
+                    _OperationalNotesCard(booking: booking),
                   ],
                   const SizedBox(height: 16),
                   Card(
@@ -692,7 +696,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text('Report Payment Received'),
+                              : Text(
+                                  booking.status == 'customer_review_pending'
+                                      ? 'Awaiting Customer Approval'
+                                      : booking.status == 'admin_review_pending'
+                                          ? 'Awaiting Admin Approval'
+                                          : 'Request Completion Approval',
+                                ),
                         ),
                       ),
                     ),
@@ -754,6 +764,10 @@ class _AssignedView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
           ],
+          if (_hasOperationalNotes(booking)) ...[
+            _OperationalNotesCard(booking: booking),
+            const SizedBox(height: 24),
+          ],
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -778,6 +792,74 @@ class _AssignedView extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+bool _hasOperationalNotes(BookingSummary booking) {
+  return (booking.customerNotes?.trim().isNotEmpty ?? false) ||
+      (booking.preferredTechnician?.trim().isNotEmpty ?? false) ||
+      (booking.parkingInstructions?.trim().isNotEmpty ?? false) ||
+      (booking.petWarning?.trim().isNotEmpty ?? false) ||
+      booking.callBeforeArrival;
+}
+
+class _OperationalNotesCard extends StatelessWidget {
+  final BookingSummary booking;
+
+  const _OperationalNotesCard({
+    required this.booking,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final details = <MapEntry<String, String>>[
+      if (booking.customerNotes?.trim().isNotEmpty ?? false)
+        MapEntry('Special instructions', booking.customerNotes!.trim()),
+      if (booking.preferredTechnician?.trim().isNotEmpty ?? false)
+        MapEntry('Preferred technician', booking.preferredTechnician!.trim()),
+      if (booking.parkingInstructions?.trim().isNotEmpty ?? false)
+        MapEntry('Parking instructions', booking.parkingInstructions!.trim()),
+      if (booking.petWarning?.trim().isNotEmpty ?? false)
+        MapEntry('Pet warning', booking.petWarning!.trim()),
+      if (booking.callBeforeArrival)
+        const MapEntry('Call before arrival', 'Customer requested a call before the visit.'),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Customer Notes',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            ...details.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.key,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(item.value),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -146,9 +146,11 @@ def create_booking(conn, booking, customer_id: int):
                 address_line, building_name,
                 floor_number, apartment_number,
                 latitude, longitude,
-                final_price, customer_notes
+                final_price, customer_notes,
+                preferred_technician, parking_instructions,
+                pet_warning, call_before_arrival
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 customer_id,
@@ -164,6 +166,10 @@ def create_booking(conn, booking, customer_id: int):
                 booking.longitude,
                 package["price"],
                 booking.customer_notes,
+                booking.preferred_technician,
+                booking.parking_instructions,
+                booking.pet_warning,
+                booking.call_before_arrival,
             ),
         )
         booking_id = cursor.lastrowid
@@ -214,7 +220,8 @@ def list_bookings(conn, user_id: int | None = None, role: str | None = None):
             c.full_name AS customer_name,
             c.email AS customer_email,
             c.phone_number AS customer_phone,
-            t.full_name AS technician_name
+            t.full_name AS technician_name,
+            t.phone_number AS technician_phone
         FROM bookings b
         JOIN packages p ON p.id = b.package_id
         JOIN services s ON s.id = b.service_id
@@ -249,7 +256,8 @@ def get_booking_by_id(conn, booking_id: int):
                 c.full_name AS customer_name,
                 c.email AS customer_email,
                 c.phone_number AS customer_phone,
-                t.full_name AS technician_name
+                t.full_name AS technician_name,
+                t.phone_number AS technician_phone
             FROM bookings b
             JOIN packages p ON p.id = b.package_id
             JOIN services s ON s.id = b.service_id
@@ -353,6 +361,13 @@ def update_booking_task_status(conn, booking_id: int, task_id: int, technician_i
             WHERE id = %s AND booking_id = %s
             """,
             (is_completed, task_id, booking_id),
+        )
+        create_notification(
+            cursor,
+            user_id=booking["customer_id"],
+            title="Checklist Updated",
+            message=f"Technician updated the checklist for booking #{booking_id}.",
+            notification_type="checklist_updated",
         )
         conn.commit()
         return True, None
@@ -536,45 +551,160 @@ def request_job_completion(conn, booking_id: int, technician_id: int, notes: str
             return False, "Complete all checklist tasks before finishing the job"
 
         cursor.execute(
-            "UPDATE bookings SET status = 'completion_requested' WHERE id = %s",
-            (booking_id,),
+            """
+            UPDATE bookings
+            SET status = 'customer_review_pending',
+                technician_notes = %s
+            WHERE id = %s
+            """,
+            (
+                notes.strip() if notes and notes.strip() else booking.get("technician_notes"),
+                booking_id,
+            ),
+        )
+        request_message = (
+            notes.strip()
+            if notes and notes.strip()
+            else f"Technician marked booking #{booking_id} as complete and is awaiting customer approval."
         )
         _create_or_refresh_booking_request(
             cursor,
             booking_id=booking_id,
             requested_by=technician_id,
             request_type="completion",
-            message=(
-                notes.strip()
-                if notes and notes.strip()
-                else f"Technician confirmed payment was received for booking #{booking_id}. Awaiting admin approval to complete job."
-            ),
-        )
-        _upsert_payment_record(
-            cursor,
-            booking_id=booking_id,
-            amount=float(booking.get("final_price") or 0),
-            status="pending",
-            payment_method="cash_on_completion",
-            transaction_reference=f"TECHNICIAN_REPORTED_{booking_id}",
-            mark_paid=False,
+            message=request_message,
         )
         create_notification(
             cursor,
             user_id=technician_id,
-            title="Payment Received Submitted",
-            message=f"Payment received confirmation was sent to admin for booking #{booking_id}.",
-            notification_type="completion_requested",
+            title="Completion Approval Requested",
+            message=f"Completion approval request was sent to the customer for booking #{booking_id}.",
+            notification_type="customer_review_pending",
+        )
+        create_notification(
+            cursor,
+            user_id=booking["customer_id"],
+            title="Review Completed Job",
+            message=f"Your technician marked booking #{booking_id} as completed. Please review the checklist progress and approve completion.",
+            notification_type="customer_review_pending",
+        )
+        conn.commit()
+        return True, None
+    finally:
+        cursor.close()
+
+
+def customer_approve_job_completion(conn, booking_id: int, customer_id: int):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = _fetch_booking(cursor, booking_id)
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["customer_id"] != customer_id:
+            return False, "You cannot approve this booking"
+
+        if booking["status"] != "customer_review_pending":
+            return False, "Booking is not waiting for customer approval"
+
+        cursor.execute(
+            "UPDATE bookings SET status = 'admin_review_pending' WHERE id = %s",
+            (booking_id,),
+        )
+
+        create_notification(
+            cursor,
+            user_id=booking["technician_id"],
+            title="Customer Approved Work",
+            message=f"The customer approved booking #{booking_id}. Final admin approval is pending.",
+            notification_type="admin_review_pending",
+        )
+        create_notification(
+            cursor,
+            user_id=customer_id,
+            title="Completion Sent To Admin",
+            message=f"Booking #{booking_id} was approved by you and sent to admin for final confirmation.",
+            notification_type="admin_review_pending",
         )
         cursor.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")
         for admin in cursor.fetchall():
             create_notification(
                 cursor,
                 user_id=admin["id"],
-                title="Payment Received Approval Needed",
-                message=f"Technician reported payment received for booking #{booking_id}. Review and approve to mark completed.",
+                title="Completion Approval Needed",
+                message=f"Customer approved booking #{booking_id}. Review and approve final completion.",
                 notification_type="completion_requested",
             )
+
+        conn.commit()
+        return True, None
+    finally:
+        cursor.close()
+
+
+def customer_request_rework(conn, booking_id: int, customer_id: int, reason: str):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = _fetch_booking(cursor, booking_id)
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["customer_id"] != customer_id:
+            return False, "You cannot request rework for this booking"
+
+        if booking["status"] != "customer_review_pending":
+            return False, "Rework can only be requested while customer review is pending"
+
+        clean_reason = reason.strip()
+        if not clean_reason:
+            return False, "Rework reason is required"
+
+        cursor.execute(
+            """
+            UPDATE bookings
+            SET status = 'in_progress',
+                technician_notes = %s
+            WHERE id = %s
+            """,
+            (clean_reason, booking_id),
+        )
+        cursor.execute(
+            """
+            UPDATE booking_requests
+            SET status = 'rejected',
+                admin_notes = %s
+            WHERE booking_id = %s
+              AND request_type = 'completion'
+              AND status = 'pending'
+            """,
+            (f"Customer requested rework: {clean_reason}", booking_id),
+        )
+        _create_or_refresh_booking_request(
+            cursor,
+            booking_id=booking_id,
+            requested_by=customer_id,
+            request_type="feedback",
+            message=clean_reason,
+        )
+
+        if booking.get("technician_id"):
+            create_notification(
+                cursor,
+                user_id=booking["technician_id"],
+                title="Customer Requested Rework",
+                message=f"Customer requested rework for booking #{booking_id}: {clean_reason}",
+                notification_type="rework_requested",
+            )
+        cursor.execute("SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE")
+        for admin in cursor.fetchall():
+            create_notification(
+                cursor,
+                user_id=admin["id"],
+                title="Customer Requested Rework",
+                message=f"Customer requested rework for booking #{booking_id}: {clean_reason}",
+                notification_type="rework_requested",
+            )
+
         conn.commit()
         return True, None
     finally:
@@ -588,21 +718,12 @@ def approve_job_completion(conn, booking_id: int, admin_id: int):
         if not booking:
             return False, "Booking not found"
 
-        if booking["status"] != "completion_requested":
+        if booking["status"] != "admin_review_pending":
             return False, "Booking does not have a pending completion request"
 
         cursor.execute(
             "UPDATE bookings SET status = 'completed' WHERE id = %s",
             (booking_id,),
-        )
-        _upsert_payment_record(
-            cursor,
-            booking_id=booking_id,
-            amount=float(booking.get("final_price") or 0),
-            status="paid",
-            payment_method="cash_on_completion",
-            transaction_reference=f"ADMIN_APPROVED_{booking_id}",
-            mark_paid=True,
         )
         cursor.execute(
             """
@@ -627,7 +748,7 @@ def approve_job_completion(conn, booking_id: int, admin_id: int):
             cursor,
             user_id=booking["customer_id"],
             title="Job Completed",
-            message=f"Booking #{booking_id} has been completed and approved.",
+            message=f"Booking #{booking_id} has been completed and approved by admin.",
             notification_type="job_completed",
         )
         create_notification(

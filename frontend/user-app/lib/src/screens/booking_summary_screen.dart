@@ -365,6 +365,9 @@ class BookingSummaryScreen extends StatelessWidget {
 
                                     Get.offAllNamed(
                                       '/tracking',
+                                      arguments: {
+                                        'bookingId': bookingController.bookingId.value,
+                                      },
                                     );
                                   }
                                 },

@@ -157,6 +157,7 @@ def _cleanup_duplicate_services(cursor):
 
 def _ensure_booking_status_values(cursor):
     cursor.execute("UPDATE bookings SET status = 'submitted' WHERE status = 'cancelled'")
+    cursor.execute("UPDATE bookings SET status = 'customer_review_pending' WHERE status = 'completion_requested'")
     _run_safe_alter(
         cursor,
         """
@@ -166,7 +167,8 @@ def _ensure_booking_status_values(cursor):
             'approved',
             'assigned',
             'in_progress',
-            'completion_requested',
+            'customer_review_pending',
+            'admin_review_pending',
             'completed',
             'rejection_requested',
             'rejected'
@@ -305,6 +307,30 @@ def ensure_schema_updates(cursor):
         _run_safe_alter(
             cursor,
             "ALTER TABLE notifications ADD COLUMN notification_type VARCHAR(50) NULL AFTER title",
+        )
+
+    if not _column_exists(cursor, "bookings", "preferred_technician"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE bookings ADD COLUMN preferred_technician VARCHAR(120) NULL AFTER customer_notes",
+        )
+
+    if not _column_exists(cursor, "bookings", "parking_instructions"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE bookings ADD COLUMN parking_instructions TEXT NULL AFTER preferred_technician",
+        )
+
+    if not _column_exists(cursor, "bookings", "pet_warning"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE bookings ADD COLUMN pet_warning TEXT NULL AFTER parking_instructions",
+        )
+
+    if not _column_exists(cursor, "bookings", "call_before_arrival"):
+        _run_safe_alter(
+            cursor,
+            "ALTER TABLE bookings ADD COLUMN call_before_arrival BOOLEAN DEFAULT FALSE AFTER pet_warning",
         )
 
     if not _column_exists(cursor, "technician_live_locations", "booking_id"):
