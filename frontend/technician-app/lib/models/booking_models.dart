@@ -15,6 +15,10 @@ class BookingSummary {
   final double? latitude;
   final double? longitude;
   final String? customerNotes;
+  final String? preferredTechnician;
+  final String? parkingInstructions;
+  final String? petWarning;
+  final bool callBeforeArrival;
   final String? technicianNotes;
   final String? packageName;
   final String? serviceName;
@@ -38,6 +42,10 @@ class BookingSummary {
     required this.latitude,
     required this.longitude,
     required this.customerNotes,
+    required this.preferredTechnician,
+    required this.parkingInstructions,
+    required this.petWarning,
+    required this.callBeforeArrival,
     required this.technicianNotes,
     required this.packageName,
     required this.serviceName,
@@ -63,6 +71,10 @@ class BookingSummary {
       latitude: _asDouble(json['latitude']),
       longitude: _asDouble(json['longitude']),
       customerNotes: json['customer_notes'] as String?,
+      preferredTechnician: json['preferred_technician'] as String?,
+      parkingInstructions: json['parking_instructions'] as String?,
+      petWarning: json['pet_warning'] as String?,
+      callBeforeArrival: _asBool(json['call_before_arrival']),
       technicianNotes: json['technician_notes'] as String?,
       packageName: json['package_name'] as String?,
       serviceName: json['service_name'] as String?,

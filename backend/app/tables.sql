@@ -131,7 +131,8 @@ CREATE TABLE IF NOT EXISTS bookings (
         'approved',
         'assigned',
         'in_progress',
-        'completion_requested',
+        'customer_review_pending',
+        'admin_review_pending',
         'completed',
         'rejection_requested',
         'rejected'
@@ -150,6 +151,10 @@ CREATE TABLE IF NOT EXISTS bookings (
     longitude DECIMAL(11,8),
 
     customer_notes TEXT,
+    preferred_technician VARCHAR(120),
+    parking_instructions TEXT,
+    pet_warning TEXT,
+    call_before_arrival BOOLEAN DEFAULT FALSE,
     technician_notes TEXT,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

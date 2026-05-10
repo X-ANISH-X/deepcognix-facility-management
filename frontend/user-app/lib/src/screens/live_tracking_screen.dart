@@ -17,6 +17,29 @@ class LiveTrackingScreen
 
     final controller =
         Get.find<BookingController>();
+    final hasBookingContext =
+        controller.prepareTrackingBooking(
+      Get.arguments,
+    );
+
+    WidgetsBinding.instance
+        .addPostFrameCallback(
+      (_) {
+        if (!hasBookingContext) {
+          return;
+        }
+
+        if (controller
+                .activePollingBookingId
+                .value !=
+            controller
+                .bookingId
+                .value) {
+          controller
+              .startPolling();
+        }
+      },
+    );
 
     return Scaffold(
       backgroundColor:
@@ -39,11 +62,20 @@ class LiveTrackingScreen
       ),
 
       body: Obx(() {
+        if (!hasBookingContext) {
+          return const Center(
+            child: Text(
+              "Unable to load live tracking for this booking.",
+            ),
+          );
+        }
 
         final status =
-            controller
-                .bookingStatus
-                .value;
+            controller.mapStatus(
+          controller
+              .bookingStatus
+              .value,
+        );
 
         return Padding(
           padding:
@@ -559,7 +591,7 @@ class LiveTrackingScreen
               ),
 
               child: const Text(
-                "Approve Work",
+                "Approve Completion",
               ),
             ),
           ),

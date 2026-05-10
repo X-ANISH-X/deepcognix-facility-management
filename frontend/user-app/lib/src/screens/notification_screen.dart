@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../controllers/booking_controller.dart';
+
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
 
@@ -188,9 +190,29 @@ class NotificationScreen extends StatelessWidget {
                     if (item[
                             "title"] ==
                         "Technician On The Way") {
+                      final bookingController =
+                          Get.find<
+                              BookingController>();
+
+                      if (bookingController
+                              .bookingId
+                              .value <=
+                          0) {
+                        Get.snackbar(
+                          "Tracking unavailable",
+                          "Open the booking from Upcoming Bookings to start tracking.",
+                        );
+                        return;
+                      }
 
                       Get.toNamed(
                         '/tracking',
+                        arguments: {
+                          'bookingId':
+                              bookingController
+                                  .bookingId
+                                  .value,
+                        },
                       );
                     }
                   },
