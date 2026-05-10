@@ -36,6 +36,10 @@ export interface WorkOrder {
   apartmentNumber?: string;
   description: string;
   customerNotes?: string;
+  preferredTechnician?: string;
+  parkingInstructions?: string;
+  petWarning?: string;
+  callBeforeArrival?: boolean;
   estimatedCost: number;
   actualCost?: number;
   createdAt: string;
@@ -284,6 +288,8 @@ function statusFromBackend(raw: string): WorkOrder['status'] {
   if (raw === 'approved') return 'approved';
   if (raw === 'assigned') return 'assigned';
   if (raw === 'in_progress') return 'in-progress';
+  if (raw === 'customer_review_pending') return 'in-progress';
+  if (raw === 'admin_review_pending') return 'completion-requested';
   if (raw === 'completion_requested') return 'completion-requested';
   if (raw === 'rejection_requested') return 'rejection-requested';
   if (raw === 'completed') return 'completed';
@@ -500,6 +506,10 @@ function mapWorkOrder(item: Dict): WorkOrder {
     apartmentNumber: pickString(item, 'apartment_number') || undefined,
     description: pickString(item, 'customer_notes') || pickString(item, 'notes'),
     customerNotes: pickString(item, 'customer_notes') || undefined,
+    preferredTechnician: pickString(item, 'preferred_technician') || undefined,
+    parkingInstructions: pickString(item, 'parking_instructions') || undefined,
+    petWarning: pickString(item, 'pet_warning') || undefined,
+    callBeforeArrival: Boolean(item.call_before_arrival),
     estimatedCost,
     actualCost,
     createdAt,
@@ -713,18 +723,6 @@ export const mockApi = {
     const data = await request<Dict | { booking?: Dict }>(`/bookings/${id}`, undefined, true);
     const booking = 'booking' in data ? data.booking : data;
     return booking ? mapWorkOrder(booking as Dict) : undefined;
-  },
-
-  getBookingTasks: async (bookingId: string): Promise<BookingTask[]> => {
-    const data = await request<Dict[] | { tasks?: Dict[] }>(`/bookings/${bookingId}/tasks`, undefined, true);
-    const list = Array.isArray(data) ? data : (data.tasks || []);
-    return list.map((item) => ({
-      id: Number(item.id ?? 0),
-      bookingId: String(item.booking_id ?? item.bookingId ?? bookingId),
-      taskName: pickString(item, 'task_name') || pickString(item, 'taskName'),
-      orderIndex: pickNumber(item, 'order_index'),
-      isCompleted: Boolean(item.is_completed),
-    }));
   },
 
   createWorkOrder: async (data: Partial<WorkOrder>): Promise<WorkOrder> => {

@@ -517,6 +517,15 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
           <DialogHeader>
             <DialogTitle>Assign Technician to {selectedOrder?.id}</DialogTitle>
           </DialogHeader>
+          {selectedOrder && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-800/60 p-4">
+              <DetailRow label="Customer Notes" value={selectedOrder.customerNotes || 'No special instructions provided.'} />
+              <DetailRow label="Preferred Technician" value={selectedOrder.preferredTechnician || 'No preference'} />
+              <DetailRow label="Parking Instructions" value={selectedOrder.parkingInstructions || 'No parking notes'} />
+              <DetailRow label="Pet Warning" value={selectedOrder.petWarning || 'No pet warning'} />
+              <DetailRow label="Call Before Arrival" value={selectedOrder.callBeforeArrival ? 'Yes' : 'No'} />
+            </div>
+          )}
           <div className="space-y-3 max-h-96 overflow-y-auto flex flex-col">
             {technicians
               .filter(tech => tech.status !== 'offline')
@@ -593,6 +602,10 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <DetailRow label="Priority" value={selectedOrder.priority} />
                 <DetailRow label="Actual Cost" value={selectedOrder.actualCost ? formatMoney(selectedOrder.actualCost) : 'Pending'} />
+                <DetailRow label="Preferred Technician" value={selectedOrder.preferredTechnician || 'No preference'} />
+                <DetailRow label="Call Before Arrival" value={selectedOrder.callBeforeArrival ? 'Yes' : 'No'} />
+                <DetailRow label="Parking Instructions" value={selectedOrder.parkingInstructions || 'No parking notes'} />
+                <DetailRow label="Pet Warning" value={selectedOrder.petWarning || 'No pet warning'} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

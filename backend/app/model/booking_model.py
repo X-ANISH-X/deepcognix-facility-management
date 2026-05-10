@@ -20,6 +20,10 @@ class BookingCreate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     customer_notes: str | None = None
+    preferred_technician: str | None = None
+    parking_instructions: str | None = None
+    pet_warning: str | None = None
+    call_before_arrival: bool = False
 
 
 class BookingResponse(BaseModel):
@@ -39,6 +43,10 @@ class BookingResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     customer_notes: str | None = None
+    preferred_technician: str | None = None
+    parking_instructions: str | None = None
+    pet_warning: str | None = None
+    call_before_arrival: bool = False
     technician_notes: str | None = None
 
 

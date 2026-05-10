@@ -6,6 +6,8 @@ from app.logic import booking_logic
 from app.logic.booking_logic import (
     approve_job_completion,
     approve_job_rejection,
+    customer_approve_job_completion,
+    customer_request_rework,
     request_job_completion,
     request_job_rejection,
     start_job,
@@ -215,7 +217,7 @@ def complete_booking(
     if not success:
         raise HTTPException(status_code=400, detail=error)
 
-    return {"message": "Payment received confirmation sent to admin for completion approval"}
+    return {"message": "Completion request sent to customer for approval"}
 
 
 @router.post("/{booking_id}/payment-received")
@@ -236,7 +238,36 @@ def report_payment_received(
     if not success:
         raise HTTPException(status_code=400, detail=error)
 
-    return {"message": "Payment received confirmation sent to admin for completion approval"}
+    return {"message": "Completion request sent to customer for approval"}
+
+
+@router.post("/{booking_id}/customer-approve")
+def customer_approve_completion(
+    booking_id: int,
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"customer"})
+    success, error = customer_approve_job_completion(conn, booking_id, current_user["id"])
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Completion sent to admin for final approval"}
+
+
+@router.post("/{booking_id}/rework")
+def request_rework(
+    booking_id: int,
+    payload: RejectBookingRequest,
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"customer"})
+    success, error = customer_request_rework(conn, booking_id, current_user["id"], payload.reason)
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Rework request sent to technician"}
 
 
 @router.post("/{booking_id}/completion/approve")

@@ -331,11 +331,53 @@ class _UpcomingBookingsScreenState
 
                   bookingController
                           .bookingId
-                          .value =
+                      .value =
                       bookingId;
+
+                  bookingController
+                      .stopPolling();
+
+                  bookingController
+                          .bookingStatus
+                          .value =
+                      bookingController.mapStatus(
+                    (booking["status"] ??
+                            "submitted")
+                        .toString(),
+                  );
+
+                  bookingController
+                          .technicianName
+                          .value =
+                      (booking["technician_name"] ??
+                              "")
+                          .toString();
+
+                  bookingController
+                          .technicianPhone
+                          .value =
+                      (booking["technician_phone"] ??
+                              "")
+                          .toString();
+
+                  bookingController
+                          .checklist
+                          .value =
+                      [];
+
+                  bookingController
+                          .completedTasks
+                          .value =
+                      [];
+
+                  bookingController
+                      .startPolling();
 
                   Get.toNamed(
                     '/tracking',
+                    arguments: {
+                      'bookingId': bookingId,
+                    },
                   );
                 },
 
@@ -500,6 +542,21 @@ class _UpcomingBookingsScreenState
 
     switch (normalized) {
 
+      case "assigned":
+        color = Colors.indigo;
+        label = "Assigned";
+        break;
+
+      case "customer_review_pending":
+        color = Colors.teal;
+        label = "Awaiting Your Approval";
+        break;
+
+      case "admin_review_pending":
+        color = Colors.deepPurple;
+        label = "Awaiting Admin Approval";
+        break;
+
       case "completed":
         color = Colors.green;
         label = "Completed";
@@ -523,8 +580,20 @@ class _UpcomingBookingsScreenState
       default:
         color =
             Colors.blueGrey;
-        label =
-            "Submitted";
+        label = normalized
+                .replaceAll("_", " ")
+                .trim()
+                .isEmpty
+            ? "Submitted"
+            : normalized
+                .replaceAll("_", " ")
+                .split(" ")
+                .map(
+                  (word) => word.isEmpty
+                      ? word
+                      : "${word[0].toUpperCase()}${word.substring(1)}",
+                )
+                .join(" ");
     }
 
     return Container(
