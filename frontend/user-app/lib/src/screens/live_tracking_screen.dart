@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
 import '../controllers/booking_controller.dart';
 
 class LiveTrackingScreen
@@ -17,6 +17,7 @@ class LiveTrackingScreen
 
     final controller =
         Get.find<BookingController>();
+
     final hasBookingContext =
         controller.prepareTrackingBooking(
       Get.arguments,
@@ -25,6 +26,7 @@ class LiveTrackingScreen
     WidgetsBinding.instance
         .addPostFrameCallback(
       (_) {
+
         if (!hasBookingContext) {
           return;
         }
@@ -35,6 +37,7 @@ class LiveTrackingScreen
             controller
                 .bookingId
                 .value) {
+
           controller
               .startPolling();
         }
@@ -62,7 +65,9 @@ class LiveTrackingScreen
       ),
 
       body: Obx(() {
+
         if (!hasBookingContext) {
+
           return const Center(
             child: Text(
               "Unable to load live tracking for this booking.",
@@ -301,9 +306,6 @@ class LiveTrackingScreen
                         ),
                       ),
 
-                      // ======================================
-                      // CHECKLIST PROGRESS
-                      // ======================================
                       if (status ==
                               "in_progress" ||
                           status ==
@@ -354,6 +356,56 @@ class LiveTrackingScreen
                           ],
                         ),
                     ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(
+                height: 16,
+              ),
+
+              // ==========================================
+              // UPGRADE BUTTON
+              // ==========================================
+              SizedBox(
+                width:
+                    double.infinity,
+
+                child:
+                    OutlinedButton.icon(
+
+                  onPressed: () {
+
+                    _showUpgradeDialog(
+                      context,
+                    );
+                  },
+
+                  icon: const Icon(
+                    Icons.upgrade,
+                  ),
+
+                  label: const Text(
+                    "Request Upgrade / Add-On",
+                  ),
+
+                  style:
+                      OutlinedButton
+                          .styleFrom(
+                    padding:
+                        const EdgeInsets
+                            .symmetric(
+                      vertical: 14,
+                    ),
+
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        14,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -459,9 +511,6 @@ class LiveTrackingScreen
                 height: 20,
               ),
 
-              // ==========================================
-              // ACTION BUTTONS
-              // ==========================================
               _actionButtons(
                 controller,
                 status,
@@ -473,9 +522,140 @@ class LiveTrackingScreen
     );
   }
 
-  // =====================================================
-  // TIMELINE TILE
-  // =====================================================
+  // ==========================================
+  // UPGRADE DIALOG
+  // ==========================================
+  Future<void> _showUpgradeDialog(
+    BuildContext context,
+  ) async {
+
+    await showDialog(
+      context: context,
+
+      builder: (_) {
+
+        return AlertDialog(
+
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(
+              20,
+            ),
+          ),
+
+          title: const Text(
+            "Request Upgrade / Add-On",
+          ),
+
+          content: const Column(
+            mainAxisSize:
+                MainAxisSize.min,
+
+            crossAxisAlignment:
+                CrossAxisAlignment
+                    .start,
+
+            children: [
+
+              Text(
+                "Need additional services or package upgrades during your booking?",
+              ),
+
+              SizedBox(
+                height: 18,
+              ),
+
+              Text(
+                "Available Options:",
+                style: TextStyle(
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+
+              SizedBox(
+                height: 10,
+              ),
+
+              Text(
+                "• Upgrade to Gold Package",
+              ),
+
+              Text(
+                "• Upgrade to Platinum Package",
+              ),
+
+              Text(
+                "• Carpet Shampoo Cleaning",
+              ),
+
+              Text(
+                "• Sofa Cleaning",
+              ),
+
+              Text(
+                "• Kitchen Deep Cleaning",
+              ),
+
+              Text(
+                "• Sanitization",
+              ),
+
+              SizedBox(
+                height: 18,
+              ),
+
+              Text(
+                "Please contact admin/support directly for modifications during active service.",
+              ),
+
+              SizedBox(
+                height: 18,
+              ),
+
+              Text(
+                "Admin Contact:",
+                style: TextStyle(
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+
+              SizedBox(
+                height: 8,
+              ),
+
+              Text(
+                "+971 50 123 4567",
+              ),
+
+              Text(
+                "support@deepcognix.com",
+              ),
+            ],
+          ),
+
+          actions: [
+
+            TextButton(
+              onPressed: () {
+
+                Navigator.pop(
+                  context,
+                );
+              },
+
+              child: const Text(
+                "Close",
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _timelineTile(
     String title,
     bool completed,
@@ -524,9 +704,6 @@ class LiveTrackingScreen
     );
   }
 
-  // =====================================================
-  // ACTION BUTTONS
-  // =====================================================
   Widget _actionButtons(
     BookingController controller,
     String status,
@@ -545,15 +722,6 @@ class LiveTrackingScreen
             await controller
                 .approveArrival();
           },
-
-          style:
-              ElevatedButton
-                  .styleFrom(
-            backgroundColor:
-                const Color(
-              0xFF0F9D8A,
-            ),
-          ),
 
           child: const Text(
             "Confirm Arrival",
@@ -580,15 +748,6 @@ class LiveTrackingScreen
                 await controller
                     .approveWork();
               },
-
-              style:
-                  ElevatedButton
-                      .styleFrom(
-                backgroundColor:
-                    const Color(
-                  0xFF0F9D8A,
-                ),
-              ),
 
               child: const Text(
                 "Approve Completion",
@@ -638,15 +797,6 @@ class LiveTrackingScreen
             );
           },
 
-          style:
-              ElevatedButton
-                  .styleFrom(
-            backgroundColor:
-                const Color(
-              0xFF0F9D8A,
-            ),
-          ),
-
           child: const Text(
             "Done",
           ),
@@ -657,9 +807,6 @@ class LiveTrackingScreen
     return const SizedBox();
   }
 
-  // =====================================================
-  // REWORK DIALOG
-  // =====================================================
   void _showReworkDialog(
     BookingController controller,
   ) {
@@ -720,9 +867,6 @@ class LiveTrackingScreen
     );
   }
 
-  // =====================================================
-  // STATUS TITLE
-  // =====================================================
   String _statusTitle(
     String status,
   ) {
@@ -760,9 +904,6 @@ class LiveTrackingScreen
     }
   }
 
-  // =====================================================
-  // STATUS DESCRIPTION
-  // =====================================================
   String _statusDescription(
     String status,
   ) {
@@ -800,4 +941,3 @@ class LiveTrackingScreen
     }
   }
 }
-
