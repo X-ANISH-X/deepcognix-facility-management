@@ -5,10 +5,22 @@ export interface Technician {
   phone: string;
   specialty: string[];
   status: 'available' | 'assigned' | 'enroute' | 'onsite' | 'offline';
+  locationSource: 'live' | 'booking' | 'fallback';
   location: {
     lat: number;
     lng: number;
     address: string;
+  };
+  liveLocation?: {
+    lat: number;
+    lng: number;
+    recordedAt?: string;
+  };
+  bookingLocation?: {
+    lat: number;
+    lng: number;
+    address: string;
+    orderId?: string;
   };
   currentJobs: number;
   completionRate: number;
@@ -266,6 +278,13 @@ function pickString(obj: Dict, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+function pickStringOrNumber(obj: Dict, key: string): string {
+  const value = obj[key];
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  return '';
+}
+
 function pickNumber(obj: Dict, key: string): number {
   const value = obj[key];
   return typeof value === 'number' ? value : Number(value || 0);
@@ -448,6 +467,10 @@ function mapTechnician(item: Dict): Technician {
   const name = pickString(item, 'full_name') || pickString(item, 'name') || 'Technician';
   const lat = item.latitude === null || item.latitude === undefined ? 0 : pickNumber(item, 'latitude');
   const lng = item.longitude === null || item.longitude === undefined ? 0 : pickNumber(item, 'longitude');
+  const liveLat = item.live_latitude === null || item.live_latitude === undefined ? undefined : pickNumber(item, 'live_latitude');
+  const liveLng = item.live_longitude === null || item.live_longitude === undefined ? undefined : pickNumber(item, 'live_longitude');
+  const bookingLat = item.booking_latitude === null || item.booking_latitude === undefined ? undefined : pickNumber(item, 'booking_latitude');
+  const bookingLng = item.booking_longitude === null || item.booking_longitude === undefined ? undefined : pickNumber(item, 'booking_longitude');
   const rawStatus = pickString(item, 'status');
   const mappedStatus: Technician['status'] =
     rawStatus === 'assigned' || rawStatus === 'enroute' || rawStatus === 'onsite' || rawStatus === 'offline' || rawStatus === 'available'
@@ -460,6 +483,16 @@ function mapTechnician(item: Dict): Technician {
     ? item.specialties.map((value) => String(value)).filter(Boolean)
     : [];
 
+  const locationSource = pickString(item, 'location_source') as Technician['locationSource'] | '';
+  const normalizedLocationSource: Technician['locationSource'] =
+    locationSource === 'live' || locationSource === 'booking' || locationSource === 'fallback'
+      ? locationSource
+      : liveLat !== undefined && liveLng !== undefined
+        ? 'live'
+        : bookingLat !== undefined && bookingLng !== undefined
+          ? 'booking'
+          : 'fallback';
+
   return {
     id: String(item.id ?? ''),
     name,
@@ -467,11 +500,27 @@ function mapTechnician(item: Dict): Technician {
     phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
     specialty: specialties,
     status: mappedStatus,
+    locationSource: normalizedLocationSource,
     location: {
       lat,
       lng,
       address: pickString(item, 'location_address') || pickString(item, 'location') || pickString(item, 'address') || 'N/A',
     },
+    liveLocation: liveLat !== undefined && liveLng !== undefined
+      ? {
+          lat: liveLat,
+          lng: liveLng,
+          recordedAt: pickString(item, 'location_recorded_at') || undefined,
+        }
+      : undefined,
+    bookingLocation: bookingLat !== undefined && bookingLng !== undefined
+      ? {
+          lat: bookingLat,
+          lng: bookingLng,
+          address: pickString(item, 'booking_address') || pickString(item, 'location_address') || 'N/A',
+          orderId: pickStringOrNumber(item, 'latest_booking_id') || pickStringOrNumber(item, 'booking_id') || undefined,
+        }
+      : undefined,
     currentJobs: pickNumber(item, 'current_jobs'),
     completionRate: pickNumber(item, 'completion_rate'),
     avatar: toAvatar(name),

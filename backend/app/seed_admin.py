@@ -4,9 +4,6 @@ import json
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-import mysql.connector
-
-from app.core.config import settings
 from app.init_db import init_db
 from app.seed_dummy_data import (
     SeedUser,
@@ -18,7 +15,6 @@ from app.seed_dummy_data import (
     ensure_service,
     ensure_user,
     get_connection,
-    get_package,
     set_task_progress,
 )
 
@@ -33,7 +29,73 @@ class SeedServicePackage:
     is_active: bool = True
 
 
-def ensure_service_package_meta_table(cursor):
+DEFAULT_PACKAGE_CHECKLISTS: dict[str, list[str]] = {
+    "Silver": [
+        "Dust furniture, shelves, and accessible surfaces",
+        "Sweep and mop floors",
+        "Clean kitchen countertop and sink",
+        "Wipe cabinet exteriors",
+        "Clean bathroom wash basin, mirror, and toilet",
+        "Collect and dispose garbage",
+        "Dust internal window sills and frames",
+        "Clean door handles",
+        "Sweep and mop balcony",
+    ],
+    "Gold": [
+        "Dust furniture, shelves, and accessible surfaces",
+        "Sweep and mop floors",
+        "Clean kitchen countertop and sink",
+        "Wipe cabinet exteriors",
+        "Clean bathroom wash basin, mirror, and toilet",
+        "Collect and dispose garbage",
+        "Dust internal window sills and frames",
+        "Clean door handles",
+        "Sweep and mop balcony",
+        "Deep clean kitchen cabinets inside and outside",
+        "Degrease and clean kitchen wall tiles",
+        "Clean exterior of microwave, fridge, and stove",
+        "Deep clean bathroom tiles and shower area",
+        "Polish glass and mirrors",
+        "Vacuum sofas and cushions",
+        "Detailed dusting of doors, frames, and wardrobe exteriors",
+        "Clean interior-side window glass",
+        "Deep clean and mop floors",
+    ],
+    "Platinum": [
+        "Dust furniture, shelves, and accessible surfaces",
+        "Sweep and mop floors",
+        "Clean kitchen countertop and sink",
+        "Wipe cabinet exteriors",
+        "Clean bathroom wash basin, mirror, and toilet",
+        "Collect and dispose garbage",
+        "Dust internal window sills and frames",
+        "Clean door handles",
+        "Sweep and mop balcony",
+        "Deep clean kitchen cabinets inside and outside",
+        "Degrease and clean kitchen wall tiles",
+        "Clean exterior of microwave, fridge, and stove",
+        "Deep clean bathroom tiles and shower area",
+        "Polish glass and mirrors",
+        "Vacuum sofas and cushions",
+        "Detailed dusting of doors, frames, and wardrobe exteriors",
+        "Clean interior-side window glass",
+        "Deep clean and mop floors",
+        "Steam sanitize bathrooms and kitchen areas",
+        "Deep vacuum carpets and sofas",
+        "Vacuum clean mattress",
+        "Clean behind accessible furniture",
+        "Clean AC vents",
+        "Interior window glass streak-free finish",
+        "Wall spot cleaning for light stains",
+        "Detailed wardrobe internal cleaning",
+        "Interior fridge cleaning",
+        "Premium floor polishing and shine restoration",
+        "Pressure clean balcony where applicable",
+    ],
+}
+
+
+def ensure_service_package_meta_table(cursor) -> None:
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS service_package_meta (
@@ -51,7 +113,7 @@ def upsert_service_package_meta(
     package_id: int,
     service_ids: list[int],
     estimated_times: dict[str, str],
-):
+) -> None:
     ensure_service_package_meta_table(cursor)
     cursor.execute(
         """
@@ -65,12 +127,62 @@ def upsert_service_package_meta(
     )
 
 
+def ensure_package_checklist(cursor, package_id: int, tasks: list[str]) -> None:
+    cursor.execute("DELETE FROM package_checklist WHERE package_id = %s", (package_id,))
+    for index, task_name in enumerate(tasks, start=1):
+        cursor.execute(
+            """
+            INSERT INTO package_checklist (package_id, task_name, order_index)
+            VALUES (%s, %s, %s)
+            """,
+            (package_id, task_name, index),
+        )
+
+
+def ensure_booking_request(cursor, *, booking_id: int, requested_by: int, request_type: str, message: str) -> None:
+    cursor.execute(
+        """
+        SELECT id
+        FROM booking_requests
+        WHERE booking_id = %s
+          AND request_type = %s
+          AND status = 'pending'
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (booking_id, request_type),
+    )
+    existing = cursor.fetchone()
+    if existing:
+        cursor.execute(
+            """
+            UPDATE booking_requests
+            SET requested_by = %s,
+                message = %s,
+                reviewed_by = NULL,
+                admin_notes = NULL,
+                reviewed_at = NULL,
+                status = 'pending'
+            WHERE id = %s
+            """,
+            (requested_by, message, existing[0]),
+        )
+        return
+
+    cursor.execute(
+        """
+        INSERT INTO booking_requests (booking_id, requested_by, request_type, message, status)
+        VALUES (%s, %s, %s, %s, 'pending')
+        """,
+        (booking_id, requested_by, request_type, message),
+    )
+
+
 def ensure_package(cursor, package: SeedServicePackage) -> int:
     cursor.execute("SELECT id FROM packages WHERE name = %s", (package.name,))
-    existing = cursor.fetchone()
-
-    if existing:
-        package_id = int(existing[0])
+    row = cursor.fetchone()
+    if row:
+        package_id = int(row[0])
         cursor.execute(
             """
             UPDATE packages
@@ -90,10 +202,10 @@ def ensure_package(cursor, package: SeedServicePackage) -> int:
         """,
         (package.name, package.price, package.description, package.is_active),
     )
-    return cursor.lastrowid
+    return int(cursor.lastrowid)
 
 
-def set_booking_timestamp(cursor, booking_id: int, timestamp: datetime):
+def set_booking_timestamp(cursor, booking_id: int, timestamp: datetime) -> None:
     cursor.execute(
         """
         UPDATE bookings
@@ -105,37 +217,55 @@ def set_booking_timestamp(cursor, booking_id: int, timestamp: datetime):
     )
 
 
-def seed_admin_dashboard_data():
+def seed_admin_dashboard_data() -> None:
     init_db()
 
     conn = get_connection()
     cursor = conn.cursor(buffered=True)
     try:
-        cursor.execute("SELECT id FROM users WHERE email = %s", ("sam@gmail.com",))
-        admin_row = cursor.fetchone()
-        if admin_row:
-            admin_id = int(admin_row[0])
-        else:
-            admin_id = ensure_user(
-                cursor,
-                SeedUser("Admin User", "sam@gmail.com", "9876500001", "admin", "test123"),
-            )
+        cursor.execute("DELETE FROM technician_live_locations")
+        cursor.execute("DELETE FROM notifications")
+        cursor.execute("DELETE FROM booking_checklist")
+        cursor.execute("DELETE FROM bookings")
+        cursor.execute("DELETE FROM package_checklist")
+        cursor.execute("DELETE FROM service_package_meta")
+        cursor.execute("DELETE FROM packages")
+        cursor.execute("DELETE FROM services")
+        cursor.execute("DELETE FROM categories")
+        cursor.execute("DELETE FROM users")
 
-        customer_ids: list[int] = []
-        for user in [
-            SeedUser("Sam Customer", "sam234@gmail.com", "9876500002", "customer", "test123"),
-            SeedUser("Aisha Malik", "aisha.dashboard@example.com", "9876500101", "customer", "test123"),
-            SeedUser("Rohan Mehta", "rohan.dashboard@example.com", "9876500102", "customer", "test123"),
+        for table_name in [
+            "technician_live_locations",
+            "notifications",
+            "booking_checklist",
+            "bookings",
+            "package_checklist",
+            "service_package_meta",
+            "packages",
+            "services",
+            "categories",
+            "users",
         ]:
-            customer_ids.append(ensure_user(cursor, user))
+            cursor.execute(f"ALTER TABLE {table_name} AUTO_INCREMENT = 1")
 
-        technician_ids: list[int] = []
-        for user in [
-            SeedUser("Samarth Vasisht", "sam123@gmail.com", "9876500003", "technician", "test123"),
-            SeedUser("Neeraj Kumar", "neeraj.dashboard@example.com", "9876500201", "technician", "Tech@123"),
-            SeedUser("Kavya Sharma", "kavya.dashboard@example.com", "9876500202", "technician", "Tech@123"),
-        ]:
-            technician_ids.append(ensure_user(cursor, user))
+        admin_id = ensure_user(
+            cursor,
+            SeedUser("Admin User", "sam@gmail.com", "9876500001", "admin", "test123"),
+        )
+
+        customer_ids = [
+            ensure_user(cursor, SeedUser("Sam Customer", "sam234@gmail.com", "9876500002", "customer", "test123")),
+            ensure_user(cursor, SeedUser("Aisha Malik", "aisha.dashboard@example.com", "9876500101", "customer", "test123")),
+            ensure_user(cursor, SeedUser("Rohan Mehta", "rohan.dashboard@example.com", "9876500102", "customer", "test123")),
+        ]
+
+        technician_ids = [
+            ensure_user(cursor, SeedUser("Samarth Vasisht", "sam123@gmail.com", "9876500003", "technician", "test123")),
+            ensure_user(cursor, SeedUser("Neeraj Kumar", "neeraj.dashboard@example.com", "9876500201", "technician", "test123")),
+            ensure_user(cursor, SeedUser("Kavya Sharma", "kavya.dashboard@example.com", "9876500202", "technician", "test123")),
+            ensure_user(cursor, SeedUser("Farhan Ali", "farhan.dashboard@example.com", "9876500203", "technician", "test123")),
+            ensure_user(cursor, SeedUser("Priyanka Das", "priyanka.dashboard@example.com", "9876500204", "technician", "test123")),
+        ]
 
         cleaning_category_id = ensure_category(
             cursor,
@@ -209,11 +339,45 @@ def seed_admin_dashboard_data():
             ),
         }
 
-        silver_id, silver_price = get_package(cursor, "Silver")
-        gold_id, gold_price = get_package(cursor, "Gold")
-        platinum_id, platinum_price = get_package(cursor, "Platinum")
+        silver_id = ensure_package(
+            cursor,
+            SeedServicePackage(
+                name="Silver",
+                price=999.00,
+                description="Basic cleaning",
+                service_ids=[service_catalog["Home Deep Cleaning"], service_catalog["Plumbing Inspection"]],
+                estimated_times={"1BHK": "2h 15m", "2BHK": "2h 45m", "3BHK": "3h 15m"},
+            ),
+        )
+        gold_id = ensure_package(
+            cursor,
+            SeedServicePackage(
+                name="Gold",
+                price=1999.00,
+                description="Deep cleaning",
+                service_ids=[service_catalog["Home Deep Cleaning"], service_catalog["Sofa & Upholstery Cleaning"], service_catalog["AC Cleaning"]],
+                estimated_times={"1BHK": "3h 15m", "2BHK": "4h 00m", "3BHK": "4h 45m"},
+            ),
+        )
+        platinum_id = ensure_package(
+            cursor,
+            SeedServicePackage(
+                name="Platinum",
+                price=2999.00,
+                description="Premium cleaning",
+                service_ids=[service_catalog["Home Deep Cleaning"], service_catalog["Sofa & Upholstery Cleaning"], service_catalog["AC Cleaning"], service_catalog["Electrical Safety Check"], service_catalog["CCTV & Access Control Check"]],
+                estimated_times={"1BHK": "4h 30m", "2BHK": "5h 30m", "3BHK": "6h 45m"},
+            ),
+        )
+        silver_price = 999.00
+        gold_price = 1999.00
+        platinum_price = 2999.00
 
-        custom_package_id = ensure_package(
+        ensure_package_checklist(cursor, silver_id, DEFAULT_PACKAGE_CHECKLISTS["Silver"])
+        ensure_package_checklist(cursor, gold_id, DEFAULT_PACKAGE_CHECKLISTS["Gold"])
+        ensure_package_checklist(cursor, platinum_id, DEFAULT_PACKAGE_CHECKLISTS["Platinum"])
+
+        move_out_refresh_id = ensure_package(
             cursor,
             SeedServicePackage(
                 name="Move-Out Refresh",
@@ -232,44 +396,10 @@ def seed_admin_dashboard_data():
             ),
         )
 
-        upsert_service_package_meta(
-            cursor,
-            silver_id,
-            [service_catalog["Home Deep Cleaning"], service_catalog["Plumbing Inspection"]],
-            {"1BHK": "2h 15m", "2BHK": "2h 45m", "3BHK": "3h 15m"},
-        )
-        upsert_service_package_meta(
-            cursor,
-            gold_id,
-            [
-                service_catalog["Home Deep Cleaning"],
-                service_catalog["Sofa & Upholstery Cleaning"],
-                service_catalog["AC Cleaning"],
-            ],
-            {"1BHK": "3h 15m", "2BHK": "4h 00m", "3BHK": "4h 45m"},
-        )
-        upsert_service_package_meta(
-            cursor,
-            platinum_id,
-            [
-                service_catalog["Home Deep Cleaning"],
-                service_catalog["Sofa & Upholstery Cleaning"],
-                service_catalog["AC Cleaning"],
-                service_catalog["Electrical Safety Check"],
-                service_catalog["CCTV & Access Control Check"],
-            ],
-            {"1BHK": "4h 30m", "2BHK": "5h 30m", "3BHK": "6h 45m"},
-        )
-        upsert_service_package_meta(
-            cursor,
-            custom_package_id,
-            [
-                service_catalog["Home Deep Cleaning"],
-                service_catalog["AC Cleaning"],
-                service_catalog["Electrical Safety Check"],
-            ],
-            {"1BHK": "4h", "2BHK": "5h", "3BHK": "6h"},
-        )
+        upsert_service_package_meta(cursor, silver_id, [service_catalog["Home Deep Cleaning"], service_catalog["Plumbing Inspection"]], {"1BHK": "2h 15m", "2BHK": "2h 45m", "3BHK": "3h 15m"})
+        upsert_service_package_meta(cursor, gold_id, [service_catalog["Home Deep Cleaning"], service_catalog["Sofa & Upholstery Cleaning"], service_catalog["AC Cleaning"]], {"1BHK": "3h 15m", "2BHK": "4h 00m", "3BHK": "4h 45m"})
+        upsert_service_package_meta(cursor, platinum_id, [service_catalog["Home Deep Cleaning"], service_catalog["Sofa & Upholstery Cleaning"], service_catalog["AC Cleaning"], service_catalog["Electrical Safety Check"], service_catalog["CCTV & Access Control Check"]], {"1BHK": "4h 30m", "2BHK": "5h 30m", "3BHK": "6h 45m"})
+        upsert_service_package_meta(cursor, move_out_refresh_id, [service_catalog["Home Deep Cleaning"], service_catalog["AC Cleaning"], service_catalog["Electrical Safety Check"]], {"1BHK": "4h", "2BHK": "5h", "3BHK": "6h"})
 
         today = date.today()
         booking_specs = [
@@ -296,7 +426,7 @@ def seed_admin_dashboard_data():
                 "customer_id": customer_ids[1],
                 "service_id": service_catalog["Sofa & Upholstery Cleaning"],
                 "package_id": silver_id,
-                "technician_id": technician_ids[0],
+                "technician_id": technician_ids[1],
                 "status": "completed",
                 "final_price": silver_price,
                 "scheduled_date": today - timedelta(days=5),
@@ -315,8 +445,8 @@ def seed_admin_dashboard_data():
                 "customer_id": customer_ids[2],
                 "service_id": service_catalog["AC Cleaning"],
                 "package_id": silver_id,
-                "technician_id": technician_ids[1],
-                "status": "completed",
+                "technician_id": technician_ids[2],
+                "status": "in_progress",
                 "final_price": silver_price,
                 "scheduled_date": today - timedelta(days=4),
                 "scheduled_time_slot": "01:00 PM",
@@ -333,9 +463,9 @@ def seed_admin_dashboard_data():
             {
                 "customer_id": customer_ids[0],
                 "service_id": service_catalog["Electrical Safety Check"],
-                "package_id": custom_package_id,
-                "technician_id": technician_ids[2],
-                "status": "in_progress",
+                "package_id": move_out_refresh_id,
+                "technician_id": technician_ids[3],
+                "status": "assigned",
                 "final_price": 3499.00,
                 "scheduled_date": today - timedelta(days=3),
                 "scheduled_time_slot": "03:00 PM",
@@ -353,8 +483,8 @@ def seed_admin_dashboard_data():
                 "customer_id": customer_ids[1],
                 "service_id": service_catalog["Plumbing Inspection"],
                 "package_id": gold_id,
-                "technician_id": technician_ids[1],
-                "status": "assigned",
+                "technician_id": technician_ids[4],
+                "status": "approved",
                 "final_price": gold_price,
                 "scheduled_date": today - timedelta(days=2),
                 "scheduled_time_slot": "05:00 PM",
@@ -364,7 +494,7 @@ def seed_admin_dashboard_data():
                 "apartment_number": "903",
                 "latitude": 22.5726,
                 "longitude": 88.3639,
-                "customer_notes": "Booking awaiting admin approval and assignment.",
+                "customer_notes": "Awaiting technician assignment.",
                 "technician_notes": "Queued for evening slot.",
                 "completed_tasks": 0,
             },
@@ -390,9 +520,9 @@ def seed_admin_dashboard_data():
             {
                 "customer_id": customer_ids[0],
                 "service_id": service_catalog["Home Deep Cleaning"],
-                "package_id": custom_package_id,
+                "package_id": move_out_refresh_id,
                 "technician_id": technician_ids[2],
-                "status": "completion_requested",
+                "status": "customer_review_pending",
                 "final_price": 3499.00,
                 "scheduled_date": today,
                 "scheduled_time_slot": "11:00 AM",
@@ -403,8 +533,27 @@ def seed_admin_dashboard_data():
                 "latitude": 23.8103,
                 "longitude": 90.4125,
                 "customer_notes": "Please focus on kitchen and bathrooms.",
-                "technician_notes": "Completion awaiting admin approval.",
+                "technician_notes": "Completion awaiting customer review.",
                 "completed_tasks": 10,
+            },
+            {
+                "customer_id": customer_ids[1],
+                "service_id": service_catalog["AC Cleaning"],
+                "package_id": silver_id,
+                "technician_id": technician_ids[4],
+                "status": "rejection_requested",
+                "final_price": silver_price,
+                "scheduled_date": today + timedelta(days=1),
+                "scheduled_time_slot": "01:00 PM",
+                "address_line": "Orchid Park, Block A",
+                "building_name": "Orchid Park",
+                "floor_number": "6",
+                "apartment_number": "601",
+                "latitude": 13.0827,
+                "longitude": 80.2707,
+                "customer_notes": "Customer requested status review before finalization.",
+                "technician_notes": "Rejection requested for minor billing adjustment.",
+                "completed_tasks": 2,
             },
         ]
 
@@ -423,57 +572,53 @@ def seed_admin_dashboard_data():
             set_booking_timestamp(cursor, booking_id, timestamp)
             booking_ids.append(booking_id)
 
-        ensure_notification(
+        ensure_notification(cursor, admin_id, "Two bookings are waiting for approval and assignment.", False, "Booking Awaiting Assignment", "booking_submitted")
+        ensure_notification(cursor, admin_id, "One technician requested completion approval.", False, "Completion Approval Needed", "admin_review_pending")
+        ensure_notification(cursor, admin_id, "One customer requested a booking rejection review.", False, "Rejection Review Needed", "rejection_requested")
+        ensure_notification(cursor, technician_ids[0], "New assignment: Gold package cleaning at Maple Residency.", False, "New Job Assigned", "job_assigned")
+        ensure_notification(cursor, technician_ids[2], "Your booking completion request is pending admin review.", False, "Completion Request Sent", "admin_review_pending")
+        ensure_notification(cursor, technician_ids[4], "Your booking is pending review for rejection approval.", False, "Rejection Review Sent", "rejection_requested")
+        ensure_notification(cursor, customer_ids[0], "Your technician started the service and checklist is in progress.", False, "Technician Started Job", "job_started")
+        ensure_notification(cursor, admin_id, "Commercial support request from Sam Customer needs a callback.", False, "Support Request Received", "support_contact")
+
+        ensure_booking_request(
             cursor,
-            admin_id,
-            "Two bookings are waiting for approval and assignment.",
-            False,
-            "Booking Awaiting Assignment",
-            "booking_submitted",
+            booking_id=booking_ids[6],
+            requested_by=technician_ids[2],
+            request_type="completion",
+            message="Technician marked the booking as complete and is awaiting customer approval.",
         )
-        ensure_notification(
+        ensure_booking_request(
             cursor,
-            admin_id,
-            "One technician requested completion approval.",
-            False,
-            "Completion Approval Needed",
-            "completion_requested",
-        )
-        ensure_notification(
-            cursor,
-            technician_ids[0],
-            "New assignment: Gold package cleaning at Maple Residency.",
-            False,
-            "New Job Assigned",
-            "job_assigned",
-        )
-        ensure_notification(
-            cursor,
-            technician_ids[2],
-            "Your booking completion request is pending admin review.",
-            False,
-            "Completion Request Sent",
-            "completion_requested",
-        )
-        ensure_notification(
-            cursor,
-            customer_ids[0],
-            "Your technician started the service and checklist is in progress.",
-            False,
-            "Technician Started Job",
-            "job_started",
-        )
-        ensure_notification(
-            cursor,
-            admin_id,
-            "Commercial support request from Sam Customer needs a callback.",
-            False,
-            "Support Request Received",
-            "support_contact",
+            booking_id=booking_ids[7],
+            requested_by=technician_ids[4],
+            request_type="rejection",
+            message="Technician requested rejection approval for a billing adjustment.",
         )
 
-        ensure_location(cursor, booking_ids[3], technician_ids[2], 17.3852, 78.4870, 6.7)
-        ensure_location(cursor, booking_ids[3], technician_ids[2], 17.3854, 78.4872, 5.1)
+        # Add live locations for all technicians ensuring they all appear with badges on map
+        # Samarth Vasisht - multiple updates showing movement
+        ensure_location(cursor, booking_ids[0], technician_ids[0], 28.6140, 77.2091, 7.2)
+        ensure_location(cursor, booking_ids[0], technician_ids[0], 28.6139, 77.2089, 6.5)
+        
+        # Neeraj Kumar - multiple updates showing movement  
+        ensure_location(cursor, booking_ids[1], technician_ids[1], 12.9717, 77.5947, 6.8)
+        ensure_location(cursor, booking_ids[1], technician_ids[1], 12.9716, 77.5945, 5.9)
+        
+        # Kavya Sharma - on-site with multiple updates
+        ensure_location(cursor, booking_ids[2], technician_ids[2], 19.0761, 72.8778, 6.7)
+        ensure_location(cursor, booking_ids[2], technician_ids[2], 19.0762, 72.8780, 5.1)
+        ensure_location(cursor, booking_ids[2], technician_ids[2], 19.0763, 72.8781, 4.8)
+        
+        # Farhan Ali - en-route with multiple updates
+        ensure_location(cursor, booking_ids[3], technician_ids[3], 17.3852, 78.4870, 6.4)
+        ensure_location(cursor, booking_ids[3], technician_ids[3], 17.3854, 78.4872, 5.6)
+        ensure_location(cursor, booking_ids[3], technician_ids[3], 17.3856, 78.4874, 5.2)
+        
+        # Priyanka Das - assigned with multiple updates
+        ensure_location(cursor, booking_ids[4], technician_ids[4], 22.5727, 88.3640, 5.5)
+        ensure_location(cursor, booking_ids[4], technician_ids[4], 22.5728, 88.3641, 5.1)
+        ensure_location(cursor, booking_ids[5], technician_ids[4], 23.8104, 90.4127, 4.9)
 
         conn.commit()
 
@@ -485,12 +630,12 @@ def seed_admin_dashboard_data():
         print("  Technician -> sam123@gmail.com / test123")
         print("")
         print("Seeded dashboard data includes:")
-        print("  - Active categories and services across Cleaning, Maintenance, HVAC, and Security")
-        print("  - Multiple bookings spread across recent days for revenue trend charts")
-        print("  - Pending, assigned, in-progress, completion-requested, and completed work orders")
+        print("  - Five technicians")
+        print("  - Multiple bookings across submitted, approved, assigned, in-progress, customer-review-pending, completed, and rejection-requested states")
         print("  - Service-package metadata for Silver, Gold, Platinum, and Move-Out Refresh")
+        print("  - Booking request rows for completion and rejection review flows")
         print("  - Notifications and live technician locations")
-        print("  - Demo support-contact notification for admin inbox validation")
+        print("  - Enough data for charts, sidebar lists, and technician map testing")
     finally:
         cursor.close()
         conn.close()

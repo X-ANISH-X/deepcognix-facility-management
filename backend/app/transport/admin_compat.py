@@ -85,12 +85,17 @@ def _map_technician(user: dict) -> dict:
     except (TypeError, ValueError):
         current_jobs_value = 0
 
-    latitude = user.get("live_latitude")
+    live_latitude = user.get("live_latitude")
+    live_longitude = user.get("live_longitude")
+    booking_latitude = user.get("booking_latitude")
+    booking_longitude = user.get("booking_longitude")
+
+    latitude = live_latitude
     if latitude is None:
-        latitude = user.get("booking_latitude")
-    longitude = user.get("live_longitude")
+        latitude = booking_latitude
+    longitude = live_longitude
     if longitude is None:
-        longitude = user.get("booking_longitude")
+        longitude = booking_longitude
 
     try:
         latitude_value = float(latitude) if latitude is not None else 0.0
@@ -102,7 +107,34 @@ def _map_technician(user: dict) -> dict:
     except (TypeError, ValueError):
         longitude_value = 0.0
 
+    try:
+        live_latitude_value = float(live_latitude) if live_latitude is not None else None
+    except (TypeError, ValueError):
+        live_latitude_value = None
+
+    try:
+        live_longitude_value = float(live_longitude) if live_longitude is not None else None
+    except (TypeError, ValueError):
+        live_longitude_value = None
+
+    try:
+        booking_latitude_value = float(booking_latitude) if booking_latitude is not None else None
+    except (TypeError, ValueError):
+        booking_latitude_value = None
+
+    try:
+        booking_longitude_value = float(booking_longitude) if booking_longitude is not None else None
+    except (TypeError, ValueError):
+        booking_longitude_value = None
+
     location_address = user.get("location_address") or user.get("booking_address") or "N/A"
+    location_source = (
+        "live"
+        if live_latitude is not None and live_longitude is not None
+        else "booking"
+        if booking_latitude is not None and booking_longitude is not None
+        else "fallback"
+    )
 
     return {
         "id": user.get("id"),
@@ -112,8 +144,16 @@ def _map_technician(user: dict) -> dict:
         "specialties": [],
         "status": status_value,
         "location_address": str(location_address),
+        "location_source": location_source,
         "latitude": latitude_value,
         "longitude": longitude_value,
+        "live_latitude": live_latitude_value,
+        "live_longitude": live_longitude_value,
+        "booking_latitude": booking_latitude_value,
+        "booking_longitude": booking_longitude_value,
+        "booking_address": user.get("booking_address") or "N/A",
+        "latest_booking_id": user.get("latest_booking_id"),
+        "location_recorded_at": user.get("location_recorded_at"),
         "current_jobs": current_jobs_value,
         "completion_rate": completion_rate_value,
         "is_active": is_active,
@@ -395,6 +435,13 @@ def list_technicians(
                     ORDER BY b.updated_at DESC, b.id DESC
                     LIMIT 1
                 ) AS latest_booking_status,
+                (
+                    SELECT b.id
+                    FROM bookings b
+                    WHERE b.technician_id = u.id
+                    ORDER BY b.updated_at DESC, b.id DESC
+                    LIMIT 1
+                ) AS latest_booking_id,
                 (
                     SELECT b.address_line
                     FROM bookings b

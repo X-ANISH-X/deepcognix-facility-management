@@ -40,6 +40,22 @@ def post_location(
         accuracy=data.accuracy,
     )
 
+    try:
+        from app.transport.admin_compat import _publish_event
+
+        latest_location = get_latest_location(conn, data.booking_id)
+        _publish_event(
+            "technician.location_updated",
+            booking_id=data.booking_id,
+            technician_id=current_user["id"],
+            latitude=data.latitude,
+            longitude=data.longitude,
+            accuracy=data.accuracy,
+            recorded_at=latest_location["recorded_at"] if latest_location else None,
+        )
+    except Exception:
+        pass
+
     return {"message": "Location recorded"}
 
 

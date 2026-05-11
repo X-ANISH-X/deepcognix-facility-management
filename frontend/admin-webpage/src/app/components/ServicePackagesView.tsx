@@ -3,6 +3,7 @@ import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/app/components/ui/dialog';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/app/components/ui/collapsible';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
@@ -11,7 +12,7 @@ import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { api as mockApi, type Service, type ServicePackage } from '@/app/services/api';
 import { getServiceBgColor, getServiceColor } from '@/app/utils/serviceColors';
 import { getServiceCategories, NEW_CATEGORY_VALUE, resolveServiceCategory } from '@/app/utils/serviceCatalog';
-import { Check, PackagePlus, Plus, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, PackagePlus, Plus, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function ServicePackagesView() {
@@ -25,6 +26,8 @@ export function ServicePackagesView() {
   const [editingSelectedServiceIds, setEditingSelectedServiceIds] = useState<string[]>([]);
   const [editingIsActive, setEditingIsActive] = useState(true);
   const [createCategory, setCreateCategory] = useState('');
+  const [collapsedCreateCategories, setCollapsedCreateCategories] = useState<string[]>([]);
+  const [collapsedEditCategories, setCollapsedEditCategories] = useState<string[]>([]);
 
   const categories: string[] = useMemo(() => getServiceCategories(services), [services]);
   const servicesByCategory = useMemo(() => {
@@ -108,6 +111,19 @@ export function ServicePackagesView() {
         ? currentSelection.filter((currentId) => currentId !== serviceId)
         : [...currentSelection, serviceId],
     );
+  };
+
+  const toggleCollapsedCategory = (category: string, target: 'create' | 'edit') => {
+    if (target === 'create') {
+      setCollapsedCreateCategories((current) => current.includes(category)
+        ? current.filter((item) => item !== category)
+        : [...current, category]);
+      return;
+    }
+
+    setCollapsedEditCategories((current) => current.includes(category)
+      ? current.filter((item) => item !== category)
+      : [...current, category]);
   };
 
   const handleCreatePackage = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -204,7 +220,7 @@ export function ServicePackagesView() {
               New Package
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl rounded-3xl">
+          <DialogContent className="w-[min(96vw,72rem)] max-w-none rounded-3xl">
             <DialogHeader>
               <DialogTitle>Create Service Package</DialogTitle>
             </DialogHeader>
@@ -214,9 +230,6 @@ export function ServicePackagesView() {
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="package-name">Package Name</Label>
                   <Input id="package-name" name="name" required className="rounded-xl" placeholder="Example: Move-Out Refresh" />
-                </div>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
-                  Click services below to add or remove them from the package. New services created here are saved to the shared catalog and will show on Services & Pricing.
                 </div>
               </div>
 
@@ -309,41 +322,50 @@ export function ServicePackagesView() {
 
               <div className="max-h-[52vh] overflow-y-auto space-y-6 pr-1">
                 {orderedServiceCategories.map(([category, categoryServices]) => (
-                    <div key={category} className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`h-3 w-3 rounded-full ${getServiceBgColor(category)}`}></div>
-                        <h3 className="font-semibold">{category}</h3>
-                        <Badge variant="outline">{categoryServices.length}</Badge>
+                  <Collapsible key={category} open={!collapsedCreateCategories.includes(category)} onOpenChange={() => toggleCollapsedCategory(category, 'create')}>
+                    <div className="space-y-3 rounded-3xl border border-slate-200/80 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/20">
+                      <div className="flex items-center justify-between gap-3">
+                        <CollapsibleTrigger asChild>
+                          <button type="button" className="flex items-center gap-3 text-left">
+                            <div className={`h-3 w-3 rounded-full ${getServiceBgColor(category)}`}></div>
+                            <h3 className="font-semibold">{category}</h3>
+                            <Badge variant="outline">{categoryServices.length}</Badge>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${collapsedCreateCategories.includes(category) ? '-rotate-90' : 'rotate-0'}`} />
+                          </button>
+                        </CollapsibleTrigger>
                       </div>
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        {categoryServices.map((service) => {
-                          const isSelected = selectedServiceIds.includes(service.id);
+                      <CollapsibleContent>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 pt-3">
+                          {categoryServices.map((service) => {
+                            const isSelected = selectedServiceIds.includes(service.id);
 
-                          return (
-                            <button
-                              key={service.id}
-                              type="button"
-                              onClick={() => toggleServiceSelection(service.id)}
-                              className={`rounded-3xl border p-4 text-left transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 shadow-md dark:border-emerald-500 dark:bg-emerald-950/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-950/30'}`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <div className="font-semibold text-slate-900 dark:text-white">{service.name}</div>
-                                  <div className="mt-2 flex flex-wrap items-center gap-2 text-base text-slate-500">
-                                    <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-medium dark:bg-slate-800">{service.duration} min</span>
-                                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">AED {service.basePrice}</span>
+                            return (
+                              <button
+                                key={service.id}
+                                type="button"
+                                onClick={() => toggleServiceSelection(service.id)}
+                                className={`rounded-3xl border p-4 text-left transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 shadow-md dark:border-emerald-500 dark:bg-emerald-950/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-950/30'}`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="font-semibold text-slate-900 dark:text-white">{service.name}</div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-base text-slate-500">
+                                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-medium dark:bg-slate-800">{service.duration} min</span>
+                                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">AED {service.basePrice}</span>
+                                    </div>
+                                  </div>
+                                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                                    <Check className="h-4 w-4" />
                                   </div>
                                 </div>
-                                <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
-                                  <Check className="h-4 w-4" />
-                                </div>
-                              </div>
-                              <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{service.description}</p>
-                            </button>
-                          );
-                        })}
-                      </div>
+                                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{service.description}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
                     </div>
+                  </Collapsible>
                   ))}
               </div>
 
@@ -368,7 +390,7 @@ export function ServicePackagesView() {
           }
         }}
       >
-        <DialogContent className="max-w-5xl rounded-3xl">
+        <DialogContent className="w-[min(96vw,72rem)] max-w-none rounded-3xl">
           <DialogHeader>
             <DialogTitle>Edit Service Package</DialogTitle>
           </DialogHeader>
@@ -408,41 +430,50 @@ export function ServicePackagesView() {
 
               <div className="max-h-[52vh] overflow-y-auto space-y-6 pr-1">
                 {orderedServiceCategories.map(([category, categoryServices]) => (
-                  <div key={category} className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-3 w-3 rounded-full ${getServiceBgColor(category)}`}></div>
-                      <h3 className="font-semibold">{category}</h3>
-                      <Badge variant="outline">{categoryServices.length}</Badge>
-                    </div>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {categoryServices.map((service) => {
-                        const isSelected = editingSelectedServiceIds.includes(service.id);
-
-                        return (
-                          <button
-                            key={service.id}
-                            type="button"
-                            onClick={() => toggleEditingServiceSelection(service.id)}
-                            className={`rounded-3xl border p-4 text-left transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 shadow-md dark:border-emerald-500 dark:bg-emerald-950/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-950/30'}`}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <div className="font-semibold text-slate-900 dark:text-white">{service.name}</div>
-                                <div className="mt-2 flex flex-wrap items-center gap-2 text-base text-slate-500">
-                                  <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-medium dark:bg-slate-800">{service.duration} min</span>
-                                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">AED {service.basePrice}</span>
-                                </div>
-                              </div>
-                              <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
-                                <Check className="h-4 w-4" />
-                              </div>
-                            </div>
-                            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{service.description}</p>
+                  <Collapsible key={category} open={!collapsedEditCategories.includes(category)} onOpenChange={() => toggleCollapsedCategory(category, 'edit')}>
+                    <div className="space-y-3 rounded-3xl border border-slate-200/80 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/20">
+                      <div className="flex items-center justify-between gap-3">
+                        <CollapsibleTrigger asChild>
+                          <button type="button" className="flex items-center gap-3 text-left">
+                            <div className={`h-3 w-3 rounded-full ${getServiceBgColor(category)}`}></div>
+                            <h3 className="font-semibold">{category}</h3>
+                            <Badge variant="outline">{categoryServices.length}</Badge>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${collapsedEditCategories.includes(category) ? '-rotate-90' : 'rotate-0'}`} />
                           </button>
-                        );
-                      })}
+                        </CollapsibleTrigger>
+                      </div>
+                      <CollapsibleContent>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 pt-3">
+                          {categoryServices.map((service) => {
+                            const isSelected = editingSelectedServiceIds.includes(service.id);
+
+                            return (
+                              <button
+                                key={service.id}
+                                type="button"
+                                onClick={() => toggleEditingServiceSelection(service.id)}
+                                className={`rounded-3xl border p-4 text-left transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 shadow-md dark:border-emerald-500 dark:bg-emerald-950/20' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-950/30'}`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="font-semibold text-slate-900 dark:text-white">{service.name}</div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-base text-slate-500">
+                                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 font-medium dark:bg-slate-800">{service.duration} min</span>
+                                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">AED {service.basePrice}</span>
+                                    </div>
+                                  </div>
+                                  <div className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
+                                    <Check className="h-4 w-4" />
+                                  </div>
+                                </div>
+                                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{service.description}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
                     </div>
-                  </div>
+                  </Collapsible>
                 ))}
               </div>
 

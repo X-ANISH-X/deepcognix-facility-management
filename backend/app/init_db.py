@@ -156,8 +156,30 @@ def _cleanup_duplicate_services(cursor):
 
 
 def _ensure_booking_status_values(cursor):
+    # First expand the ENUM to include any intermediate values that might exist in the data
+    _run_safe_alter(
+        cursor,
+        """
+        ALTER TABLE bookings
+        MODIFY status ENUM(
+            'submitted',
+            'approved',
+            'assigned',
+            'in_progress',
+            'customer_review_pending',
+            'admin_review_pending',
+            'completed',
+            'rejection_requested',
+            'rejected',
+            'cancelled',
+            'completion_requested'
+        ) DEFAULT 'submitted'
+        """,
+    )
+    # Now that the ENUM is expanded, we can safely update the obsolete statuses
     cursor.execute("UPDATE bookings SET status = 'submitted' WHERE status = 'cancelled'")
     cursor.execute("UPDATE bookings SET status = 'customer_review_pending' WHERE status = 'completion_requested'")
+    # Finally, contract the ENUM back to the canonical values
     _run_safe_alter(
         cursor,
         """
