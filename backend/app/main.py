@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.transport import admin_compat, auth, booking, category, location, notification, package, service
+from app.transport import admin_compat, auth, booking, category, location, notification, package, service, tracking_map
 from app.init_db import init_db
 
 app = FastAPI(title="DeepCognix Facility Management API")
@@ -51,6 +51,7 @@ app.include_router(booking.router)
 app.include_router(location.router)
 app.include_router(notification.router)
 app.include_router(admin_compat.router)
+app.include_router(tracking_map.router)
 
 @app.get("/")
 def read_root():

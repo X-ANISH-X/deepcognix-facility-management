@@ -3,7 +3,7 @@ import { ThemeProvider, useTheme } from '@/app/context/ThemeContext';
 import { LanguageProvider } from '@/app/context/LanguageContext';
 import { LoginPage } from '@/app/components/LoginPage';
 import { DashboardView } from '@/app/components/DashboardView';
-import { TechnicianMapView } from '@/app/components/TechnicianMapView';
+import TechnicianTrackingMap from '@/app/TechnicianTrackingMap';
 import { WorkOrdersView } from '@/app/components/WorkOrdersView';
 import { ServicesView } from '@/app/components/ServicesView';
 import { ServicePackagesView } from '@/app/components/ServicePackagesView';
@@ -378,7 +378,7 @@ function AppContent() {
         <div className="p-8">
           {!canAccessView(role, currentView) && <DashboardView role={role} />}
           {currentView === 'dashboard' && <DashboardView role={role} />}
-          {currentView === 'map' && canAccessView(role, 'map') && <TechnicianMapView />}
+          {currentView === 'map' && canAccessView(role, 'map') && <TechnicianTrackingMap />}
           {currentView === 'orders' && canAccessView(role, 'orders') && <WorkOrdersView canManage={canManageDispatch(role)} role={role} />}
           {currentView === 'services' && canAccessView(role, 'services') && <ServicesView />}
           {currentView === 'service-packages' && canAccessView(role, 'service-packages') && <ServicePackagesView />}
