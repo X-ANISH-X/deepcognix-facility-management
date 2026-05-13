@@ -385,8 +385,9 @@ def start_job(conn, booking_id, technician_id):
         if booking["technician_id"] != technician_id:
             return False, "Booking not assigned to technician"
 
-        if booking["status"] != "assigned":
-            return False, "Job can be started only when assigned"
+        # Allow starting from either 'assigned' or 'arrival_approval_pending'
+        if booking["status"] not in ("assigned", "arrival_approval_pending"):
+            return False, f"Job can be started only when assigned or arrival pending (current: {booking['status']})"
 
         cursor.execute(
             "UPDATE bookings SET status = 'in_progress' WHERE id = %s",
@@ -408,6 +409,94 @@ def start_job(conn, booking_id, technician_id):
         )
         conn.commit()
         return True, None
+    finally:
+        cursor.close()
+
+
+def mark_booking_on_the_way(conn, booking_id: int, technician_id: int):
+    """
+    Mark booking as 'on_the_way' when technician is en route.
+    Safe transition: assigned -> on_the_way
+    """
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = _fetch_booking(cursor, booking_id)
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["technician_id"] != technician_id:
+            return False, "Booking not assigned to technician"
+
+        if booking["status"] != "assigned":
+            return False, f"Cannot mark as on_the_way from {booking['status']} status"
+
+        cursor.execute(
+            "UPDATE bookings SET status = 'on_the_way' WHERE id = %s",
+            (booking_id,),
+        )
+        create_notification(
+            cursor,
+            user_id=technician_id,
+            title="On The Way",
+            message=f"You marked booking #{booking_id} as on the way. Share your live location with customer.",
+            notification_type="on_the_way",
+        )
+        create_notification(
+            cursor,
+            user_id=booking["customer_id"],
+            title="Technician On The Way",
+            message=f"Your technician is on the way for booking #{booking_id}. You can track live progress.",
+            notification_type="on_the_way",
+        )
+        conn.commit()
+        return True, None
+    except Exception as e:
+        conn.rollback()
+        return False, str(e)
+    finally:
+        cursor.close()
+
+
+def mark_booking_arrival_pending(conn, booking_id: int, technician_id: int):
+    """
+    Mark booking as 'arrival_approval_pending' when technician has arrived.
+    Safe transition: on_the_way -> arrival_approval_pending
+    """
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = _fetch_booking(cursor, booking_id)
+        if not booking:
+            return False, "Booking not found"
+
+        if booking["technician_id"] != technician_id:
+            return False, "Booking not assigned to technician"
+
+        if booking["status"] != "on_the_way":
+            return False, f"Cannot request arrival confirmation from {booking['status']} status"
+
+        cursor.execute(
+            "UPDATE bookings SET status = 'arrival_approval_pending' WHERE id = %s",
+            (booking_id,),
+        )
+        create_notification(
+            cursor,
+            user_id=technician_id,
+            title="Arrival Confirmation Requested",
+            message=f"Awaiting customer confirmation for arrival at booking #{booking_id}.",
+            notification_type="arrival_approval_pending",
+        )
+        create_notification(
+            cursor,
+            user_id=booking["customer_id"],
+            title="Technician Arrived",
+            message=f"Your technician has arrived for booking #{booking_id}. Please confirm arrival to begin service.",
+            notification_type="arrival_approval_pending",
+        )
+        conn.commit()
+        return True, None
+    except Exception as e:
+        conn.rollback()
+        return False, str(e)
     finally:
         cursor.close()
 

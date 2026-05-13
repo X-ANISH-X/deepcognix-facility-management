@@ -181,6 +181,96 @@ class LiveTrackingScreen
                 ),
               ),
 
+              // ==========================================
+              // ARRIVAL COUNTDOWN CARD (on_the_way only)
+              // ==========================================
+              if (status == "on_the_way")
+                Container(
+                  width:
+                      double.infinity,
+
+                  margin:
+                      const EdgeInsets
+                          .only(
+                    bottom: 24,
+                  ),
+
+                  padding:
+                      const EdgeInsets
+                          .all(18),
+
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        Colors.white,
+
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      20,
+                    ),
+                  ),
+
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .center,
+
+                    children: [
+
+                      const Icon(
+                        Icons.access_time,
+
+                        size: 48,
+
+                        color: Color(
+                          0xFF0F9D8A,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 8,
+                      ),
+
+                      const Text(
+                        "Arrival Countdown",
+
+                        style:
+                            TextStyle(
+                          fontSize: 18,
+
+                          fontWeight:
+                              FontWeight
+                                  .bold,
+                        ),
+                      ),
+
+                      const SizedBox(
+                        height: 8,
+                      ),
+
+                      Obx(
+                        () => Text(
+                          "${controller.estimatedArrivalMinutes.value} minutes remaining",
+
+                          style:
+                              const TextStyle(
+                            fontSize: 24,
+
+                            fontWeight:
+                                FontWeight
+                                    .w600,
+
+                            color: Color(
+                              0xFF0F9D8A,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
               const SizedBox(
                 height: 24,
               ),
