@@ -64,8 +64,11 @@ def register(user: UserRegister, db = Depends(get_db_connection)):
 
 @router.post("/login", response_model=Token)
 def login(form_data: UserLogin, db = Depends(get_db_connection)):
-    # 1. Fetch user
-    user = user_logic.get_user_by_email(db, form_data.email)
+    # 1. Normalize email to lowercase for consistent lookup
+    normalized_email = form_data.email.strip().lower()
+    
+    # 2. Fetch user
+    user = user_logic.get_user_by_email(db, normalized_email)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     

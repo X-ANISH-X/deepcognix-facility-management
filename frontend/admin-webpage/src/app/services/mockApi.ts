@@ -157,6 +157,13 @@ export interface CreateTechnicianInput {
   password: string;
 }
 
+export interface UpdateTechnicianProfileInput {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  status?: Technician['status'];
+}
+
 export interface AdminNotificationInput {
   title?: string;
   message: string;
@@ -732,6 +739,29 @@ export const mockApi = {
     const technician = await mockApi.getTechnicianById(id);
     if (!technician) {
       throw new Error('Technician not found after status update');
+    }
+    return technician;
+  },
+
+  updateTechnicianProfile: async (id: string, input: UpdateTechnicianProfileInput): Promise<Technician> => {
+    const payload: Record<string, unknown> = {};
+    if (typeof input.fullName === 'string') payload.full_name = input.fullName;
+    if (typeof input.email === 'string') payload.email = input.email;
+    if (typeof input.phone === 'string') payload.phone_number = input.phone;
+    if (typeof input.status === 'string') payload.status = input.status;
+
+    const data = await request<{ profile?: Dict }>(`/technicians/${id}/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }, true);
+
+    if (data.profile) {
+      return mapTechnician(data.profile);
+    }
+
+    const technician = await mockApi.getTechnicianById(id);
+    if (!technician) {
+      throw new Error('Technician not found after profile update');
     }
     return technician;
   },

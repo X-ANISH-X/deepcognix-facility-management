@@ -4,18 +4,24 @@ import { LanguageProvider } from '@/app/context/LanguageContext';
 import { LoginPage } from '@/app/components/LoginPage';
 import { DashboardView } from '@/app/components/DashboardView';
 import TechnicianTrackingMap from '@/app/TechnicianTrackingMap';
+import { TechnicianManagement } from '@/app/components/TechnicianManagement';
 import { WorkOrdersView } from '@/app/components/WorkOrdersView';
 import { ServicesView } from '@/app/components/ServicesView';
 import { ServicePackagesView } from '@/app/components/ServicePackagesView';
 import { ReportsView } from '@/app/components/ReportsView';
 import { SettingsView } from '@/app/components/SettingsView';
-import { LayoutDashboard, Map, ClipboardList, Settings, FileText, LogOut, Menu, X, Sun, Moon, Package2, Bell } from 'lucide-react';
+import { LayoutDashboard, Map, ClipboardList, Settings, FileText, LogOut, Menu, X, Sun, Moon, Package2, Bell, Users } from 'lucide-react';
 import { Toaster } from '@/app/components/ui/sonner';
 import { toast } from 'sonner';
 import { canAccessView, canManageDispatch, type AuthUser, type UserRole } from '@/app/utils/accessControl';
 import { api as mockApi, type NotificationItem } from '@/app/services/api';
 
-type View = 'dashboard' | 'map' | 'orders' | 'services' | 'service-packages' | 'reports' | 'settings';
+type View = 'dashboard' | 'map' | 'technicians' | 'orders' | 'services' | 'service-packages' | 'reports' | 'settings';
+
+type NavigateEventDetail = {
+  view: View;
+  focusOrderId?: string;
+};
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -25,12 +31,14 @@ function AppContent() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [focusOrderId, setFocusOrderId] = useState<string | undefined>();
   const { theme, toggleTheme } = useTheme();
 
   const role: UserRole = currentUser?.role ?? 'customer';
   const allowedNavItems = [
     { id: 'dashboard' as View, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'map' as View, label: 'Technician Tracking', icon: Map },
+    { id: 'technicians' as View, label: 'Technician Registry', icon: Users },
     { id: 'orders' as View, label: 'Work Orders', icon: ClipboardList },
     { id: 'services' as View, label: 'Services & Pricing', icon: Settings },
     { id: 'service-packages' as View, label: 'Service Packages', icon: Package2 },
@@ -81,6 +89,29 @@ function AppContent() {
     };
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    const handleNavigate = (event: Event) => {
+      const customEvent = event as CustomEvent<NavigateEventDetail>;
+      const targetView = customEvent.detail?.view;
+
+      if (!targetView) {
+        return;
+      }
+
+      setCurrentView(targetView);
+
+      if (customEvent.detail?.focusOrderId) {
+        setFocusOrderId(customEvent.detail.focusOrderId);
+      }
+    };
+
+    window.addEventListener('admin:navigate', handleNavigate as EventListener);
+
+    return () => {
+      window.removeEventListener('admin:navigate', handleNavigate as EventListener);
+    };
+  }, []);
+
   const handleMarkAllNotifications = async () => {
     await mockApi.markAllNotificationsAsRead();
     await loadNotifications(true);
@@ -97,7 +128,7 @@ function AppContent() {
 
   const isApprovalNotification = (notification: NotificationItem): boolean => {
     const normalizedType = notification.type.toLowerCase();
-    return normalizedType === 'completion_requested';
+    return normalizedType === 'completion_requested' || normalizedType === 'admin_review_pending';
   };
 
   const handleQuickApproveFromNotification = async (notification: NotificationItem) => {
@@ -165,7 +196,7 @@ function AppContent() {
       
       {/* Glassmorphism Sidebar */}
       <aside 
-        className={`fixed top-0 left-0 h-screen bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl transition-all duration-300 z-50 ${
+        className={`fixed top-0 left-0 flex h-screen flex-col bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl transition-all duration-300 z-50 ${
           isSidebarOpen ? 'w-64' : 'w-20'
         }`}
       >
@@ -192,7 +223,7 @@ function AppContent() {
         </div>
 
         {/* Navigation */}
-        <nav className="p-4 space-y-2">
+        <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
           {allowedNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
@@ -250,7 +281,7 @@ function AppContent() {
         </div>
 
         {/* User Profile */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200/50 dark:border-gray-700/50">
+        <div className="mt-auto p-4 border-t border-gray-200/50 dark:border-gray-700/50">
           {isSidebarOpen ? (
             <div className="flex items-center gap-3 p-3 rounded-2xl bg-gray-100/50 dark:bg-gray-800/50">
               <div className="w-10 h-10 bg-linear-to-br from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 rounded-full flex items-center justify-center text-white font-bold">
@@ -379,7 +410,8 @@ function AppContent() {
           {!canAccessView(role, currentView) && <DashboardView role={role} />}
           {currentView === 'dashboard' && <DashboardView role={role} />}
           {currentView === 'map' && canAccessView(role, 'map') && <TechnicianTrackingMap />}
-          {currentView === 'orders' && canAccessView(role, 'orders') && <WorkOrdersView canManage={canManageDispatch(role)} role={role} />}
+          {currentView === 'technicians' && canAccessView(role, 'technicians') && <TechnicianManagement />}
+          {currentView === 'orders' && canAccessView(role, 'orders') && <WorkOrdersView canManage={canManageDispatch(role)} role={role} focusOrderId={focusOrderId} />}
           {currentView === 'services' && canAccessView(role, 'services') && <ServicesView />}
           {currentView === 'service-packages' && canAccessView(role, 'service-packages') && <ServicePackagesView />}
           {currentView === 'reports' && <ReportsView />}

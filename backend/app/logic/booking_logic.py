@@ -1,6 +1,32 @@
 from app.logic.notification_logic import create_notification
 
 
+def normalize_booking_status(status: str | None) -> str | None:
+    """
+    Normalize booking status labels for compatibility.
+    Treats 'completion_requested' (legacy/mobile) as an alias for
+    'admin_review_pending' (canonical backend status).
+    
+    This shim ensures consistent status handling across all frontends
+    and mobile apps, allowing both labels to be accepted and stored
+    as the canonical 'admin_review_pending' label.
+    
+    Args:
+        status: The booking status string to normalize.
+    
+    Returns:
+        Normalized status: 'completion_requested' → 'admin_review_pending',
+        all others unchanged. None is returned unchanged.
+    """
+    if status is None:
+        return None
+    
+    if status == 'completion_requested':
+        return 'admin_review_pending'
+    
+    return status
+
+
 def _fetch_active_package(cursor, package_id: int):
     cursor.execute(
         """

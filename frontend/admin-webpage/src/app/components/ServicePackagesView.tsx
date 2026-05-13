@@ -28,6 +28,8 @@ export function ServicePackagesView() {
   const [createCategory, setCreateCategory] = useState('');
   const [collapsedCreateCategories, setCollapsedCreateCategories] = useState<string[]>([]);
   const [collapsedEditCategories, setCollapsedEditCategories] = useState<string[]>([]);
+  const [createEstimatedTimes, setCreateEstimatedTimes] = useState<Record<string, string>>({});
+  const [editEstimatedTimes, setEditEstimatedTimes] = useState<Record<string, string>>({});
 
   const categories: string[] = useMemo(() => getServiceCategories(services), [services]);
   const servicesByCategory = useMemo(() => {
@@ -74,11 +76,13 @@ export function ServicePackagesView() {
     if (!editingPackage) {
       setEditingSelectedServiceIds([]);
       setEditingIsActive(true);
+      setEditEstimatedTimes({});
       return;
     }
 
     setEditingSelectedServiceIds(editingPackage.serviceIds);
     setEditingIsActive(editingPackage.isActive);
+    setEditEstimatedTimes(editingPackage.estimatedTimes || {});
   }, [editingPackage]);
 
   const seededPackageOrder = ['Silver Package', 'Gold Package', 'Platinum Package'];
@@ -139,11 +143,12 @@ export function ServicePackagesView() {
       name: String(formData.get('name') || '').trim(),
       description: String(formData.get('description') || '').trim(),
       serviceIds: selectedServiceIds,
-      estimatedTimes: {},
+      estimatedTimes: createEstimatedTimes,
     });
 
     setPackages((currentPackages) => [...currentPackages, newPackage]);
     setSelectedServiceIds([]);
+    setCreateEstimatedTimes({});
     setIsCreatePackageOpen(false);
     toast.success('Service package created successfully!');
   };
@@ -192,6 +197,7 @@ export function ServicePackagesView() {
       description: String(formData.get('description') || '').trim(),
       serviceIds: editingSelectedServiceIds,
       isActive: editingIsActive,
+      estimatedTimes: editEstimatedTimes,
     });
 
     setPackages((currentPackages) => currentPackages.map((currentPackage) => (
@@ -220,7 +226,7 @@ export function ServicePackagesView() {
               New Package
             </Button>
           </DialogTrigger>
-          <DialogContent className="w-[min(96vw,72rem)] max-w-none rounded-3xl">
+          <DialogContent className="w-[min(98vw,90rem)] max-w-none rounded-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Service Package</DialogTitle>
             </DialogHeader>
@@ -236,6 +242,74 @@ export function ServicePackagesView() {
               <div className="flex flex-col gap-1">
                 <Label htmlFor="package-description">Description</Label>
                 <Textarea id="package-description" name="description" rows={3} className="rounded-xl" placeholder="Internal summary or customer-facing package description" />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/20 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Custom Apartment Types & Time Estimates</Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newType = `Type-${Object.keys(createEstimatedTimes).length + 1}`;
+                      setCreateEstimatedTimes((prev) => ({ ...prev, [newType]: '' }));
+                    }}
+                    className="rounded-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 text-xs font-semibold"
+                  >
+                    <Plus className="w-3 h-3 inline mr-1" />
+                    Add BHK / Type
+                  </button>
+                </div>
+
+                {Object.keys(createEstimatedTimes).length === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No custom types added yet. Click "Add BHK / Type" to create options like "2BHK" or "3BHK" with associated time estimates.</p>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {Object.entries(createEstimatedTimes).map(([apartmentType, duration]) => (
+                      <div key={apartmentType} className="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+                        <Input
+                          type="text"
+                          value={apartmentType}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            setCreateEstimatedTimes((prev) => {
+                              const updated = { ...prev };
+                              delete updated[apartmentType];
+                              updated[newType] = duration;
+                              return updated;
+                            });
+                          }}
+                          placeholder="e.g., 2BHK, 3BHK, Studio"
+                          className="rounded-lg text-sm"
+                        />
+                        <Input
+                          type="text"
+                          value={duration}
+                          onChange={(e) => {
+                            setCreateEstimatedTimes((prev) => ({
+                              ...prev,
+                              [apartmentType]: e.target.value,
+                            }));
+                          }}
+                          placeholder="e.g., 2-3 hours, 30 mins"
+                          className="rounded-lg text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCreateEstimatedTimes((prev) => {
+                              const updated = { ...prev };
+                              delete updated[apartmentType];
+                              return updated;
+                            });
+                          }}
+                          className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -390,7 +464,7 @@ export function ServicePackagesView() {
           }
         }}
       >
-        <DialogContent className="w-[min(96vw,72rem)] max-w-none rounded-3xl">
+        <DialogContent className="w-[min(98vw,90rem)] max-w-none rounded-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Service Package</DialogTitle>
           </DialogHeader>
@@ -419,6 +493,74 @@ export function ServicePackagesView() {
               <div className="flex flex-col gap-1">
                 <Label htmlFor="edit-package-description">Description</Label>
                 <Textarea id="edit-package-description" name="description" rows={3} defaultValue={editingPackage.description} className="rounded-xl" />
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/20 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Custom Apartment Types & Time Estimates</Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newType = `Type-${Object.keys(editEstimatedTimes).length + 1}`;
+                      setEditEstimatedTimes((prev) => ({ ...prev, [newType]: '' }));
+                    }}
+                    className="rounded-full bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 text-xs font-semibold"
+                  >
+                    <Plus className="w-3 h-3 inline mr-1" />
+                    Add BHK / Type
+                  </button>
+                </div>
+
+                {Object.keys(editEstimatedTimes).length === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No custom types added yet. Click "Add BHK / Type" to create options like "2BHK" or "3BHK" with associated time estimates.</p>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {Object.entries(editEstimatedTimes).map(([apartmentType, duration]) => (
+                      <div key={apartmentType} className="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+                        <Input
+                          type="text"
+                          value={apartmentType}
+                          onChange={(e) => {
+                            const newType = e.target.value;
+                            setEditEstimatedTimes((prev) => {
+                              const updated = { ...prev };
+                              delete updated[apartmentType];
+                              updated[newType] = duration;
+                              return updated;
+                            });
+                          }}
+                          placeholder="e.g., 2BHK, 3BHK, Studio"
+                          className="rounded-lg text-sm"
+                        />
+                        <Input
+                          type="text"
+                          value={duration}
+                          onChange={(e) => {
+                            setEditEstimatedTimes((prev) => ({
+                              ...prev,
+                              [apartmentType]: e.target.value,
+                            }));
+                          }}
+                          placeholder="e.g., 2-3 hours, 30 mins"
+                          className="rounded-lg text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditEstimatedTimes((prev) => {
+                              const updated = { ...prev };
+                              delete updated[apartmentType];
+                              return updated;
+                            });
+                          }}
+                          className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-3 flex-wrap">
