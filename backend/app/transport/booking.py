@@ -8,6 +8,8 @@ from app.logic.booking_logic import (
     approve_job_rejection,
     customer_approve_job_completion,
     customer_request_rework,
+    mark_booking_arrival_pending,
+    mark_booking_on_the_way,
     request_job_completion,
     request_job_rejection,
     start_job,
@@ -168,6 +170,36 @@ def start_booking(
         raise HTTPException(status_code=400, detail=error)
 
     return {"message": "Job started successfully"}
+
+
+@router.post("/{booking_id}/on-the-way")
+def mark_on_the_way(
+    booking_id: int,
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    """Mark booking as 'on_the_way' when technician is en route."""
+    _ensure_roles(current_user, {"technician"})
+    success, error = mark_booking_on_the_way(conn, booking_id, current_user["id"])
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Booking marked as on the way"}
+
+
+@router.post("/{booking_id}/arrival-confirmation")
+def request_arrival_confirmation(
+    booking_id: int,
+    conn=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    """Mark booking as 'arrival_approval_pending' when technician arrives."""
+    _ensure_roles(current_user, {"technician"})
+    success, error = mark_booking_arrival_pending(conn, booking_id, current_user["id"])
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    return {"message": "Arrival confirmation requested from customer"}
 
 
 @router.post("/{booking_id}/reject")
