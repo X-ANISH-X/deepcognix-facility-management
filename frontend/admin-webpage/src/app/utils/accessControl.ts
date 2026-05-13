@@ -33,7 +33,7 @@ export function canManageDispatch(role: UserRole): boolean {
   return role === 'admin';
 }
 
-export function canAccessView(role: UserRole, view: 'dashboard' | 'map' | 'orders' | 'services' | 'service-packages' | 'reports' | 'settings'): boolean {
+export function canAccessView(role: UserRole, view: 'dashboard' | 'map' | 'technicians' | 'orders' | 'services' | 'service-packages' | 'reports' | 'settings'): boolean {
   if (role === 'admin') {
     return true;
   }

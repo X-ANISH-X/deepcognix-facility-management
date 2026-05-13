@@ -17,9 +17,10 @@ import { toast } from 'sonner';
 interface WorkOrdersViewProps {
   canManage?: boolean;
   role?: UserRole;
+  focusOrderId?: string;
 }
 
-export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrdersViewProps) {
+export function WorkOrdersView({ canManage = true, role = 'customer', focusOrderId }: WorkOrdersViewProps) {
   const { t } = useLanguage();
   const scheduledTimeSlots = [
     { value: '09:00:00', label: '09:00 AM' },
@@ -123,8 +124,16 @@ export function WorkOrdersView({ canManage = true, role = 'customer' }: WorkOrde
       filtered = filtered.filter(order => order.status === statusFilter);
     }
 
+    if (focusOrderId) {
+      filtered = [...filtered].sort((left, right) => {
+        if (left.id === focusOrderId) return -1;
+        if (right.id === focusOrderId) return 1;
+        return 0;
+      });
+    }
+
     setFilteredOrders(filtered);
-  }, [searchTerm, statusFilter, workOrders]);
+  }, [focusOrderId, searchTerm, statusFilter, workOrders]);
 
   const handleCreateOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

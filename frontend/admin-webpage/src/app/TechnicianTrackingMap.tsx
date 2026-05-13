@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import 'leaflet-control-geocoder/dist/Control.Geocoder.css';
 import 'leaflet-control-geocoder';
-import { Scan } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, Plus, Scan, Search } from 'lucide-react';
 
 type TechnicianLocation = {
   id: number;
@@ -283,6 +283,50 @@ export default function TechnicianTrackingMap() {
   const [selectedUserBookingId, setSelectedUserBookingId] = useState<number | null>(null);
   const [activeSidebar, setActiveSidebar] = useState<'user' | 'technician' | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+  const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!mapInstance) return;
+
+    // Ensure wheel zoom is disabled by default until the user explicitly
+    // taps/clicks inside the map. This prevents accidental scroll zooming.
+    try {
+      mapInstance.scrollWheelZoom?.disable();
+    } catch (err) {
+      // ignore
+    }
+
+    const container = mapInstance.getContainer();
+
+    const onDocClick = (e: Event) => {
+      const ev = e as MouseEvent & { composedPath?: () => EventTarget[] };
+      const path = typeof ev.composedPath === 'function' ? ev.composedPath() : null;
+      const clickedInside = path ? path.includes(container) : container.contains(e.target as Node);
+
+      try {
+        if (clickedInside) {
+          mapInstance.scrollWheelZoom?.enable();
+        } else {
+          mapInstance.scrollWheelZoom?.disable();
+        }
+      } catch (err) {
+        // ignore
+      }
+    };
+
+    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('touchstart', onDocClick, true);
+
+    return () => {
+      document.removeEventListener('click', onDocClick, true);
+      document.removeEventListener('touchstart', onDocClick, true);
+      try {
+        mapInstance.scrollWheelZoom?.disable();
+      } catch (err) {
+        // ignore
+      }
+    };
+  }, [mapInstance]);
 
   const loadMapData = async (silent = true) => {
     try {
@@ -424,6 +468,31 @@ export default function TechnicianTrackingMap() {
     [filteredTechnicians],
   );
 
+  const hasAssignedTechnicianForSelectedUser = useMemo(
+    () => Boolean(selectedUser?.technician_name && selectedUser.technician_name.trim() && selectedUser.technician_name !== 'Unassigned'),
+    [selectedUser],
+  );
+
+  const openGeocoderSearch = () => {
+    if (!mapInstance) {
+      return;
+    }
+
+    const mapContainer = mapInstance.getContainer();
+    const trigger = mapContainer.querySelector('.leaflet-control-geocoder-icon') as HTMLElement | null;
+    trigger?.click();
+
+    const input = mapContainer.querySelector('.leaflet-control-geocoder-form input') as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+  };
+
+  const displayedTechnicianStatuses = useMemo(() => {
+    const statusOrder: TechnicianLocation['status'][] = ['available', 'assigned', 'enroute', 'onsite', 'offline'];
+    const present = new Set(filteredTechnicians.map((technician) => technician.status));
+    return statusOrder.filter((status) => present.has(status));
+  }, [filteredTechnicians]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-155 h-[calc(100vh-10.5rem)] items-center justify-center rounded-3xl bg-slate-950 text-white">
@@ -514,7 +583,7 @@ export default function TechnicianTrackingMap() {
         }
       `}</style>
       <div className="absolute inset-0 z-0">
-        <MapContainer center={[12.9716, 77.5946]} zoom={12} className="h-full w-full">
+        <MapContainer center={[12.9716, 77.5946]} zoom={12} zoomControl={false} scrollWheelZoom={false} className="h-full w-full">
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -550,21 +619,21 @@ export default function TechnicianTrackingMap() {
         </div>
       )}
 
-      <div className="absolute right-3 top-12 z-1200">
+      <div className="absolute right-28 top-7 z-1200">
         <button
           type="button"
           onClick={() => setActiveSidebar((current) => (current === 'user' ? null : 'user'))}
-          className="rounded-l-full rounded-r-full border border-orange-300 bg-orange-500 px-3 py-2 text-sm font-semibold text-white shadow-lg hover:bg-orange-600 dark:border-orange-700 dark:bg-orange-600 dark:hover:bg-orange-500"
+          className="rounded-l-full rounded-r-full border border-blue-300 bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-600 dark:border-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
         >
           User
         </button>
       </div>
 
-      <div className="absolute right-3 bottom-8 z-1200">
+      <div className="absolute right-46 top-7 z-1200">
         <button
           type="button"
           onClick={() => setActiveSidebar((current) => (current === 'technician' ? null : 'technician'))}
-          className="rounded-l-full rounded-r-full border border-blue-300 bg-blue-500 px-3 py-2 text-sm font-semibold text-white shadow-lg hover:bg-blue-600 dark:border-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
+          className="rounded-l-full rounded-r-full border border-blue-300 bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-600 dark:border-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
         >
           Technician
         </button>
@@ -588,7 +657,97 @@ export default function TechnicianTrackingMap() {
         </button>
       </div>
 
+      <div className="absolute left-4 bottom-32 z-1200">
+        <button
+          type="button"
+          onClick={openGeocoderSearch}
+          className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-lg backdrop-blur hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800"
+          title="Search map location"
+          aria-label="Search map location"
+          disabled={!mapInstance}
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="absolute left-4 bottom-20 z-1200 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            if (!mapInstance) {
+              return;
+            }
+            const nextZoom = Math.min((mapInstance.getMaxZoom() || 20), mapInstance.getZoom() + 1);
+            mapInstance.flyTo(mapInstance.getCenter(), nextZoom, { animate: true });
+          }}
+          className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-lg backdrop-blur hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800"
+          title="Zoom in"
+          aria-label="Zoom in"
+          disabled={!mapInstance}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!mapInstance) {
+              return;
+            }
+            const nextZoom = Math.max((mapInstance.getMinZoom() || 1), mapInstance.getZoom() - 1);
+            mapInstance.flyTo(mapInstance.getCenter(), nextZoom, { animate: true });
+          }}
+          className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-lg backdrop-blur hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800"
+          title="Zoom out"
+          aria-label="Zoom out"
+          disabled={!mapInstance}
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="absolute left-4 top-4 z-1200">
+        <div className={`rounded-2xl border border-white/20 bg-slate-900/78 text-white shadow-lg backdrop-blur-md transition-all ${isLegendCollapsed ? 'w-12' : 'w-56'}`}>
+          <div className="flex items-center justify-between p-2.5">
+            {!isLegendCollapsed && <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-200">Legend</p>}
+            <button
+              type="button"
+              onClick={() => setIsLegendCollapsed((value) => !value)}
+              className="rounded-lg border border-white/20 bg-white/10 p-1 text-white hover:bg-white/20"
+              aria-label={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
+              title={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
+            >
+              {isLegendCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </button>
+          </div>
+
+          {!isLegendCollapsed && (
+            <div className="space-y-2 px-3 pb-3">
+              {displayedTechnicianStatuses.length ? displayedTechnicianStatuses.map((status) => (
+                <div key={status} className="flex items-center gap-2.5 text-xs text-slate-100">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(status) }} />
+                  <span>{getStatusText(status)}</span>
+                </div>
+              )) : (
+                <p className="text-xs text-slate-300">No technician statuses in current filter.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className={`drawer-panel absolute right-0 top-0 z-1100 h-full overflow-hidden border-l border-slate-200/30 bg-white/85 shadow-2xl transition-transform duration-300 dark:border-slate-800/60 dark:bg-slate-950/90 ${activeSidebar ? 'translate-x-0' : 'translate-x-full'}`}>
+        <button
+          type="button"
+          onClick={() => setActiveSidebar(null)}
+          className="absolute left-0 top-0 z-20 h-full w-10 bg-linear-to-r from-slate-900/12 to-transparent text-slate-700 hover:from-slate-900/20 dark:text-slate-200"
+          title="Close sidebar"
+          aria-label="Close sidebar"
+        >
+          <span className="flex h-full w-full items-center justify-center">
+            <ChevronRight className="h-5 w-5" />
+          </span>
+        </button>
+
         <div className="h-full p-4 pl-6">
           <div className="flex h-full flex-col gap-4 overflow-hidden rounded-3xl border border-slate-200/70 bg-white/90 p-4 dark:border-slate-800/60 dark:bg-slate-950/90">
             <div className="flex items-center justify-between gap-3">
@@ -636,10 +795,19 @@ export default function TechnicianTrackingMap() {
                         }}
                       />
                       <DetailButton
-                        label="Show technician"
+                        label={hasAssignedTechnicianForSelectedUser ? 'Show technician' : 'Assign technician'}
                         onClick={() => {
-                          setActiveSidebar('technician');
-                          focusMapOnPoint(mapInstance, selectedTechnicianCoordinates.lat, selectedTechnicianCoordinates.lng);
+                          if (hasAssignedTechnicianForSelectedUser) {
+                            setActiveSidebar('technician');
+                            focusMapOnPoint(mapInstance, selectedTechnicianCoordinates.lat, selectedTechnicianCoordinates.lng);
+                            return;
+                          }
+
+                          window.dispatchEvent(
+                            new CustomEvent('admin:navigate', {
+                              detail: { view: 'orders', focusOrderId: selectedUser.booking_id },
+                            }),
+                          );
                         }}
                       />
                       <DetailButton label="Copy address" onClick={() => navigator.clipboard.writeText(selectedUser.address_line)} />
@@ -671,6 +839,7 @@ export default function TechnicianTrackingMap() {
                         className={`w-full rounded-2xl border p-4 text-left transition ${selectedUser?.booking_id === user.booking_id ? 'border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30' : 'border-slate-200/80 bg-white hover:bg-slate-50 dark:border-slate-800/60 dark:bg-slate-950/60 dark:hover:bg-slate-900'}`}
                       >
                         <p className="font-semibold text-slate-900 dark:text-white">{user.customer_name}</p>
+                        <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">#{user.booking_id}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{user.address_line}</p>
                       </button>
                     )) : (

@@ -852,6 +852,52 @@ def update_technician_profile_alias(
         if not row:
             raise HTTPException(status_code=404, detail="Technician not found")
 
+        updates: list[str] = []
+        values: list[object] = []
+
+        full_name = payload.get("full_name")
+        if isinstance(full_name, str):
+            cleaned_name = full_name.strip()
+            if not cleaned_name:
+                raise HTTPException(status_code=400, detail="full_name cannot be empty")
+            if cleaned_name != str(row.get("full_name") or ""):
+                updates.append("full_name = %s")
+                values.append(cleaned_name)
+                row["full_name"] = cleaned_name
+
+        email = payload.get("email")
+        if isinstance(email, str):
+            cleaned_email = email.strip().lower()
+            if not cleaned_email:
+                raise HTTPException(status_code=400, detail="email cannot be empty")
+            if cleaned_email != str(row.get("email") or "").strip().lower():
+                cursor.execute(
+                    "SELECT id FROM users WHERE email = %s AND id <> %s",
+                    (cleaned_email, technician_id),
+                )
+                if cursor.fetchone():
+                    raise HTTPException(status_code=400, detail="Email already registered")
+                updates.append("email = %s")
+                values.append(cleaned_email)
+                row["email"] = cleaned_email
+
+        phone_number = payload.get("phone_number")
+        if isinstance(phone_number, str):
+            cleaned_phone = phone_number.strip()
+            normalized_phone = cleaned_phone if cleaned_phone else None
+            current_phone = str(row.get("phone_number") or "").strip() or None
+            if normalized_phone != current_phone:
+                updates.append("phone_number = %s")
+                values.append(normalized_phone)
+                row["phone_number"] = normalized_phone
+
+        if updates:
+            cursor.execute(
+                f"UPDATE users SET {', '.join(updates)} WHERE id = %s",
+                tuple(values + [technician_id]),
+            )
+            db.commit()
+
         requested_status = payload.get("status")
         if isinstance(requested_status, str):
             normalized = requested_status.strip().lower()
