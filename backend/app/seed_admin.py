@@ -412,12 +412,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": gold_price,
                 "scheduled_date": today - timedelta(days=6),
                 "scheduled_time_slot": "09:00 AM",
-                "address_line": "Flat 402, Maple Residency, Sector 62",
-                "building_name": "Maple Residency",
+                "address_line": "Flat 402, Maple Residency, Whitefield",
+                "building_name": "Maple Residency Whitefield",
                 "floor_number": "4",
                 "apartment_number": "402",
-                "latitude": 28.6139,
-                "longitude": 77.2090,
+                "latitude": 12.9698,
+                "longitude": 77.7499,
                 "customer_notes": "Ring the bell once and call if needed.",
                 "technician_notes": "Finished on time.",
                 "completed_tasks": 9,
@@ -435,8 +435,8 @@ def seed_admin_dashboard_data() -> None:
                 "building_name": "Riverfront Heights",
                 "floor_number": "12",
                 "apartment_number": "1203",
-                "latitude": 12.9716,
-                "longitude": 77.5946,
+                "latitude": 12.9783,
+                "longitude": 77.6408,
                 "customer_notes": "Parking available in visitor slot B12.",
                 "technician_notes": "Customer requested quick turnaround.",
                 "completed_tasks": 6,
@@ -450,12 +450,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": silver_price,
                 "scheduled_date": today - timedelta(days=4),
                 "scheduled_time_slot": "01:00 PM",
-                "address_line": "House 17, Palm Grove Villas",
-                "building_name": "Palm Grove Villas",
+                "address_line": "House 17, Palm Grove Villas, HSR Layout",
+                "building_name": "Palm Grove Villas HSR",
                 "floor_number": "Ground",
                 "apartment_number": "17",
-                "latitude": 19.0760,
-                "longitude": 72.8777,
+                "latitude": 12.9126,
+                "longitude": 77.6412,
                 "customer_notes": "Pet dog at home, please keep door closed.",
                 "technician_notes": "AC filters cleaned.",
                 "completed_tasks": 5,
@@ -469,12 +469,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": 3499.00,
                 "scheduled_date": today - timedelta(days=3),
                 "scheduled_time_slot": "03:00 PM",
-                "address_line": "Flat 803, Skyview Apartments",
-                "building_name": "Skyview Apartments",
+                "address_line": "Flat 803, Skyview Apartments, Koramangala",
+                "building_name": "Skyview Apartments Koramangala",
                 "floor_number": "8",
                 "apartment_number": "803",
-                "latitude": 17.3850,
-                "longitude": 78.4867,
+                "latitude": 12.9352,
+                "longitude": 77.6245,
                 "customer_notes": "Service the bedroom AC first.",
                 "technician_notes": "Progressing through package checklist.",
                 "completed_tasks": 4,
@@ -488,12 +488,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": gold_price,
                 "scheduled_date": today - timedelta(days=2),
                 "scheduled_time_slot": "05:00 PM",
-                "address_line": "Flat 903, Blue Cedar Heights",
-                "building_name": "Blue Cedar Heights",
+                "address_line": "Flat 903, Blue Cedar Heights, Jayanagar",
+                "building_name": "Blue Cedar Heights Jayanagar",
                 "floor_number": "9",
                 "apartment_number": "903",
-                "latitude": 22.5726,
-                "longitude": 88.3639,
+                "latitude": 12.9253,
+                "longitude": 77.5938,
                 "customer_notes": "Awaiting technician assignment.",
                 "technician_notes": "Queued for evening slot.",
                 "completed_tasks": 0,
@@ -507,12 +507,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": platinum_price,
                 "scheduled_date": today - timedelta(days=1),
                 "scheduled_time_slot": "09:00 AM",
-                "address_line": "Skyline Residency, Block C",
-                "building_name": "Skyline Residency",
+                "address_line": "Skyline Residency, Block C, Yelahanka",
+                "building_name": "Skyline Residency Yelahanka",
                 "floor_number": "11",
                 "apartment_number": "1102",
-                "latitude": 25.2048,
-                "longitude": 55.2708,
+                "latitude": 13.1014,
+                "longitude": 77.5963,
                 "customer_notes": "Awaiting approval for next week.",
                 "technician_notes": None,
                 "completed_tasks": 0,
@@ -526,12 +526,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": 3499.00,
                 "scheduled_date": today,
                 "scheduled_time_slot": "11:00 AM",
-                "address_line": "Garden View Towers, Unit 1604",
-                "building_name": "Garden View Towers",
+                "address_line": "Garden View Towers, Unit 1604, Bellandur",
+                "building_name": "Garden View Towers Bellandur",
                 "floor_number": "16",
                 "apartment_number": "1604",
-                "latitude": 23.8103,
-                "longitude": 90.4125,
+                "latitude": 12.9260,
+                "longitude": 77.6762,
                 "customer_notes": "Please focus on kitchen and bathrooms.",
                 "technician_notes": "Completion awaiting customer review.",
                 "completed_tasks": 10,
@@ -545,12 +545,12 @@ def seed_admin_dashboard_data() -> None:
                 "final_price": silver_price,
                 "scheduled_date": today + timedelta(days=1),
                 "scheduled_time_slot": "01:00 PM",
-                "address_line": "Orchid Park, Block A",
-                "building_name": "Orchid Park",
+                "address_line": "Orchid Park, Block A, Malleshwaram",
+                "building_name": "Orchid Park Malleshwaram",
                 "floor_number": "6",
                 "apartment_number": "601",
-                "latitude": 13.0827,
-                "longitude": 80.2707,
+                "latitude": 13.0067,
+                "longitude": 77.5696,
                 "customer_notes": "Customer requested status review before finalization.",
                 "technician_notes": "Rejection requested for minor billing adjustment.",
                 "completed_tasks": 2,
@@ -598,27 +598,27 @@ def seed_admin_dashboard_data() -> None:
 
         # Add live locations for all technicians ensuring they all appear with badges on map
         # Samarth Vasisht - multiple updates showing movement
-        ensure_location(cursor, booking_ids[0], technician_ids[0], 28.6140, 77.2091, 7.2)
-        ensure_location(cursor, booking_ids[0], technician_ids[0], 28.6139, 77.2089, 6.5)
+        ensure_location(cursor, booking_ids[0], technician_ids[0], 12.9699, 77.7502, 7.2)
+        ensure_location(cursor, booking_ids[0], technician_ids[0], 12.9697, 77.7498, 6.5)
         
         # Neeraj Kumar - multiple updates showing movement  
-        ensure_location(cursor, booking_ids[1], technician_ids[1], 12.9717, 77.5947, 6.8)
-        ensure_location(cursor, booking_ids[1], technician_ids[1], 12.9716, 77.5945, 5.9)
+        ensure_location(cursor, booking_ids[1], technician_ids[1], 12.9785, 77.6410, 6.8)
+        ensure_location(cursor, booking_ids[1], technician_ids[1], 12.9782, 77.6406, 5.9)
         
         # Kavya Sharma - on-site with multiple updates
-        ensure_location(cursor, booking_ids[2], technician_ids[2], 19.0761, 72.8778, 6.7)
-        ensure_location(cursor, booking_ids[2], technician_ids[2], 19.0762, 72.8780, 5.1)
-        ensure_location(cursor, booking_ids[2], technician_ids[2], 19.0763, 72.8781, 4.8)
+        ensure_location(cursor, booking_ids[2], technician_ids[2], 12.9129, 77.6414, 6.7)
+        ensure_location(cursor, booking_ids[2], technician_ids[2], 12.9127, 77.6411, 5.1)
+        ensure_location(cursor, booking_ids[2], technician_ids[2], 12.9126, 77.6409, 4.8)
         
         # Farhan Ali - en-route with multiple updates
-        ensure_location(cursor, booking_ids[3], technician_ids[3], 17.3852, 78.4870, 6.4)
-        ensure_location(cursor, booking_ids[3], technician_ids[3], 17.3854, 78.4872, 5.6)
-        ensure_location(cursor, booking_ids[3], technician_ids[3], 17.3856, 78.4874, 5.2)
+        ensure_location(cursor, booking_ids[3], technician_ids[3], 12.9355, 77.6248, 6.4)
+        ensure_location(cursor, booking_ids[3], technician_ids[3], 12.9353, 77.6246, 5.6)
+        ensure_location(cursor, booking_ids[3], technician_ids[3], 12.9351, 77.6244, 5.2)
         
         # Priyanka Das - assigned with multiple updates
-        ensure_location(cursor, booking_ids[4], technician_ids[4], 22.5727, 88.3640, 5.5)
-        ensure_location(cursor, booking_ids[4], technician_ids[4], 22.5728, 88.3641, 5.1)
-        ensure_location(cursor, booking_ids[5], technician_ids[4], 23.8104, 90.4127, 4.9)
+        ensure_location(cursor, booking_ids[4], technician_ids[4], 12.9255, 77.5941, 5.5)
+        ensure_location(cursor, booking_ids[4], technician_ids[4], 12.9252, 77.5937, 5.1)
+        ensure_location(cursor, booking_ids[5], technician_ids[4], 13.1012, 77.5960, 4.9)
 
         conn.commit()
 
