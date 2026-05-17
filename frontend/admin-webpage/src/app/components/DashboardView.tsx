@@ -136,6 +136,26 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Persist revenue period selection so remounts or background refreshes don't reset it
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('dashboard.revenuePeriod');
+      if (saved && ['day', 'week', 'month', 'year'].includes(saved)) {
+        setRevenuePeriod(saved as 'day' | 'week' | 'month' | 'year');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dashboard.revenuePeriod', revenuePeriod);
+    } catch (e) {
+      // ignore
+    }
+  }, [revenuePeriod]);
+
   const buildServiceDistribution = (services: Service[]) => {
     const servicesByCategory: Record<string, Service[]> = {};
 
@@ -417,7 +437,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
       case 'in-progress': return 'bg-teal-500/10 text-teal-600 border-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-800';
       case 'assigned': return 'bg-green-500/10 text-green-600 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-800';
       case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-800';
-      case 'cancelled': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-800';
+      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-800';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-200 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-800';
     }
   };
@@ -687,16 +707,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <CardTitle>{t('dashboard.chart.revenue')}</CardTitle>
             <div className="flex flex-wrap gap-2 items-center">
-              <button
-                onClick={() => setRevenuePeriod('day')}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                  revenuePeriod === 'day'
-                    ? 'bg-teal-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                {t('dashboard.chart.day')}
-              </button>
+              {/* 'day' option removed per admin UX request */}
               <button
                 onClick={() => setRevenuePeriod('week')}
                 className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${

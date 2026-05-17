@@ -79,7 +79,7 @@ The backend API serves the DeepCognix Admin Panel, which provides facility manag
 ### 3. Work Order Management
 - **Create Work Orders**: Allow manual creation with customer info, service type, location
 - **Assign Technicians**: Intelligently assign work orders to available technicians
-- **Track Status**: Support multiple statuses (pending, assigned, in-progress, completed, cancelled)
+- **Track Status**: Support multiple statuses (pending, assigned, in-progress, completed, rejected)
 - **Priority Management**: Handle priority levels (low, medium, high, urgent)
 - **Update Status**: Allow status transitions with automatic timestamp tracking
 - **View Work Orders**: List with filtering by status, priority, date range
@@ -232,7 +232,7 @@ Update technician status
 Retrieve all work orders with optional filtering
 
 **Query Parameters**:
-- `status`: Filter by status (pending, assigned, in-progress, completed, cancelled)
+- `status`: Filter by status (pending, assigned, in-progress, completed, rejected)
 - `priority`: Filter by priority (low, medium, high, urgent)
 - `date_from`: Start date for filtering
 - `date_to`: End date for filtering
@@ -543,7 +543,7 @@ Get performance metrics for all technicians
   "customerName": str,
   "serviceType": str,
   "priority": "low" | "medium" | "high" | "urgent",
-  "status": "pending" | "assigned" | "in-progress" | "completed" | "cancelled",
+  "status": "pending" | "assigned" | "in-progress" | "completed" | "rejected",
   "technicianId": str | None,
   "technicianName": str | None,
   "scheduledDate": str,
@@ -648,7 +648,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     service_id INT NOT NULL,
     technician_id INT,
     priority ENUM('low', 'medium', 'high', 'urgent') DEFAULT 'medium',
-    status ENUM('pending', 'assigned', 'in-progress', 'completed', 'cancelled') DEFAULT 'pending',
+    status ENUM('pending', 'assigned', 'in-progress', 'completed', 'rejected') DEFAULT 'pending',
     scheduled_date DATE NOT NULL,
     scheduled_time TIME NOT NULL,
     location VARCHAR(255) NOT NULL,

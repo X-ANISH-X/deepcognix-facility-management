@@ -4,7 +4,8 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import 'leaflet-control-geocoder/dist/Control.Geocoder.css';
 import 'leaflet-control-geocoder';
-import { ChevronLeft, ChevronRight, Minus, Plus, Scan, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, Plus, Scan, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { useTheme } from '@/app/context/ThemeContext';
 
 type TechnicianLocation = {
   id: number;
@@ -86,6 +87,63 @@ function getStatusText(status: TechnicianLocation['status']): string {
   }
 }
 
+function getBookingStatusColor(status?: string | null): string {
+  switch ((status || '').toLowerCase()) {
+    case 'submitted':
+    case 'pending':
+      return '#f97316';
+    case 'assigned':
+      return '#8b5cf6';
+    case 'in_progress':
+    case 'in-progress':
+      return '#f59e0b';
+    case 'completion_requested':
+    case 'admin_review_pending':
+      return '#06b6d4';
+    case 'customer_review_pending':
+      return '#06b6d4';
+    case 'rejection_requested':
+      return '#ef4444';
+    case 'completed':
+      return '#10b981';
+    case 'cancelled':
+    case 'rejected':
+      return '#6b7280';
+    default:
+      return '#6b7280';
+  }
+}
+
+function getBookingStatusText(status?: string | null): string {
+  if (!status) return 'Unknown';
+  switch (status.toLowerCase()) {
+    case 'submitted':
+    case 'pending':
+      return 'Submitted';
+    case 'approved':
+      return 'Approved';
+    case 'assigned':
+      return 'Assigned';
+    case 'in_progress':
+    case 'in-progress':
+      return 'In Progress';
+    case 'completion_requested':
+    case 'admin_review_pending':
+      return 'Completion Requested';
+    case 'customer_review_pending':
+      return 'Customer Review Pending';
+    case 'rejection_requested':
+      return 'Rejection Requested';
+    case 'completed':
+      return 'Completed';
+    case 'cancelled':
+    case 'rejected':
+      return 'Rejected';
+    default:
+      return status;
+  }
+}
+
 function initials(name: string): string {
   const bits = name.trim().split(/\s+/).filter(Boolean);
   if (!bits.length) return 'T';
@@ -102,10 +160,12 @@ function getUserInitials(user: UserLocation): string {
 }
 
 function getUserIcon(user: UserLocation): L.DivIcon {
+  const statusColor = getBookingStatusColor(user.status);
   return L.divIcon({
     className: 'user-div-icon',
     html: `
       <div class="user-marker-wrap">
+        <div class="user-marker-ring" style="background:${statusColor};"></div>
         <div class="user-marker-dot">${getUserInitials(user)}</div>
       </div>
     `,
@@ -164,9 +224,10 @@ function GeocoderControl() {
     };
 
     const geocoder = (L.Control as unknown as {
-      geocoder: (options: { defaultMarkGeocode?: boolean }) => GeocoderControlInstance;
+      geocoder: (options: { defaultMarkGeocode?: boolean; position?: string }) => GeocoderControlInstance;
     }).geocoder({
       defaultMarkGeocode: false,
+      position: 'topleft',
     })
       .on('markgeocode', (e: any) => {
         const bbox = e.geocode.bbox;
@@ -377,6 +438,7 @@ export default function TechnicianTrackingMap() {
         technician.full_name,
         technician.email,
         technician.phone_number,
+        technician.status,
         technician.location_source,
         technician.latest_booking_status,
         technician.booking_address,
@@ -446,6 +508,11 @@ export default function TechnicianTrackingMap() {
     [filteredTechnicians, selectedTechnicianId],
   );
 
+  const [showTechnicianDetails, setShowTechnicianDetails] = useState(false);
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const { theme } = useTheme();
+  const isLightMode = theme === 'light';
+
   const selectedUser = useMemo(
     () => filteredUsers.find((item) => item.booking_id === selectedUserBookingId) ?? filteredUsers[0] ?? null,
     [filteredUsers, selectedUserBookingId],
@@ -493,6 +560,17 @@ export default function TechnicianTrackingMap() {
     return statusOrder.filter((status) => present.has(status));
   }, [filteredTechnicians]);
 
+  const displayedBookingStatuses = useMemo(() => {
+    // Collect booking-related statuses from technicians and users
+    const present = new Set<string>();
+    filteredTechnicians.forEach((t) => { if (t.latest_booking_status) present.add(String(t.latest_booking_status).toLowerCase()); });
+    filteredUsers.forEach((u) => { if (u.status) present.add(String(u.status).toLowerCase()); });
+
+    // Prefer a common ordering for display (omit 'approved' — use assignment/other states instead)
+    const order = ['submitted', 'assigned', 'in_progress', 'in-progress', 'completion_requested', 'admin_review_pending', 'customer_review_pending', 'rejection_requested', 'completed', 'rejected'];
+    return order.filter((s) => present.has(s));
+  }, [filteredTechnicians, filteredUsers]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-155 h-[calc(100vh-10.5rem)] items-center justify-center rounded-3xl bg-slate-950 text-white">
@@ -504,7 +582,7 @@ export default function TechnicianTrackingMap() {
   }
 
   return (
-    <div className="relative z-0 isolate h-[calc(100vh-10.5rem)] min-h-155 overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950 shadow-2xl">
+    <div className={`relative z-0 isolate h-[calc(100vh-10.5rem)] min-h-155 overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950 shadow-2xl ${isLightMode ? 'light-mode' : ''}`}>
       <style>{`
         .technician-div-icon {
           background: transparent;
@@ -558,6 +636,14 @@ export default function TechnicianTrackingMap() {
           align-items: center;
           justify-content: center;
         }
+        .user-marker-ring {
+          position: absolute;
+          width: 42px;
+          height: 42px;
+          border-radius: 9999px;
+          z-index: 1;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+        }
         .user-marker-dot {
           width: 34px;
           height: 34px;
@@ -571,6 +657,7 @@ export default function TechnicianTrackingMap() {
           justify-content: center;
           background: linear-gradient(135deg, #fb923c, #f97316);
           box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
+          z-index: 2;
         }
         .drawer-panel {
           width: min(420px, calc(100% - 72px));
@@ -580,6 +667,68 @@ export default function TechnicianTrackingMap() {
           width: 56px;
           writing-mode: vertical-rl;
           text-orientation: mixed;
+        }
+        /* Geocoder control theme overrides to blend with app theme */
+        .leaflet-control-geocoder {
+          background: rgba(15,23,42,0.78) !important;
+          border-radius: 0.75rem !important;
+          border: 1px solid rgba(255,255,255,0.06) !important;
+          box-shadow: 0 6px 18px rgba(2,6,23,0.6) !important;
+          padding: 6px !important;
+        }
+        .leaflet-control-geocoder .leaflet-control-geocoder-form {
+          display: flex;
+          gap: 6px;
+          align-items: center;
+          padding: 0;
+          background: transparent !important;
+        }
+        .leaflet-control-geocoder input.leaflet-control-geocoder-input {
+          background: transparent !important;
+          color: #e6eef8 !important;
+          border: none !important;
+          outline: none !important;
+          padding: 6px 8px !important;
+          min-width: 160px !important;
+          font-size: 13px !important;
+        }
+        .leaflet-control-geocoder button.leaflet-control-geocoder-button {
+          background: rgba(255,255,255,0.04) !important;
+          color: #cbd5e1 !important;
+          border: 1px solid rgba(255,255,255,0.03) !important;
+          padding: 6px 8px !important;
+          border-radius: 8px !important;
+        }
+        .leaflet-control-geocoder .leaflet-control-geocoder-icon {
+          display: none !important;
+        }
+        /* Light mode overrides when the container has .light-mode */
+        .light-mode .leaflet-control-geocoder {
+          background: rgba(255,255,255,0.96) !important;
+          border-radius: 0.5rem !important;
+          border: 1px solid rgba(2,6,23,0.06) !important;
+          box-shadow: 0 2px 6px rgba(2,6,23,0.06) !important;
+          padding: 6px !important;
+        }
+        .light-mode .leaflet-control-geocoder .leaflet-control-geocoder-form {
+          background: transparent !important;
+        }
+        .light-mode .leaflet-control-geocoder input.leaflet-control-geocoder-input {
+          color: #0f172a !important;
+          background: rgba(255,255,255,0.96) !important;
+          border-radius: 8px !important;
+          padding-left: 8px !important;
+        }
+        .light-mode .leaflet-control-geocoder button.leaflet-control-geocoder-button {
+          background: rgba(2,6,23,0.03) !important;
+          color: #0f172a !important;
+          border: 1px solid rgba(2,6,23,0.04) !important;
+        }
+        .light-mode .legend-panel {
+          background: rgba(255,255,255,0.96) !important;
+          color: #0f172a !important;
+          border: 1px solid rgba(2,6,23,0.06) !important;
+          box-shadow: 0 2px 6px rgba(2,6,23,0.06) !important;
         }
       `}</style>
       <div className="absolute inset-0 z-0">
@@ -619,25 +768,20 @@ export default function TechnicianTrackingMap() {
         </div>
       )}
 
-      <div className="absolute right-28 top-7 z-1200">
-        <button
-          type="button"
-          onClick={() => setActiveSidebar((current) => (current === 'user' ? null : 'user'))}
-          className="rounded-l-full rounded-r-full border border-blue-300 bg-blue-500 px-4 py-1.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-600 dark:border-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
-        >
-          User
-        </button>
-      </div>
-
-      <div className="absolute right-46 top-7 z-1200">
-        <button
-          type="button"
-          onClick={() => setActiveSidebar((current) => (current === 'technician' ? null : 'technician'))}
-          className="rounded-l-full rounded-r-full border border-blue-300 bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white shadow-lg hover:bg-blue-600 dark:border-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
-        >
-          Technician
-        </button>
-      </div>
+      {/* Collapsed semi-transparent vertical bar to open the sidebar */}
+      {!activeSidebar && (
+        <div className="absolute right-0 top-1/2 z-1200 -translate-y-1/2">
+            <button
+              type="button"
+              onClick={() => setActiveSidebar('technician')}
+              title="Open sidebar"
+              aria-label="Open sidebar"
+              className={`h-24 w-10 flex items-center justify-center rounded-l-full shadow-md transition-colors ${isLightMode ? 'bg-white/95 text-slate-700 border border-slate-200/60 hover:bg-white' : 'bg-slate-800/75 hover:bg-slate-700/80 text-white backdrop-blur-md'}`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          </div>
+      )}
 
       <div className="absolute left-4 bottom-4 z-1200">
         <button
@@ -654,19 +798,6 @@ export default function TechnicianTrackingMap() {
           disabled={!mapInstance}
         >
           <Scan className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="absolute left-4 bottom-32 z-1200">
-        <button
-          type="button"
-          onClick={openGeocoderSearch}
-          className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-lg backdrop-blur hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100 dark:hover:bg-slate-800"
-          title="Search map location"
-          aria-label="Search map location"
-          disabled={!mapInstance}
-        >
-          <Search className="h-4 w-4" />
         </button>
       </div>
 
@@ -705,37 +836,53 @@ export default function TechnicianTrackingMap() {
         </button>
       </div>
 
-      <div className="absolute left-4 top-4 z-1200">
-        <div className={`rounded-2xl border border-white/20 bg-slate-900/78 text-white shadow-lg backdrop-blur-md transition-all ${isLegendCollapsed ? 'w-12' : 'w-56'}`}>
-          <div className="flex items-center justify-between p-2.5">
-            {!isLegendCollapsed && <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-200">Legend</p>}
-            <button
-              type="button"
-              onClick={() => setIsLegendCollapsed((value) => !value)}
-              className="rounded-lg border border-white/20 bg-white/10 p-1 text-white hover:bg-white/20"
-              aria-label={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
-              title={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
-            >
-              {isLegendCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </button>
-          </div>
+      <div className="absolute left-4 top-1/2 z-1200 -translate-y-1/2">
+        <div className={`legend-panel rounded-2xl transition-all ${isLegendCollapsed ? 'w-12' : 'w-56'} ${isLightMode ? 'border border-slate-200 bg-white text-slate-900 shadow-sm' : 'border border-white/20 bg-slate-900/78 text-white shadow-lg backdrop-blur-md'}`}>
+            <div className="flex items-center justify-between p-2.5">
+              {!isLegendCollapsed && <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${isLightMode ? 'text-slate-700' : 'text-slate-200'}`}>Legend</p>}
+              <div className="flex items-center gap-2">
+                {/* Legend theme follows global app theme; removed manual toggle */}
+              <button
+                type="button"
+                onClick={() => setIsLegendCollapsed((value) => !value)}
+                className={`rounded-lg p-1 ${isLightMode ? 'bg-white/10 text-slate-900' : 'bg-white/10 text-white'}`}
+                aria-label={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
+                title={isLegendCollapsed ? 'Expand legend' : 'Collapse legend'}
+              >
+                {isLegendCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              </button>
+              </div>
+            </div>
 
           {!isLegendCollapsed && (
-            <div className="space-y-2 px-3 pb-3">
+                <div className="space-y-2 px-3 pb-3">
               {displayedTechnicianStatuses.length ? displayedTechnicianStatuses.map((status) => (
-                <div key={status} className="flex items-center gap-2.5 text-xs text-slate-100">
+                <div key={status} className={`flex items-center gap-2.5 text-xs ${isLightMode ? 'text-slate-900' : 'text-slate-100'}`}>
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(status) }} />
                   <span>{getStatusText(status)}</span>
                 </div>
               )) : (
                 <p className="text-xs text-slate-300">No technician statuses in current filter.</p>
               )}
+              {displayedBookingStatuses.length ? (
+                <div className="pt-2">
+                  <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Booking statuses</p>
+                  <div className="mt-1 space-y-1">
+                    {displayedBookingStatuses.map((bs) => (
+                      <div key={bs} className={`flex items-center gap-2.5 text-xs ${isLightMode ? 'text-slate-900' : 'text-slate-100'}`}>
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(bs) }} />
+                        <span>{getBookingStatusText(bs)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
       </div>
 
-      <div className={`drawer-panel absolute right-0 top-0 z-1100 h-full overflow-hidden border-l border-slate-200/30 bg-white/85 shadow-2xl transition-transform duration-300 dark:border-slate-800/60 dark:bg-slate-950/90 ${activeSidebar ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`drawer-panel absolute right-0 top-0 z-1100 h-full overflow-hidden shadow-2xl transition-transform duration-300 ${activeSidebar ? 'translate-x-0' : 'translate-x-full'} ${isLightMode ? 'border-l border-slate-200/80 bg-white text-slate-900' : 'border-l border-slate-700/40 bg-slate-900/90 text-white'}`}>
         <button
           type="button"
           onClick={() => setActiveSidebar(null)}
@@ -749,18 +896,57 @@ export default function TechnicianTrackingMap() {
         </button>
 
         <div className="h-full p-4 pl-6">
-          <div className="flex h-full flex-col gap-4 overflow-hidden rounded-3xl border border-slate-200/70 bg-white/90 p-4 dark:border-slate-800/60 dark:bg-slate-950/90">
+          <div className={`flex h-full flex-col gap-4 overflow-hidden rounded-3xl p-4 ${isLightMode ? 'border border-slate-200/60 bg-white text-slate-900' : 'border border-slate-700/60 bg-slate-900/90 dark:border-slate-800/60 dark:bg-slate-950/90'}`}>
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{activeSidebar === 'technician' ? 'Technician' : 'User'}</h2>
-              {activeSidebar === 'technician' && selectedTechnician && (
-                <span
-                  className="rounded-full px-2.5 py-1 text-xs font-semibold text-white"
-                  style={{ backgroundColor: getStatusColor(selectedTechnician.status) }}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebar('technician')}
+                  className={`rounded-full px-3 py-1 text-sm font-semibold ${activeSidebar === 'technician' ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100'}`}
                 >
-                  {getStatusText(selectedTechnician.status)}
-                </span>
-              )}
-              {activeSidebar === 'user' && selectedUser && <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">#{selectedUser.booking_id}</span>}
+                  Technician
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebar('user')}
+                  className={`rounded-full px-3 py-1 text-sm font-semibold ${activeSidebar === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-100'}`}
+                >
+                  User
+                </button>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSidebar('user')}
+                  className="rounded-full px-3 py-1 text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
+                >
+                  <div className="flex items-center gap-2">
+                    {activeSidebar === 'user' ? (
+                      <>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+                          style={{ backgroundColor: getBookingStatusColor(selectedUser?.status) }}
+                        >
+                          {getBookingStatusText(selectedUser?.status)}
+                        </span>
+                        <span className="text-xs font-semibold">#{selectedUser?.booking_id ?? ''}</span>
+                      </>
+                    ) : selectedTechnician ? (
+                      <>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+                          style={{ backgroundColor: getStatusColor(selectedTechnician.status) }}
+                        >
+                          {getStatusText(selectedTechnician.status)}
+                        </span>
+                        <span className="text-xs font-semibold">#{selectedTechnician.latest_booking_id ?? ''}</span>
+                      </>
+                    ) : (
+                      'Status / Order#'
+                    )}
+                  </div>
+                </button>
+              </div>
             </div>
 
             {activeSidebar === 'user' ? (
@@ -785,15 +971,16 @@ export default function TechnicianTrackingMap() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">{selectedUser.package_name} · {selectedUser.service_name}</p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <DetailButton
-                        label="Focus on map"
-                        variant="primary"
-                        onClick={() => {
-                          setActiveSidebar('user');
-                          focusMapOnPoint(mapInstance, selectedUserCoordinates.lat, selectedUserCoordinates.lng);
-                        }}
-                      />
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap gap-2">
+                          <DetailButton
+                            label="Focus on map"
+                            variant="primary"
+                            onClick={() => {
+                              setActiveSidebar('user');
+                              focusMapOnPoint(mapInstance, selectedUserCoordinates.lat, selectedUserCoordinates.lng);
+                            }}
+                          />
                       <DetailButton
                         label={hasAssignedTechnicianForSelectedUser ? 'Show technician' : 'Assign technician'}
                         onClick={() => {
@@ -811,16 +998,26 @@ export default function TechnicianTrackingMap() {
                         }}
                       />
                       <DetailButton label="Copy address" onClick={() => navigator.clipboard.writeText(selectedUser.address_line)} />
-                    </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowUserDetails((v) => !v)}
+                            className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
+                          >
+                            {showUserDetails ? 'Hide details' : 'Show details'}
+                          </button>
+                        </div>
 
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800/60 dark:bg-slate-900/80">
-                      <div className="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
-                        <p><span className="font-semibold">Status:</span> {selectedUser.status}</p>
-                        <p><span className="font-semibold">Phone:</span> {selectedUser.customer_phone || 'N/A'}</p>
-                        <p><span className="font-semibold">Building:</span> {selectedUser.building_name || 'N/A'}</p>
-                        <p><span className="font-semibold">Technician:</span> {selectedUser.technician_name || 'Unassigned'}</p>
-                      </div>
-                    </div>
+                        {showUserDetails && (
+                          <div className={`rounded-2xl p-4 ${showUserDetails ? 'border-amber-300 ring-2 ring-amber-300/30 shadow-lg dark:border-amber-600 dark:ring-amber-600/30' : 'border-slate-200/80 dark:border-slate-800/60'} ${isLightMode ? 'bg-white text-slate-900' : 'bg-slate-50 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300'}`}>
+                            <div className="grid gap-2 text-sm">
+                              <p><span className="font-semibold">Status:</span> {selectedUser.status}</p>
+                              <p><span className="font-semibold">Phone:</span> {selectedUser.customer_phone || 'N/A'}</p>
+                              <p><span className="font-semibold">Building:</span> {selectedUser.building_name || 'N/A'}</p>
+                              <p><span className="font-semibold">Technician:</span> {selectedUser.technician_name || 'Unassigned'}</p>
+                            </div>
+                          </div>
+                        )}
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500 dark:text-slate-400">No user booking selected.</p>
@@ -869,7 +1066,8 @@ export default function TechnicianTrackingMap() {
                       <p className="text-xs text-slate-500 dark:text-slate-400">{selectedTechnician.location_source === 'live' ? 'Live GPS feed' : 'Booking destination'}</p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-2">
                       <DetailButton
                         label="Focus on map"
                         variant="primary"
@@ -886,16 +1084,26 @@ export default function TechnicianTrackingMap() {
                         }}
                       />
                       <DetailButton label="Copy coordinates" onClick={() => navigator.clipboard.writeText(`${selectedTechnician.latitude ?? ''}, ${selectedTechnician.longitude ?? ''}`)} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTechnicianDetails((v) => !v)}
+                        className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
+                      >
+                        {showTechnicianDetails ? 'Hide details' : 'Show details'}
+                      </button>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 dark:border-slate-800/60 dark:bg-slate-900/80">
-                      <div className="grid gap-2 text-sm text-slate-700 dark:text-slate-300">
-                        <p><span className="font-semibold">Current jobs:</span> {selectedTechnician.current_jobs}</p>
-                        <p><span className="font-semibold">Latest booking:</span> {selectedTechnician.latest_booking_id ?? 'N/A'}</p>
-                        <p><span className="font-semibold">Recorded:</span> {selectedTechnician.location_recorded_at ? new Date(selectedTechnician.location_recorded_at).toLocaleString() : 'N/A'}</p>
-                        <p><span className="font-semibold">Location source:</span> {selectedTechnician.location_source}</p>
+                    {showTechnicianDetails && (
+                      <div className={`rounded-2xl p-4 ${showTechnicianDetails ? 'border-amber-200 ring-1 ring-amber-200/20 shadow-sm dark:border-amber-600 dark:ring-amber-600/12' : 'border-slate-200/80 dark:border-slate-800/60'} ${isLightMode ? 'bg-white text-slate-900' : 'bg-slate-50 dark:bg-slate-900/80 text-slate-700 dark:text-slate-300'}`}>
+                        <div className="grid gap-2 text-sm">
+                          <p><span className="font-semibold">Current jobs:</span> {selectedTechnician.current_jobs}</p>
+                          <p><span className="font-semibold">Latest booking:</span> {selectedTechnician.latest_booking_id ?? 'N/A'}</p>
+                          <p><span className="font-semibold">Recorded:</span> {selectedTechnician.location_recorded_at ? new Date(selectedTechnician.location_recorded_at).toLocaleString() : 'N/A'}</p>
+                          <p><span className="font-semibold">Location source:</span> {selectedTechnician.location_source}</p>
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm text-slate-500 dark:text-slate-400">No technician selected.</p>

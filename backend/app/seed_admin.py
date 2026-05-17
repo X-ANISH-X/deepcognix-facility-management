@@ -555,6 +555,64 @@ def seed_admin_dashboard_data() -> None:
                 "technician_notes": "Rejection requested for minor billing adjustment.",
                 "completed_tasks": 2,
             },
+            # Additional statuses for testing visibility in admin map and lists
+            {
+                "customer_id": customer_ids[2],
+                "service_id": service_catalog["AC Cleaning"],
+                "package_id": silver_id,
+                "technician_id": None,
+                "status": "rejected",
+                "final_price": silver_price,
+                "scheduled_date": today + timedelta(days=2),
+                "scheduled_time_slot": "11:00 AM",
+                "address_line": "Sunset Villas, Plot 22, Jayanagar",
+                "building_name": "Sunset Villas",
+                "floor_number": "Ground",
+                "apartment_number": "22",
+                "latitude": 12.9450,
+                "longitude": 77.5800,
+                "customer_notes": "Customer cancelled due to schedule change.",
+                "technician_notes": None,
+                "completed_tasks": 0,
+            },
+            {
+                "customer_id": customer_ids[0],
+                "service_id": service_catalog["Plumbing Inspection"],
+                "package_id": gold_id,
+                "technician_id": technician_ids[1],
+                "status": "rejected",
+                "final_price": gold_price,
+                "scheduled_date": today + timedelta(days=3),
+                "scheduled_time_slot": "01:00 PM",
+                "address_line": "Harbor View, Apt 402, Koramangala",
+                "building_name": "Harbor View Koramangala",
+                "floor_number": "4",
+                "apartment_number": "402",
+                "latitude": 12.9358,
+                "longitude": 77.6201,
+                "customer_notes": "Rejected after technician review.",
+                "technician_notes": "Declined due to unsafe access.",
+                "completed_tasks": 0,
+            },
+            {
+                "customer_id": customer_ids[1],
+                "service_id": service_catalog["Home Deep Cleaning"],
+                "package_id": platinum_id,
+                "technician_id": technician_ids[0],
+                "status": "completed",
+                "final_price": platinum_price,
+                "scheduled_date": today,
+                "scheduled_time_slot": "05:00 PM",
+                "address_line": "Recent Close, Unit 11, Whitefield",
+                "building_name": "Recent Close Whitefield",
+                "floor_number": "1",
+                "apartment_number": "11",
+                "latitude": 12.9702,
+                "longitude": 77.7500,
+                "customer_notes": "Quick validation case for recently completed booking.",
+                "technician_notes": "Marked complete for QA validation.",
+                "completed_tasks": 12,
+            },
         ]
 
         booking_ids: list[int] = []
@@ -571,6 +629,14 @@ def seed_admin_dashboard_data() -> None:
             timestamp = datetime.combine(item["scheduled_date"], datetime.min.time()) + timedelta(hours=9 + index)
             set_booking_timestamp(cursor, booking_id, timestamp)
             booking_ids.append(booking_id)
+
+        # Make the very last booking timestamp 'now' so recent completed status is visible for short-window tests
+        if booking_ids:
+            try:
+                set_booking_timestamp(cursor, booking_ids[-1], datetime.now())
+            except Exception:
+                # best-effort; continue if cannot set
+                pass
 
         ensure_notification(cursor, admin_id, "Two bookings are waiting for approval and assignment.", False, "Booking Awaiting Assignment", "booking_submitted")
         ensure_notification(cursor, admin_id, "One technician requested completion approval.", False, "Completion Approval Needed", "admin_review_pending")
@@ -619,6 +685,14 @@ def seed_admin_dashboard_data() -> None:
         ensure_location(cursor, booking_ids[4], technician_ids[4], 12.9255, 77.5941, 5.5)
         ensure_location(cursor, booking_ids[4], technician_ids[4], 12.9252, 77.5937, 5.1)
         ensure_location(cursor, booking_ids[5], technician_ids[4], 13.1012, 77.5960, 4.9)
+
+        # Additional live location for the recent completed booking (last seeded booking)
+        if len(booking_ids) >= 1:
+            try:
+                recent_booking_id = booking_ids[-1]
+                ensure_location(cursor, recent_booking_id, technician_ids[0], 12.9702, 77.7500, 6.0)
+            except Exception:
+                pass
 
         conn.commit()
 
