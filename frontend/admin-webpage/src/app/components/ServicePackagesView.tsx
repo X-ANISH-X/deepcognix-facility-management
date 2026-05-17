@@ -264,18 +264,17 @@ export function ServicePackagesView() {
                   <p className="text-sm text-slate-500 dark:text-slate-400">No custom types added yet. Click "Add BHK / Type" to create options like "2BHK" or "3BHK" with associated time estimates.</p>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {Object.entries(createEstimatedTimes).map(([apartmentType, duration]) => (
-                      <div key={apartmentType} className="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+                    {Object.entries(createEstimatedTimes).map(([apartmentType, duration], index) => (
+                      <div key={`create-estimate-${index}`} className="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
                         <Input
                           type="text"
                           value={apartmentType}
                           onChange={(e) => {
                             const newType = e.target.value;
                             setCreateEstimatedTimes((prev) => {
-                              const updated = { ...prev };
-                              delete updated[apartmentType];
-                              updated[newType] = duration;
-                              return updated;
+                              const entries = Object.entries(prev);
+                              entries[index] = [newType, duration];
+                              return Object.fromEntries(entries);
                             });
                           }}
                           placeholder="e.g., 2BHK, 3BHK, Studio"
@@ -285,10 +284,12 @@ export function ServicePackagesView() {
                           type="text"
                           value={duration}
                           onChange={(e) => {
-                            setCreateEstimatedTimes((prev) => ({
-                              ...prev,
-                              [apartmentType]: e.target.value,
-                            }));
+                            const nextDuration = e.target.value;
+                            setCreateEstimatedTimes((prev) => {
+                              const entries = Object.entries(prev);
+                              entries[index] = [apartmentType, nextDuration];
+                              return Object.fromEntries(entries);
+                            });
                           }}
                           placeholder="e.g., 2-3 hours, 30 mins"
                           className="rounded-lg text-sm"
@@ -297,9 +298,9 @@ export function ServicePackagesView() {
                           type="button"
                           onClick={() => {
                             setCreateEstimatedTimes((prev) => {
-                              const updated = { ...prev };
-                              delete updated[apartmentType];
-                              return updated;
+                              const entries = Object.entries(prev);
+                              entries.splice(index, 1);
+                              return Object.fromEntries(entries);
                             });
                           }}
                           className="text-xs text-rose-600 hover:text-rose-700 font-semibold"
@@ -515,18 +516,17 @@ export function ServicePackagesView() {
                   <p className="text-sm text-slate-500 dark:text-slate-400">No custom types added yet. Click "Add BHK / Type" to create options like "2BHK" or "3BHK" with associated time estimates.</p>
                 ) : (
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                    {Object.entries(editEstimatedTimes).map(([apartmentType, duration]) => (
-                      <div key={apartmentType} className="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
+                    {Object.entries(editEstimatedTimes).map(([apartmentType, duration], index) => (
+                      <div key={`edit-estimate-${index}`} className="flex flex-col gap-2 rounded-xl border border-slate-300 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
                         <Input
                           type="text"
                           value={apartmentType}
                           onChange={(e) => {
                             const newType = e.target.value;
                             setEditEstimatedTimes((prev) => {
-                              const updated = { ...prev };
-                              delete updated[apartmentType];
-                              updated[newType] = duration;
-                              return updated;
+                              const entries = Object.entries(prev);
+                              entries[index] = [newType, duration];
+                              return Object.fromEntries(entries);
                             });
                           }}
                           placeholder="e.g., 2BHK, 3BHK, Studio"
@@ -536,10 +536,12 @@ export function ServicePackagesView() {
                           type="text"
                           value={duration}
                           onChange={(e) => {
-                            setEditEstimatedTimes((prev) => ({
-                              ...prev,
-                              [apartmentType]: e.target.value,
-                            }));
+                            const nextDuration = e.target.value;
+                            setEditEstimatedTimes((prev) => {
+                              const entries = Object.entries(prev);
+                              entries[index] = [apartmentType, nextDuration];
+                              return Object.fromEntries(entries);
+                            });
                           }}
                           placeholder="e.g., 2-3 hours, 30 mins"
                           className="rounded-lg text-sm"
@@ -548,9 +550,9 @@ export function ServicePackagesView() {
                           type="button"
                           onClick={() => {
                             setEditEstimatedTimes((prev) => {
-                              const updated = { ...prev };
-                              delete updated[apartmentType];
-                              return updated;
+                              const entries = Object.entries(prev);
+                              entries.splice(index, 1);
+                              return Object.fromEntries(entries);
                             });
                           }}
                           className="text-xs text-rose-600 hover:text-rose-700 font-semibold"

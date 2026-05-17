@@ -188,7 +188,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       case 'submitted': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/25 dark:text-yellow-300 dark:border-yellow-700';
       case 'completion-requested': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-700';
       case 'rejection-requested': return 'bg-rose-500/10 text-rose-600 border-rose-200 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-700';
-      case 'cancelled': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/25 dark:text-red-300 dark:border-red-700';
+      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/25 dark:text-red-300 dark:border-red-700';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-200 dark:bg-gray-500/25 dark:text-gray-300 dark:border-gray-700';
     }
   };
@@ -202,7 +202,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       case 'submitted': return 'bg-yellow-500 hover:bg-yellow-500';
       case 'completion-requested': return 'bg-emerald-500 hover:bg-emerald-500';
       case 'rejection-requested': return 'bg-rose-500 hover:bg-rose-500';
-      case 'cancelled': return 'bg-red-500 hover:bg-red-500';
+      case 'rejected': return 'bg-red-500 hover:bg-red-500';
       default: return 'bg-gray-500 hover:bg-gray-500';
     }
   };
@@ -397,7 +397,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                     <SelectItem value="completion-requested">Completion Requested</SelectItem>
                     <SelectItem value="rejection-requested">Rejection Requested</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -37,7 +37,7 @@ export interface WorkOrder {
   serviceType: string;
   packageName?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completion-requested' | 'rejection-requested' | 'completed' | 'cancelled';
+  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completion-requested' | 'rejection-requested' | 'completed' | 'rejected';
   technicianId?: string;
   technicianName?: string;
   scheduledDate: string;
@@ -319,8 +319,8 @@ function statusFromBackend(raw: string): WorkOrder['status'] {
   if (raw === 'completion_requested') return 'completion-requested';
   if (raw === 'rejection_requested') return 'rejection-requested';
   if (raw === 'completed') return 'completed';
-  if (raw === 'rejected') return 'cancelled';
-  if (raw === 'cancelled') return 'cancelled';
+  if (raw === 'rejected') return 'rejected';
+  if (raw === 'cancelled') return 'rejected';
   return 'submitted';
 }
 
@@ -328,7 +328,7 @@ function statusToBackend(raw: WorkOrder['status']): string {
   if (raw === 'in-progress') return 'in_progress';
   if (raw === 'completion-requested') return 'completion_requested';
   if (raw === 'rejection-requested') return 'rejection_requested';
-  if (raw === 'cancelled') return 'rejected';
+  if (raw === 'rejected') return 'rejected';
   return raw;
 }
 
