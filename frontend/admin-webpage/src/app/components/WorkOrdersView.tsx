@@ -11,7 +11,7 @@ import { LoadingSpinner } from '@/app/components/LoadingSpinner';
 import { api as mockApi, type WorkOrder, type Technician } from '@/app/services/api';
 import { useLanguage } from '@/app/context/LanguageContext';
 import type { UserRole } from '@/app/utils/accessControl';
-import { Plus, Search, Filter, Calendar, MapPin, DollarSign, User, Clock } from 'lucide-react';
+import { Plus, Search, Calendar, MapPin, DollarSign, User, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface WorkOrdersViewProps {
@@ -183,10 +183,11 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
     switch (status) {
       case 'completed': return 'bg-green-500/10 text-green-600 border-green-200 dark:bg-green-500/25 dark:text-green-300 dark:border-green-700';
       case 'in-progress': return 'bg-blue-500/10 text-blue-600 border-blue-200 dark:bg-blue-500/25 dark:text-blue-300 dark:border-blue-700';
-      case 'approved': return 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:bg-indigo-500/25 dark:text-indigo-300 dark:border-indigo-700';
+      case 'approved':
+      case 'submitted': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/25 dark:text-yellow-300 dark:border-yellow-700';
       case 'assigned': return 'bg-purple-500/10 text-purple-600 border-purple-200 dark:bg-purple-500/25 dark:text-purple-300 dark:border-purple-700';
       case 'submitted': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/25 dark:text-yellow-300 dark:border-yellow-700';
-      case 'completion-requested': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-700';
+      case 'admin_review_pending': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-700';
       case 'rejection-requested': return 'bg-rose-500/10 text-rose-600 border-rose-200 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-700';
       case 'rejected': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/25 dark:text-red-300 dark:border-red-700';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-200 dark:bg-gray-500/25 dark:text-gray-300 dark:border-gray-700';
@@ -197,13 +198,29 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
     switch (status) {
       case 'completed': return 'bg-green-500 hover:bg-green-500';
       case 'in-progress': return 'bg-blue-500 hover:bg-blue-500';
-      case 'approved': return 'bg-indigo-500 hover:bg-indigo-500';
+      case 'approved':
+      case 'submitted': return 'bg-yellow-500 hover:bg-yellow-500';
       case 'assigned': return 'bg-purple-500 hover:bg-purple-500';
       case 'submitted': return 'bg-yellow-500 hover:bg-yellow-500';
-      case 'completion-requested': return 'bg-emerald-500 hover:bg-emerald-500';
+      case 'admin_review_pending': return 'bg-emerald-500 hover:bg-emerald-500';
       case 'rejection-requested': return 'bg-rose-500 hover:bg-rose-500';
       case 'rejected': return 'bg-red-500 hover:bg-red-500';
       default: return 'bg-gray-500 hover:bg-gray-500';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'Submitted';
+      case 'admin_review_pending':
+        return 'Completion Requested';
+      case 'in-progress':
+        return 'In Progress';
+      case 'rejection-requested':
+        return 'Rejection Requested';
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
     }
   };
 
@@ -352,9 +369,9 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
               <div className="text-xs text-yellow-700 dark:text-yellow-300">Submitted</div>
               <div className="text-xl font-bold">{workOrders.filter((order) => order.status === 'submitted').length}</div>
             </div>
-            <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-3">
-              <div className="text-xs text-indigo-700 dark:text-indigo-300">Approved/Assigned</div>
-              <div className="text-xl font-bold">{workOrders.filter((order) => order.status === 'approved' || order.status === 'assigned').length}</div>
+            <div className="rounded-xl bg-yellow-50 dark:bg-yellow-900/20 p-3">
+              <div className="text-xs text-yellow-700 dark:text-yellow-300">Submitted / Assigned</div>
+              <div className="text-xl font-bold">{workOrders.filter((order) => order.status === 'submitted' || order.status === 'assigned').length}</div>
             </div>
             <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3">
               <div className="text-xs text-blue-700 dark:text-blue-300">In Progress</div>
@@ -391,10 +408,9 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     <SelectItem value="submitted">Submitted</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="completion-requested">Completion Requested</SelectItem>
+                    <SelectItem value="admin_review_pending">Completion Requested</SelectItem>
                     <SelectItem value="rejection-requested">Rejection Requested</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
@@ -402,10 +418,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                 </Select>
               </div>
 
-              <Button variant="outline" className="rounded-xl whitespace-nowrap">
-                <Filter className="w-4 h-4 mr-2" />
-                More Filters
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -427,7 +439,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                   </div>
                 </div>
                 <Badge className={`${getStatusColor(order.status)} whitespace-nowrap`} variant="outline">
-                  {order.status}
+                  {getStatusLabel(order.status)}
                 </Badge>
               </div>
 
@@ -473,7 +485,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
-                {canManage && (order.status === 'submitted' || order.status === 'approved') && (
+                {canManage && order.status === 'submitted' && (
                   <Button 
                     onClick={() => { setSelectedOrder(order); setIsAssignDialogOpen(true); }}
                     className="flex-1 min-w-37.5 rounded-full bg-blue-600 hover:bg-blue-700 dark:text-white"
@@ -491,7 +503,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                     Reassign
                   </Button>
                 )}
-                {canManage && order.status === 'completion-requested' && (
+                {canManage && order.status === 'admin_review_pending' && (
                   <Button
                     onClick={() => void handleApproveCompletion(order.id)}
                     className="flex-1 min-w-37.5 rounded-full bg-emerald-600 hover:bg-emerald-700 dark:text-white"
@@ -593,7 +605,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                   <p className="mt-1 text-gray-600 dark:text-gray-300">{selectedOrder.customerName}</p>
                 </div>
                 <Badge className={`${getStatusColor(selectedOrder.status)} whitespace-nowrap`} variant="outline">
-                  {selectedOrder.status}
+                  {getStatusLabel(selectedOrder.status)}
                 </Badge>
               </div>
 
@@ -629,7 +641,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
               </div>
 
               <div className="flex flex-wrap justify-end gap-2">
-                {canManage && (selectedOrder.status === 'submitted' || selectedOrder.status === 'approved') && (
+                {canManage && selectedOrder.status === 'submitted' && (
                   <Button
                     onClick={() => {
                       setIsDetailsDialogOpen(false);

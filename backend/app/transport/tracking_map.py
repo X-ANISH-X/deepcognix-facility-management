@@ -20,11 +20,17 @@ def _as_float(value):
         return None
 
 
-def _derive_technician_status(is_active: bool, latest_booking_status: str | None) -> str:
+def _derive_technician_status(is_active: bool, current_jobs: int | None, latest_booking_status: str | None) -> str:
     if not is_active:
         return "offline"
 
+    active_jobs = int(current_jobs or 0)
     normalized = (latest_booking_status or "").strip().lower()
+    # Normalize 'approved' to 'submitted' for admin map display only
+    if normalized == 'approved':
+        normalized = 'submitted'
+    if active_jobs <= 0:
+        return "available"
     if normalized in {"in_progress"}:
         return "onsite"
     if normalized in {"on_the_way", "arrival_approval_pending"}:
@@ -126,6 +132,7 @@ def list_technician_locations(
             booking_longitude = _as_float(row.get("booking_longitude"))
             is_active = bool(row.get("is_active", True))
             latest_booking_status = row.get("latest_booking_status")
+            current_jobs = int(row.get("current_jobs") or 0)
 
             latitude = live_latitude if live_latitude is not None else booking_latitude
             longitude = live_longitude if live_longitude is not None else booking_longitude
@@ -148,7 +155,7 @@ def list_technician_locations(
                     "latitude": latitude,
                     "longitude": longitude,
                     "location_recorded_at": row.get("location_recorded_at"),
-                    "status": _derive_technician_status(is_active, latest_booking_status),
+                    "status": _derive_technician_status(is_active, current_jobs, latest_booking_status),
                     "location_source": (
                         "live"
                         if live_latitude is not None and live_longitude is not None
