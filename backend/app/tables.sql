@@ -130,6 +130,8 @@ CREATE TABLE IF NOT EXISTS bookings (
         'submitted',
         'approved',
         'assigned',
+        'on_the_way',
+        'arrival_approval_pending',
         'in_progress',
         'customer_review_pending',
         'admin_review_pending',

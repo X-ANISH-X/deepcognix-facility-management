@@ -178,7 +178,7 @@ def _ensure_booking_status_values(cursor):
     )
     # Now that the ENUM is expanded, we can safely update the obsolete statuses
     cursor.execute("UPDATE bookings SET status = 'submitted' WHERE status = 'cancelled'")
-    cursor.execute("UPDATE bookings SET status = 'customer_review_pending' WHERE status = 'completion_requested'")
+    cursor.execute("UPDATE bookings SET status = 'admin_review_pending' WHERE status = 'completion_requested'")
     # Finally, contract the ENUM back to the canonical values
     _run_safe_alter(
         cursor,

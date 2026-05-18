@@ -37,7 +37,7 @@ export interface WorkOrder {
   serviceType: string;
   packageName?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'completion-requested' | 'rejection-requested' | 'completed' | 'rejected';
+  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'admin_review_pending' | 'rejection-requested' | 'completed' | 'rejected';
   technicianId?: string;
   technicianName?: string;
   scheduledDate: string;
@@ -48,6 +48,7 @@ export interface WorkOrder {
   apartmentNumber?: string;
   description: string;
   customerNotes?: string;
+  technicianNotes?: string;
   preferredTechnician?: string;
   parkingInstructions?: string;
   petWarning?: string;
@@ -311,12 +312,12 @@ function pickFirstNumber(obj: Dict, keys: string[], fallback = 0): number {
 
 function statusFromBackend(raw: string): WorkOrder['status'] {
   if (raw === 'submitted') return 'submitted';
-  if (raw === 'approved') return 'approved';
+  if (raw === 'approved') return 'submitted';
   if (raw === 'assigned') return 'assigned';
   if (raw === 'in_progress') return 'in-progress';
   if (raw === 'customer_review_pending') return 'in-progress';
-  if (raw === 'admin_review_pending') return 'completion-requested';
-  if (raw === 'completion_requested') return 'completion-requested';
+  if (raw === 'admin_review_pending') return 'admin_review_pending';
+  if (raw === 'completion_requested') return 'admin_review_pending';
   if (raw === 'rejection_requested') return 'rejection-requested';
   if (raw === 'completed') return 'completed';
   if (raw === 'rejected') return 'rejected';
@@ -326,7 +327,7 @@ function statusFromBackend(raw: string): WorkOrder['status'] {
 
 function statusToBackend(raw: WorkOrder['status']): string {
   if (raw === 'in-progress') return 'in_progress';
-  if (raw === 'completion-requested') return 'completion_requested';
+  if (raw === 'admin_review_pending') return 'admin_review_pending';
   if (raw === 'rejection-requested') return 'rejection_requested';
   if (raw === 'rejected') return 'rejected';
   return raw;
@@ -562,6 +563,7 @@ function mapWorkOrder(item: Dict): WorkOrder {
     apartmentNumber: pickString(item, 'apartment_number') || undefined,
     description: pickString(item, 'customer_notes') || pickString(item, 'notes'),
     customerNotes: pickString(item, 'customer_notes') || undefined,
+    technicianNotes: pickString(item, 'technician_notes') || undefined,
     preferredTechnician: pickString(item, 'preferred_technician') || undefined,
     parkingInstructions: pickString(item, 'parking_instructions') || undefined,
     petWarning: pickString(item, 'pet_warning') || undefined,

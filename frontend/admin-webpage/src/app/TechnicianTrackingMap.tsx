@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import 'leaflet-control-geocoder/dist/Control.Geocoder.css';
 import 'leaflet-control-geocoder';
-import { ChevronLeft, ChevronRight, Minus, Plus, Scan, Search, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Minus, Plus, Scan, Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTheme } from '@/app/context/ThemeContext';
 
 type TechnicianLocation = {
@@ -53,6 +53,71 @@ const API_BASE =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
   'http://127.0.0.1:8000';
 
+const LEGEND_STORAGE_KEY = 'admin-technician-tracking-legend-state-v1';
+const DEFAULT_TECHNICIAN_STATUSES: TechnicianLocation['status'][] = ['available', 'assigned', 'enroute', 'onsite', 'offline'];
+const DEFAULT_BOOKING_STATUSES = ['submitted', 'assigned', 'in_progress', 'admin_review_pending', 'rejection_requested', 'completed', 'rejected'];
+
+type LegendState = {
+  isLegendCollapsed: boolean;
+  visibleTechnicianStatuses: TechnicianLocation['status'][];
+  visibleBookingStatuses: string[];
+};
+
+function readLegendState(): LegendState {
+  const fallback: LegendState = {
+    isLegendCollapsed: false,
+    visibleTechnicianStatuses: [...DEFAULT_TECHNICIAN_STATUSES],
+    visibleBookingStatuses: [...DEFAULT_BOOKING_STATUSES],
+  };
+
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  try {
+    const rawState = window.localStorage.getItem(LEGEND_STORAGE_KEY);
+    if (!rawState) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(rawState) as Partial<LegendState>;
+    const technicianSet = new Set<string>(DEFAULT_TECHNICIAN_STATUSES);
+    const bookingSet = new Set<string>(DEFAULT_BOOKING_STATUSES);
+
+    const visibleTechnicianStatuses = Array.isArray(parsed.visibleTechnicianStatuses)
+      ? parsed.visibleTechnicianStatuses.filter((value): value is TechnicianLocation['status'] => (
+        typeof value === 'string' && technicianSet.has(value)
+      ))
+      : [];
+
+    const visibleBookingStatuses = Array.isArray(parsed.visibleBookingStatuses)
+      ? parsed.visibleBookingStatuses
+        .map((value) => normalizeBookingLegendStatus(String(value).toLowerCase()))
+        .filter((value) => bookingSet.has(value))
+      : [];
+
+    return {
+      isLegendCollapsed: Boolean(parsed.isLegendCollapsed),
+      visibleTechnicianStatuses: visibleTechnicianStatuses.length ? visibleTechnicianStatuses : [...DEFAULT_TECHNICIAN_STATUSES],
+      visibleBookingStatuses: visibleBookingStatuses.length ? visibleBookingStatuses : [...DEFAULT_BOOKING_STATUSES],
+    };
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function saveLegendState(state: LegendState): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LEGEND_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    // ignore storage failures
+  }
+}
+
 function getStatusColor(status: TechnicianLocation['status']): string {
   switch (status) {
     case 'available':
@@ -87,6 +152,23 @@ function getStatusText(status: TechnicianLocation['status']): string {
   }
 }
 
+function getTechnicianStatusPillClass(status: TechnicianLocation['status']): string {
+  switch (status) {
+    case 'available':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-500 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200';
+    case 'assigned':
+      return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-200';
+    case 'enroute':
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200';
+    case 'onsite':
+      return 'border-teal-200 bg-teal-50 text-teal-700 dark:border-teal-500/30 dark:bg-teal-500/15 dark:text-teal-200';
+    case 'offline':
+      return 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
+    default:
+      return 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
+  }
+}
+
 function getBookingStatusColor(status?: string | null): string {
   switch ((status || '').toLowerCase()) {
     case 'submitted':
@@ -100,6 +182,7 @@ function getBookingStatusColor(status?: string | null): string {
     case 'completion_requested':
     case 'admin_review_pending':
       return '#06b6d4';
+    // Treat customer review the same as completion requested in the admin UI
     case 'customer_review_pending':
       return '#06b6d4';
     case 'rejection_requested':
@@ -121,7 +204,8 @@ function getBookingStatusText(status?: string | null): string {
     case 'pending':
       return 'Submitted';
     case 'approved':
-      return 'Approved';
+      // Treat 'approved' as 'Submitted' for admin UI (no auto-approval workflow)
+      return 'Submitted';
     case 'assigned':
       return 'Assigned';
     case 'in_progress':
@@ -129,9 +213,9 @@ function getBookingStatusText(status?: string | null): string {
       return 'In Progress';
     case 'completion_requested':
     case 'admin_review_pending':
-      return 'Completion Requested';
     case 'customer_review_pending':
-      return 'Customer Review Pending';
+      // Merge customer review into completion requested for admin display
+      return 'Completion Requested';
     case 'rejection_requested':
       return 'Rejection Requested';
     case 'completed':
@@ -139,6 +223,24 @@ function getBookingStatusText(status?: string | null): string {
     case 'cancelled':
     case 'rejected':
       return 'Rejected';
+    default:
+      return status;
+  }
+}
+
+function normalizeBookingLegendStatus(status: string): string {
+  switch (status) {
+    case 'completion_requested':
+    case 'customer_review_pending':
+      return 'admin_review_pending';
+    case 'approved':
+    case 'submitted':
+    case 'pending':
+      return 'submitted';
+    case 'in-progress':
+      return 'in_progress';
+    case 'rejection-requested':
+      return 'rejection_requested';
     default:
       return status;
   }
@@ -344,7 +446,18 @@ export default function TechnicianTrackingMap() {
   const [selectedUserBookingId, setSelectedUserBookingId] = useState<number | null>(null);
   const [activeSidebar, setActiveSidebar] = useState<'user' | 'technician' | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
-  const [isLegendCollapsed, setIsLegendCollapsed] = useState(false);
+  const [initialLegendState] = useState<LegendState>(() => readLegendState());
+  const [isLegendCollapsed, setIsLegendCollapsed] = useState(initialLegendState.isLegendCollapsed);
+  const [visibleTechnicianStatuses, setVisibleTechnicianStatuses] = useState<TechnicianLocation['status'][]>(initialLegendState.visibleTechnicianStatuses);
+  const [visibleBookingStatuses, setVisibleBookingStatuses] = useState<string[]>(initialLegendState.visibleBookingStatuses);
+
+  useEffect(() => {
+    saveLegendState({
+      isLegendCollapsed,
+      visibleTechnicianStatuses,
+      visibleBookingStatuses,
+    });
+  }, [isLegendCollapsed, visibleTechnicianStatuses, visibleBookingStatuses]);
 
   useEffect(() => {
     if (!mapInstance) return;
@@ -465,8 +578,34 @@ export default function TechnicianTrackingMap() {
     });
   }, [userQuery, users]);
 
+  const toggleTechnicianStatus = (status: TechnicianLocation['status']) => {
+    setVisibleTechnicianStatuses((current) => (
+      current.includes(status)
+        ? current.filter((item) => item !== status)
+        : [...current, status]
+    ));
+  };
+
+  const toggleBookingStatus = (status: string) => {
+    setVisibleBookingStatuses((current) => (
+      current.includes(status)
+        ? current.filter((item) => item !== status)
+        : [...current, status]
+    ));
+  };
+
+  const visibleTechnicians = useMemo(
+    () => filteredTechnicians.filter((technician) => visibleTechnicianStatuses.includes(technician.status)),
+    [filteredTechnicians, visibleTechnicianStatuses],
+  );
+
+  const visibleUsers = useMemo(
+    () => filteredUsers.filter((user) => visibleBookingStatuses.includes(normalizeBookingLegendStatus(String(user.status).toLowerCase()))),
+    [filteredUsers, visibleBookingStatuses],
+  );
+
   const mapMarkers = useMemo(() => {
-    const technicianMarkers = filteredTechnicians
+    const technicianMarkers = visibleTechnicians
       .filter((technician) => Number.isFinite(technician.latitude) && Number.isFinite(technician.longitude))
       .map((technician) => ({
         kind: 'technician' as const,
@@ -476,7 +615,7 @@ export default function TechnicianTrackingMap() {
         technician,
       }));
 
-    const userMarkers = filteredUsers
+    const userMarkers = visibleUsers
       .filter((user) => Number.isFinite(user.latitude) && Number.isFinite(user.longitude))
       .map((user) => ({
         kind: 'user' as const,
@@ -487,25 +626,25 @@ export default function TechnicianTrackingMap() {
       }));
 
     return [...technicianMarkers, ...userMarkers];
-  }, [filteredTechnicians, filteredUsers]);
+  }, [visibleTechnicians, visibleUsers]);
 
   useEffect(() => {
     if (selectedTechnicianId === null && selectedUserBookingId === null) {
       return;
     }
 
-    if (selectedTechnicianId !== null && !filteredTechnicians.some((item) => item.id === selectedTechnicianId)) {
-      setSelectedTechnicianId(filteredTechnicians[0]?.id ?? null);
+    if (selectedTechnicianId !== null && !visibleTechnicians.some((item) => item.id === selectedTechnicianId)) {
+      setSelectedTechnicianId(visibleTechnicians[0]?.id ?? null);
     }
 
-    if (selectedUserBookingId !== null && !filteredUsers.some((item) => item.booking_id === selectedUserBookingId)) {
-      setSelectedUserBookingId(filteredUsers[0]?.booking_id ?? null);
+    if (selectedUserBookingId !== null && !visibleUsers.some((item) => item.booking_id === selectedUserBookingId)) {
+      setSelectedUserBookingId(visibleUsers[0]?.booking_id ?? null);
     }
-  }, [filteredTechnicians, filteredUsers, selectedTechnicianId, selectedUserBookingId]);
+  }, [visibleTechnicians, visibleUsers, selectedTechnicianId, selectedUserBookingId]);
 
   const selectedTechnician = useMemo(
-    () => filteredTechnicians.find((item) => item.id === selectedTechnicianId) ?? filteredTechnicians[0] ?? null,
-    [filteredTechnicians, selectedTechnicianId],
+    () => visibleTechnicians.find((item) => item.id === selectedTechnicianId) ?? visibleTechnicians[0] ?? null,
+    [visibleTechnicians, selectedTechnicianId],
   );
 
   const [showTechnicianDetails, setShowTechnicianDetails] = useState(false);
@@ -514,8 +653,8 @@ export default function TechnicianTrackingMap() {
   const isLightMode = theme === 'light';
 
   const selectedUser = useMemo(
-    () => filteredUsers.find((item) => item.booking_id === selectedUserBookingId) ?? filteredUsers[0] ?? null,
-    [filteredUsers, selectedUserBookingId],
+    () => visibleUsers.find((item) => item.booking_id === selectedUserBookingId) ?? visibleUsers[0] ?? null,
+    [visibleUsers, selectedUserBookingId],
   );
 
   const selectedUserCoordinates = useMemo(
@@ -529,10 +668,10 @@ export default function TechnicianTrackingMap() {
   );
 
   const technicianFitMarkers = useMemo(
-    () => filteredTechnicians
+    () => visibleTechnicians
       .filter((technician) => Number.isFinite(technician.latitude) && Number.isFinite(technician.longitude))
       .map((technician) => ({ lat: Number(technician.latitude), lng: Number(technician.longitude) })),
-    [filteredTechnicians],
+    [visibleTechnicians],
   );
 
   const hasAssignedTechnicianForSelectedUser = useMemo(
@@ -556,20 +695,30 @@ export default function TechnicianTrackingMap() {
 
   const displayedTechnicianStatuses = useMemo(() => {
     const statusOrder: TechnicianLocation['status'][] = ['available', 'assigned', 'enroute', 'onsite', 'offline'];
-    const present = new Set(filteredTechnicians.map((technician) => technician.status));
-    return statusOrder.filter((status) => present.has(status));
-  }, [filteredTechnicians]);
+    const present = new Set(visibleTechnicianStatuses);
+    return statusOrder.map((status) => ({ status, present: present.has(status) }));
+  }, [visibleTechnicianStatuses]);
 
   const displayedBookingStatuses = useMemo(() => {
-    // Collect booking-related statuses from technicians and users
+    const order = [
+      'submitted',
+      'assigned',
+      'in_progress',
+      'admin_review_pending',
+      'rejection_requested',
+      'completed',
+      'rejected',
+    ];
     const present = new Set<string>();
-    filteredTechnicians.forEach((t) => { if (t.latest_booking_status) present.add(String(t.latest_booking_status).toLowerCase()); });
-    filteredUsers.forEach((u) => { if (u.status) present.add(String(u.status).toLowerCase()); });
+    visibleTechnicians.forEach((t) => {
+      if (t.latest_booking_status) present.add(String(t.latest_booking_status).toLowerCase());
+    });
+    visibleUsers.forEach((u) => {
+      if (u.status) present.add(normalizeBookingLegendStatus(String(u.status).toLowerCase()));
+    });
 
-    // Prefer a common ordering for display (omit 'approved' — use assignment/other states instead)
-    const order = ['submitted', 'assigned', 'in_progress', 'in-progress', 'completion_requested', 'admin_review_pending', 'customer_review_pending', 'rejection_requested', 'completed', 'rejected'];
-    return order.filter((s) => present.has(s));
-  }, [filteredTechnicians, filteredUsers]);
+    return order.map((status) => ({ status, present: present.has(status) && visibleBookingStatuses.includes(status) }));
+  }, [visibleTechnicians, visibleUsers, visibleBookingStatuses]);
 
   if (isLoading) {
     return (
@@ -855,24 +1004,39 @@ export default function TechnicianTrackingMap() {
             </div>
 
           {!isLegendCollapsed && (
-                <div className="space-y-2 px-3 pb-3">
-              {displayedTechnicianStatuses.length ? displayedTechnicianStatuses.map((status) => (
-                <div key={status} className={`flex items-center gap-2.5 text-xs ${isLightMode ? 'text-slate-900' : 'text-slate-100'}`}>
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(status) }} />
-                  <span>{getStatusText(status)}</span>
-                </div>
-              )) : (
-                <p className="text-xs text-slate-300">No technician statuses in current filter.</p>
-              )}
+            <div className="space-y-2 px-3 pb-3">
+              {displayedTechnicianStatuses.map((statusItem) => (
+                <button
+                  key={statusItem.status}
+                  type="button"
+                  onClick={() => toggleTechnicianStatus(statusItem.status)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-slate-500/5 ${statusItem.present ? (isLightMode ? 'text-slate-900' : 'text-slate-100') : 'opacity-45'}`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(statusItem.status) }} />
+                    <span>{getStatusText(statusItem.status)}</span>
+                  </span>
+                  {statusItem.present ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                </button>
+              ))}
+
               {displayedBookingStatuses.length ? (
                 <div className="pt-2">
                   <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Booking statuses</p>
                   <div className="mt-1 space-y-1">
-                    {displayedBookingStatuses.map((bs) => (
-                      <div key={bs} className={`flex items-center gap-2.5 text-xs ${isLightMode ? 'text-slate-900' : 'text-slate-100'}`}>
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(bs) }} />
-                        <span>{getBookingStatusText(bs)}</span>
-                      </div>
+                    {displayedBookingStatuses.map((statusItem) => (
+                      <button
+                        key={statusItem.status}
+                        type="button"
+                        onClick={() => toggleBookingStatus(statusItem.status)}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-slate-500/5 ${statusItem.present ? (isLightMode ? 'text-slate-900' : 'text-slate-100') : 'opacity-45'}`}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(statusItem.status) }} />
+                          <span>{getBookingStatusText(statusItem.status)}</span>
+                        </span>
+                        {statusItem.present ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1055,6 +1219,17 @@ export default function TechnicianTrackingMap() {
                     placeholder="Search technician name, email, status, address"
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                   />
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {displayedTechnicianStatuses.map((statusItem) => (
+                      <span
+                        key={statusItem.status}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${getTechnicianStatusPillClass(statusItem.status)} ${statusItem.present ? '' : 'opacity-45'}`}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getStatusColor(statusItem.status) }} />
+                        {getStatusText(statusItem.status)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 {selectedTechnician ? (
@@ -1099,7 +1274,7 @@ export default function TechnicianTrackingMap() {
                         <div className="grid gap-2 text-sm">
                           <p><span className="font-semibold">Current jobs:</span> {selectedTechnician.current_jobs}</p>
                           <p><span className="font-semibold">Latest booking:</span> {selectedTechnician.latest_booking_id ?? 'N/A'}</p>
-                          <p><span className="font-semibold">Recorded:</span> {selectedTechnician.location_recorded_at ? new Date(selectedTechnician.location_recorded_at).toLocaleString() : 'N/A'}</p>
+                          <p><span className="font-semibold">Recorded:</span> {selectedTechnician.location_recorded_at ? new Date(String(selectedTechnician.location_recorded_at)).toLocaleString() : 'N/A'}</p>
                           <p><span className="font-semibold">Location source:</span> {selectedTechnician.location_source}</p>
                         </div>
                       </div>

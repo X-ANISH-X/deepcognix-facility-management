@@ -267,6 +267,8 @@ def seed_admin_dashboard_data() -> None:
             ensure_user(cursor, SeedUser("Priyanka Das", "priyanka.dashboard@example.com", "9876500204", "technician", "test123")),
         ]
 
+        cursor.execute("UPDATE users SET is_active = FALSE WHERE id = %s", (technician_ids[4],))
+
         cleaning_category_id = ensure_category(
             cursor,
             "Cleaning",
@@ -484,7 +486,7 @@ def seed_admin_dashboard_data() -> None:
                 "service_id": service_catalog["Plumbing Inspection"],
                 "package_id": gold_id,
                 "technician_id": technician_ids[4],
-                "status": "approved",
+                "status": "assigned",
                 "final_price": gold_price,
                 "scheduled_date": today - timedelta(days=2),
                 "scheduled_time_slot": "05:00 PM",
@@ -520,9 +522,28 @@ def seed_admin_dashboard_data() -> None:
             {
                 "customer_id": customer_ids[0],
                 "service_id": service_catalog["Home Deep Cleaning"],
+                "package_id": silver_id,
+                "technician_id": technician_ids[1],
+                "status": "approved",
+                "final_price": silver_price,
+                "scheduled_date": today + timedelta(days=4),
+                "scheduled_time_slot": "09:00 AM",
+                "address_line": "Lotus Court, Block D, Indiranagar",
+                "building_name": "Lotus Court Indiranagar",
+                "floor_number": "3",
+                "apartment_number": "304",
+                "latitude": 12.9789,
+                "longitude": 77.6402,
+                "customer_notes": "Used to keep an active assigned example on the map.",
+                "technician_notes": "Assigned example booking for legend coverage.",
+                "completed_tasks": 0,
+            },
+            {
+                "customer_id": customer_ids[0],
+                "service_id": service_catalog["Home Deep Cleaning"],
                 "package_id": move_out_refresh_id,
                 "technician_id": technician_ids[2],
-                "status": "customer_review_pending",
+                "status": "admin_review_pending",
                 "final_price": 3499.00,
                 "scheduled_date": today,
                 "scheduled_time_slot": "11:00 AM",
@@ -686,6 +707,10 @@ def seed_admin_dashboard_data() -> None:
         ensure_location(cursor, booking_ids[4], technician_ids[4], 12.9252, 77.5937, 5.1)
         ensure_location(cursor, booking_ids[5], technician_ids[4], 13.1012, 77.5960, 4.9)
 
+        # Assign a live location to the additional approved booking so the map has
+        # a visible assigned technician example distinct from en-route/on-site/offline.
+        ensure_location(cursor, booking_ids[8], technician_ids[1], 12.9790, 77.6403, 5.7)
+
         # Additional live location for the recent completed booking (last seeded booking)
         if len(booking_ids) >= 1:
             try:
@@ -705,7 +730,7 @@ def seed_admin_dashboard_data() -> None:
         print("")
         print("Seeded dashboard data includes:")
         print("  - Five technicians")
-        print("  - Multiple bookings across submitted, approved, assigned, in-progress, customer-review-pending, completed, and rejection-requested states")
+        print("  - Multiple bookings across submitted, approved, assigned, in-progress, completion-requested, completed, and rejection-requested states")
         print("  - Service-package metadata for Silver, Gold, Platinum, and Move-Out Refresh")
         print("  - Booking request rows for completion and rejection review flows")
         print("  - Notifications and live technician locations")

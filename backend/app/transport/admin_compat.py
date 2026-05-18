@@ -62,13 +62,19 @@ def _require_admin(current_user: dict):
 
 def _map_technician(user: dict) -> dict:
     is_active = bool(user.get("is_active", True))
+    current_jobs = int(user.get("current_jobs") or 0)
     latest_booking_status = str(user.get("latest_booking_status") or "").strip().lower()
+    # Normalize 'approved' to 'submitted' for admin compatibility/display purposes
+    if latest_booking_status == 'approved':
+        latest_booking_status = 'submitted'
 
     if not is_active:
         status_value = "offline"
+    elif current_jobs <= 0:
+        status_value = "available"
     elif latest_booking_status in {"in_progress"}:
         status_value = "onsite"
-    elif latest_booking_status in {"assigned", "approved", "customer_review_pending", "admin_review_pending", "completion_requested"}:
+    elif latest_booking_status in {"assigned", "customer_review_pending", "admin_review_pending", "completion_requested"}:
         status_value = "assigned"
     else:
         status_value = "available"

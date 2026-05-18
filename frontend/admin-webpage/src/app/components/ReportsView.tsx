@@ -157,36 +157,33 @@ export function ReportsView() {
   };
 
   const handleExportCSV = async () => {
-    // Export an XLSX workbook with three sheets: Date, Technician, Customer.
+    // Export an XLSX workbook with three sheets: Date, Technician, Customer using exceljs.
     try {
-      // Load SheetJS (xlsx) from CDN if not already loaded to avoid local dependency issues during quick testing.
-      const globalAny: any = window as any;
-      if (!globalAny.XLSX) {
-        await new Promise<void>((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js';
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error('Failed to load xlsx script'));
-          document.head.appendChild(s);
-        });
-      }
-      const XLSX: any = (window as any).XLSX;
+      const excelModule = await import('exceljs');
+      const ExcelJS = (excelModule && (excelModule as any).default) || excelModule;
 
       const dateSheetData = dateWiseArray.map((d) => ({ Date: d.date, CompletedOrders: d.count, Revenue: Number(d.revenue).toFixed(2) }));
       const techSheetData = technicianWiseData.map((t) => ({ Technician: t.name, TotalJobs: t.totalJobs, CompletedJobs: t.completedJobs, Revenue: Number(t.revenue).toFixed(2), CompletionRate: t.completionRate }));
       const customerSheetData = filteredCustomerReportRows.map((r) => ({ OrderID: r.orderId, CustomerID: r.customerId, CustomerName: r.customerName, Package: r.packageName, Technician: r.technicianName, Email: r.customerEmail, Phone: r.customerPhone, Amount: Number(r.amount).toFixed(2) }));
 
-      const wb = XLSX.utils.book_new();
-      const wsDate = XLSX.utils.json_to_sheet(dateSheetData);
-      const wsTech = XLSX.utils.json_to_sheet(techSheetData);
-      const wsCustomer = XLSX.utils.json_to_sheet(customerSheetData);
+      const workbook = new ExcelJS.Workbook();
 
-      XLSX.utils.book_append_sheet(wb, wsDate, 'Date');
-      XLSX.utils.book_append_sheet(wb, wsTech, 'Technician');
-      XLSX.utils.book_append_sheet(wb, wsCustomer, 'Customer');
+      const addJsonSheet = (name: string, data: Array<Record<string, any>>) => {
+        const ws = workbook.addWorksheet(name);
+        const headers = Object.keys(data[0] || {});
+        if (headers.length === 0) {
+          return;
+        }
+        ws.columns = headers.map((h) => ({ header: h, key: h, width: 18 }));
+        data.forEach((row) => ws.addRow(row));
+      };
 
-      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], { type: 'application/octet-stream' });
+      addJsonSheet('Date', dateSheetData);
+      addJsonSheet('Technician', techSheetData);
+      addJsonSheet('Customer', customerSheetData);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
       const fileName = `reports-${timestamp}.xlsx`;
       const url = URL.createObjectURL(blob);
@@ -462,7 +459,7 @@ export function ReportsView() {
 
   const selectedCustomerCompletedBookings = selectedCustomerBookings.filter((order) => order.status === 'completed');
   const ongoingBookings = useMemo(() => {
-    const ongoingStatuses = new Set(['approved', 'assigned', 'in-progress', 'completion-requested', 'rejection-requested']);
+    const ongoingStatuses = new Set(['approved', 'assigned', 'in-progress', 'admin_review_pending', 'rejection-requested']);
     return selectedCustomerBookings.filter((order) => ongoingStatuses.has(order.status));
   }, [selectedCustomerBookings]);
 

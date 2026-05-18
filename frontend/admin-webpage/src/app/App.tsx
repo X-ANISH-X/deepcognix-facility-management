@@ -26,8 +26,10 @@ type NavigateEventDetail = {
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const storedToken = typeof window !== 'undefined' ? localStorage.getItem('admin_token') || localStorage.getItem('backend_access_token') : null;
+  const storedUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : null;
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(storedToken));
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(storedUser ? JSON.parse(storedUser) as AuthUser : null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -128,7 +130,7 @@ function AppContent() {
 
   const isApprovalNotification = (notification: NotificationItem): boolean => {
     const normalizedType = notification.type.toLowerCase();
-    return normalizedType === 'completion_requested' || normalizedType === 'admin_review_pending';
+    return normalizedType === 'admin_review_pending' || normalizedType === 'completion_requested';
   };
 
   const handleQuickApproveFromNotification = async (notification: NotificationItem) => {
@@ -145,11 +147,15 @@ function AppContent() {
         return;
       }
 
-      if (workOrder.status !== 'completion-requested') {
+      const displayStatus = workOrder.status === 'admin_review_pending'
+        ? 'completion requested'
+        : workOrder.status.replace(/-/g, ' ');
+
+      if (workOrder.status !== 'admin_review_pending') {
         await loadNotifications(true);
         setCurrentView('orders');
         setIsNotificationOpen(false);
-        toast.info(`Booking #${bookingId} is already ${workOrder.status.replace(/-/g, ' ')}.`);
+        toast.info(`Booking #${bookingId} is already ${displayStatus}.`);
         return;
       }
 
