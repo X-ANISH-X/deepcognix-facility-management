@@ -720,6 +720,18 @@ export default function TechnicianTrackingMap() {
     return order.map((status) => ({ status, present: present.has(status) && visibleBookingStatuses.includes(status) }));
   }, [visibleTechnicians, visibleUsers, visibleBookingStatuses]);
 
+  const techAllSelected = displayedTechnicianStatuses.every((s) => s.present);
+  const techAnySelected = displayedTechnicianStatuses.some((s) => s.present);
+  const toggleAllTechnicianStatuses = () => {
+    setVisibleTechnicianStatuses((current) => (techAllSelected ? [] : [...DEFAULT_TECHNICIAN_STATUSES]));
+  };
+
+  const bookingAllSelected = displayedBookingStatuses.length > 0 && displayedBookingStatuses.every((s) => s.present);
+  const bookingAnySelected = displayedBookingStatuses.some((s) => s.present);
+  const toggleAllBookingStatuses = () => {
+    setVisibleBookingStatuses((current) => (bookingAllSelected ? [] : [...DEFAULT_BOOKING_STATUSES]));
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-155 h-[calc(100vh-10.5rem)] items-center justify-center rounded-3xl bg-slate-950 text-white">
@@ -1005,6 +1017,18 @@ export default function TechnicianTrackingMap() {
 
           {!isLegendCollapsed && (
             <div className="space-y-2 px-3 pb-3">
+              <div className="flex items-center justify-between">
+                <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Technician statuses</p>
+                <button
+                  type="button"
+                  onClick={toggleAllTechnicianStatuses}
+                  className={`rounded-full p-1 ${isLightMode ? 'bg-white/5 text-slate-900' : 'bg-white/10 text-white'}`}
+                  title={techAllSelected ? 'Clear all' : 'Toggle all'}
+                >
+                  {techAllSelected ? <Check className="h-4 w-4" /> : techAnySelected ? <Minus className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                </button>
+              </div>
+
               {displayedTechnicianStatuses.map((statusItem) => (
                 <button
                   key={statusItem.status}
@@ -1022,7 +1046,17 @@ export default function TechnicianTrackingMap() {
 
               {displayedBookingStatuses.length ? (
                 <div className="pt-2">
-                  <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Booking statuses</p>
+                  <div className="flex items-center justify-between">
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Booking statuses</p>
+                    <button
+                      type="button"
+                      onClick={toggleAllBookingStatuses}
+                      className={`rounded-full p-1 ${isLightMode ? 'bg-white/5 text-slate-900' : 'bg-white/10 text-white'}`}
+                      title={bookingAllSelected ? 'Clear all' : 'Toggle all'}
+                    >
+                      {bookingAllSelected ? <Check className="h-4 w-4" /> : bookingAnySelected ? <Minus className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                    </button>
+                  </div>
                   <div className="mt-1 space-y-1">
                     {displayedBookingStatuses.map((statusItem) => (
                       <button
@@ -1082,7 +1116,7 @@ export default function TechnicianTrackingMap() {
                 <button
                   type="button"
                   onClick={() => setActiveSidebar('user')}
-                  className="rounded-full px-3 py-1 text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
+                  className="rounded-full px-1 py-1 pr-2.5  text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
                 >
                   <div className="flex items-center gap-2">
                     {activeSidebar === 'user' ? (
@@ -1106,7 +1140,15 @@ export default function TechnicianTrackingMap() {
                         <span className="text-xs font-semibold">#{selectedTechnician.latest_booking_id ?? ''}</span>
                       </>
                     ) : (
-                      'Status / Order#'
+                      <>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+                          style={{ backgroundColor: getBookingStatusColor(undefined) }}
+                        >
+                          {getBookingStatusText(undefined)}
+                        </span>
+                        <span className="text-xs font-semibold">#</span>
+                      </>
                     )}
                   </div>
                 </button>
