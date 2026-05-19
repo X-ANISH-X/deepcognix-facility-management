@@ -88,6 +88,19 @@ CREATE TABLE IF NOT EXISTS technician_profiles (
     FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS technician_account_removals (
+    technician_id INT PRIMARY KEY,
+    disabled_at TIMESTAMP NOT NULL,
+    removal_due_at TIMESTAMP NOT NULL,
+    removed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_technician_account_removals_technician
+        FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_technician_removal_due_at (removal_due_at),
+    INDEX idx_technician_removed_at (removed_at)
+);
+
 -- ==========================================
 -- 3D. PAYMENTS (ADMIN COMPAT)
 -- ==========================================
@@ -130,8 +143,6 @@ CREATE TABLE IF NOT EXISTS bookings (
         'submitted',
         'approved',
         'assigned',
-        'on_the_way',
-        'arrival_approval_pending',
         'in_progress',
         'customer_review_pending',
         'admin_review_pending',

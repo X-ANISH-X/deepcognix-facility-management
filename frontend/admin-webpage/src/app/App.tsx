@@ -30,6 +30,7 @@ function AppContent() {
   const storedUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : null;
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(storedToken));
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(storedUser ? JSON.parse(storedUser) as AuthUser : null);
+  const [isBootstrapping, setIsBootstrapping] = useState<boolean>(Boolean(storedToken));
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -78,6 +79,33 @@ function AppContent() {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      // If we have a stored token, validate it before assuming authenticated
+      if (isBootstrapping) {
+        (async () => {
+          try {
+            const me = await mockApi.getCurrentUser();
+            const user = {
+              email: me.email || '',
+              name: me.full_name || me.name || '',
+              role: me.role || 'customer',
+            } as AuthUser;
+            setCurrentUser(user);
+            setIsAuthenticated(true);
+            void loadNotifications(false);
+          } catch {
+            // Token invalid or refresh failed — clear stored tokens and fall back to login
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('backend_access_token');
+            localStorage.removeItem('admin_refresh_token');
+            localStorage.removeItem('admin_user');
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+          } finally {
+            setIsBootstrapping(false);
+          }
+        })();
+        return;
+      }
       return;
     }
 
