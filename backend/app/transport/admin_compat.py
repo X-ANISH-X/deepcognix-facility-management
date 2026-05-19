@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSock
 
 from app.core.security import get_current_user_payload, get_password_hash
 from app.database import get_db_connection
-from app.logic import booking_logic, category_logic, notification_logic, package_logic, technician_removal_logic
+from app.logic import booking_logic, category_logic, notification_logic, package_logic
 
 router = APIRouter(tags=["Admin Compatibility"])
 
@@ -62,17 +62,13 @@ def _require_admin(current_user: dict):
 
 def _map_technician(user: dict) -> dict:
     is_active = bool(user.get("is_active", True))
-    removed_at = user.get("removed_at")
-    disabled_at = user.get("disabled_at")
-    removal_due_at = user.get("removal_due_at")
-    is_temporarily_disabled = disabled_at is not None and removed_at is None
     current_jobs = int(user.get("current_jobs") or 0)
     latest_booking_status = str(user.get("latest_booking_status") or "").strip().lower()
     # Normalize 'approved' to 'submitted' for admin compatibility/display purposes
     if latest_booking_status == 'approved':
         latest_booking_status = 'submitted'
 
-    if is_temporarily_disabled or not is_active:
+    if not is_active:
         status_value = "offline"
     elif current_jobs <= 0:
         status_value = "available"
@@ -167,10 +163,6 @@ def _map_technician(user: dict) -> dict:
         "current_jobs": current_jobs_value,
         "completion_rate": completion_rate_value,
         "is_active": is_active,
-        "is_temporarily_disabled": is_temporarily_disabled,
-        "disabled_at": disabled_at,
-        "removal_due_at": removal_due_at,
-        "removed_at": removed_at,
     }
 
 
@@ -426,7 +418,6 @@ def list_technicians(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
-    technician_removal_logic.sync_expired_removals(db)
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
@@ -437,9 +428,6 @@ def list_technicians(
                 u.email,
                 u.phone_number,
                 u.is_active,
-                tr.disabled_at,
-                tr.removal_due_at,
-                tr.removed_at,
                 (
                     SELECT COUNT(*)
                     FROM bookings b
@@ -520,9 +508,7 @@ def list_technicians(
                     'N/A'
                 ) AS location_address
             FROM users u
-                        LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-                        WHERE u.role = 'technician'
-                            AND (tr.technician_id IS NULL OR tr.removed_at IS NULL)
+            WHERE u.role = 'technician'
             ORDER BY u.is_active DESC, u.id DESC
             """
         )
@@ -597,85 +583,22 @@ def deactivate_technician(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
-    technician_removal_logic.sync_expired_removals(db)
-    technician_removal_logic.ensure_removal_table(db)
 
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
-            """
-            SELECT u.id, u.role, u.is_active, tr.disabled_at, tr.removal_due_at, tr.removed_at
-            FROM users u
-            LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-            WHERE u.id = %s
-            """,
+            "SELECT id, role, is_active FROM users WHERE id = %s",
             (technician_id,),
         )
         row = cursor.fetchone()
         if not row or row.get("role") != "technician":
             raise HTTPException(status_code=404, detail="Technician not found")
 
-        if row.get("removed_at") is not None:
-            raise HTTPException(status_code=400, detail="Technician has been permanently removed")
+        if not bool(row.get("is_active", True)):
+            return {"message": "Technician already inactive", "technician_id": technician_id, "is_active": False}
 
-        if row.get("disabled_at") is not None:
-            cursor.execute(
-                """
-                SELECT
-                    u.id,
-                    u.full_name,
-                    u.email,
-                    u.phone_number,
-                    u.is_active,
-                    tr.disabled_at,
-                    tr.removal_due_at,
-                    tr.removed_at
-                FROM users u
-                LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-                WHERE u.id = %s AND u.role = 'technician'
-                """,
-                (technician_id,),
-            )
-            existing = cursor.fetchone()
-            return {
-                "message": "Technician already disabled",
-                "technician_id": technician_id,
-                "is_active": False,
-                "technician": _map_technician(existing or row),
-            }
-
-        cursor.execute(
-            """
-            INSERT INTO technician_account_removals (technician_id, disabled_at, removal_due_at, removed_at)
-            VALUES (%s, UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 24 HOUR), NULL)
-            ON DUPLICATE KEY UPDATE
-                disabled_at = VALUES(disabled_at),
-                removal_due_at = VALUES(removal_due_at),
-                removed_at = NULL
-            """,
-            (technician_id,),
-        )
         cursor.execute("UPDATE users SET is_active = FALSE WHERE id = %s", (technician_id,))
         db.commit()
-
-        cursor.execute(
-            """
-            SELECT
-                u.id,
-                u.full_name,
-                u.email,
-                u.phone_number,
-                u.is_active,
-                tr.disabled_at,
-                tr.removal_due_at,
-                tr.removed_at
-            FROM users u
-            LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-            WHERE u.id = %s AND u.role = 'technician'
-            """,
-            (technician_id,),
-        )
-        updated = cursor.fetchone()
     except HTTPException:
         db.rollback()
         raise
@@ -686,81 +609,7 @@ def deactivate_technician(
         cursor.close()
 
     _publish_event("technician.updated", technician_id=technician_id, action="deactivated")
-    return {
-        "message": "Technician disabled for removal window",
-        "technician_id": technician_id,
-        "is_active": False,
-        "technician": _map_technician(updated or row),
-    }
-
-
-@router.post("/technicians/{technician_id}/reinstate")
-def reinstate_technician(
-    technician_id: int,
-    db=Depends(get_db_connection),
-    current_user: dict = Depends(get_current_user_payload),
-):
-    _require_admin(current_user)
-    technician_removal_logic.sync_expired_removals(db)
-    technician_removal_logic.ensure_removal_table(db)
-
-    cursor = db.cursor(dictionary=True)
-    try:
-        cursor.execute(
-            """
-            SELECT u.id, u.role, u.is_active, tr.disabled_at, tr.removal_due_at, tr.removed_at
-            FROM users u
-            LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-            WHERE u.id = %s
-            """,
-            (technician_id,),
-        )
-        row = cursor.fetchone()
-        if not row or row.get("role") != "technician":
-            raise HTTPException(status_code=404, detail="Technician not found")
-
-        if row.get("removed_at") is not None:
-            raise HTTPException(status_code=400, detail="Reinstatement window expired for this technician")
-
-        if row.get("disabled_at") is None:
-            cursor.execute(
-                """
-                SELECT id, full_name, email, phone_number, is_active
-                FROM users
-                WHERE id = %s AND role = 'technician'
-                """,
-                (technician_id,),
-            )
-            current = cursor.fetchone()
-            return {
-                "message": "Technician is already active",
-                "technician": _map_technician(current or row),
-            }
-
-        cursor.execute("DELETE FROM technician_account_removals WHERE technician_id = %s", (technician_id,))
-        cursor.execute("UPDATE users SET is_active = TRUE WHERE id = %s", (technician_id,))
-        db.commit()
-
-        cursor.execute(
-            """
-            SELECT id, full_name, email, phone_number, is_active
-            FROM users
-            WHERE id = %s AND role = 'technician'
-            """,
-            (technician_id,),
-        )
-        active_row = cursor.fetchone()
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        cursor.close()
-
-    _publish_event("technician.updated", technician_id=technician_id, action="reinstated")
-    return {"message": "Technician reinstated", "technician": _map_technician(active_row or row)}
+    return {"message": "Technician deactivated", "technician_id": technician_id, "is_active": False}
 
 
 @router.get("/customers/previous")
@@ -972,25 +821,13 @@ def get_technician(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
-    technician_removal_logic.sync_expired_removals(db)
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
             """
-            SELECT
-                u.id,
-                u.full_name,
-                u.email,
-                u.phone_number,
-                u.is_active,
-                tr.disabled_at,
-                tr.removal_due_at,
-                tr.removed_at
-            FROM users u
-            LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-            WHERE u.id = %s
-              AND u.role = 'technician'
-              AND (tr.technician_id IS NULL OR tr.removed_at IS NULL)
+            SELECT id, full_name, email, phone_number, is_active
+            FROM users
+            WHERE id = %s AND role = 'technician'
             """,
             (technician_id,),
         )
@@ -1010,32 +847,16 @@ def update_technician_profile_alias(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
-    technician_removal_logic.sync_expired_removals(db)
 
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
-            """
-            SELECT
-                u.id,
-                u.full_name,
-                u.email,
-                u.phone_number,
-                u.is_active,
-                tr.disabled_at,
-                tr.removal_due_at,
-                tr.removed_at
-            FROM users u
-            LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
-            WHERE u.id = %s AND u.role = 'technician' AND (tr.technician_id IS NULL OR tr.removed_at IS NULL)
-            """,
+            "SELECT id, full_name, email, phone_number, is_active FROM users WHERE id = %s AND role = 'technician'",
             (technician_id,),
         )
         row = cursor.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Technician not found")
-        if row.get("disabled_at") is not None and row.get("removed_at") is None:
-            raise HTTPException(status_code=400, detail="Disabled technician cannot be edited until reinstated")
 
         updates: list[str] = []
         values: list[object] = []
