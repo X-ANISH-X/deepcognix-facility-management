@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 TimeSlot = Literal["09:00 AM", "11:00 AM", "01:00 PM", "03:00 PM", "05:00 PM"]
@@ -26,6 +26,21 @@ class BookingCreate(BaseModel):
     call_before_arrival: bool = False
 
 
+class BookingAdditionalServiceCreate(BaseModel):
+    service_id: int
+
+
+class BookingAdditionalServiceResponse(BaseModel):
+    id: int
+    booking_id: int
+    service_id: int
+    service_name: str
+    service_price: float
+    is_included: bool = True
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 class BookingResponse(BaseModel):
     id: int
     customer_id: int
@@ -34,6 +49,7 @@ class BookingResponse(BaseModel):
     technician_id: int | None = None
     status: str
     final_price: float | None = None
+    actual_cost: float | None = None
     scheduled_date: date
     scheduled_time_slot: TimeSlot
     address_line: str
@@ -48,6 +64,7 @@ class BookingResponse(BaseModel):
     pet_warning: str | None = None
     call_before_arrival: bool = False
     technician_notes: str | None = None
+    additional_services: list[BookingAdditionalServiceResponse] = Field(default_factory=list)
 
 
 class AssignTechnicianRequest(BaseModel):

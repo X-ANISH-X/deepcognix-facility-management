@@ -77,6 +77,17 @@ function AppContent() {
   };
 
   useEffect(() => {
+    const handleSessionExpired = () => {
+      handleLogout();
+    };
+
+    window.addEventListener('admin:session-expired', handleSessionExpired as EventListener);
+    return () => {
+      window.removeEventListener('admin:session-expired', handleSessionExpired as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) {
       return;
     }
@@ -187,7 +198,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-slate-900">
-      {/* Show login page if not authenticated */}
       {!isAuthenticated ? (
         <LoginPage
           onLoginSuccess={(user) => {
@@ -199,7 +209,7 @@ function AppContent() {
       ) : (
         <>
           <Toaster position="top-right" />
-      
+
       {/* Glassmorphism Sidebar */}
       <aside 
         className={`fixed top-0 left-0 flex h-screen flex-col bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl transition-all duration-300 z-50 ${

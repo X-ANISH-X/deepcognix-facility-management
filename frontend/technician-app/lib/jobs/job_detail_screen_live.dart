@@ -27,6 +27,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   final ScrollController _tasksScrollController = ScrollController();
   final LocationTrackingService _locationTrackingService = LocationTrackingService();
   late Timer _timer;
+  Timer? _refreshTimer;
   Duration elapsed = Duration.zero;
   bool _isLoading = true;
   bool _isSubmitting = false;
@@ -50,21 +51,29 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
     });
     _loadBooking();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && !_isLoading) {
+        unawaited(_loadBooking(silentRefresh: true));
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer.cancel();
+    _refreshTimer?.cancel();
     _tasksScrollController.dispose();
     _locationTrackingService.stop();
     super.dispose();
   }
 
-  Future<void> _loadBooking() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadBooking({bool silentRefresh = false}) async {
+    if (!silentRefresh) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final booking = await _bookingService.getBookingDetails(widget.job.id);
@@ -92,18 +101,22 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _errorMessage = error.message;
-      });
+      if (!silentRefresh) {
+        setState(() {
+          _errorMessage = error.message;
+        });
+      }
     } catch (_) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _errorMessage = 'Unable to load booking details.';
-      });
+      if (!silentRefresh) {
+        setState(() {
+          _errorMessage = 'Unable to load booking details.';
+        });
+      }
     } finally {
-      if (mounted) {
+      if (mounted && !silentRefresh) {
         setState(() {
           _isLoading = false;
         });
@@ -634,6 +647,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                   ],
+                  if (booking.additionalServices.isNotEmpty) ...[
+                    _AdditionalServicesCard(
+                      additionalServices: booking.additionalServices,
+                      actualCost: booking.actualCost ?? booking.finalPrice,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   const Text(
                     'Checklist',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -764,6 +784,13 @@ class _AssignedView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
           ],
+          if (booking.additionalServices.isNotEmpty) ...[
+            _AdditionalServicesCard(
+              additionalServices: booking.additionalServices,
+              actualCost: booking.actualCost ?? booking.finalPrice,
+            ),
+            const SizedBox(height: 24),
+          ],
           if (_hasOperationalNotes(booking)) ...[
             _OperationalNotesCard(booking: booking),
             const SizedBox(height: 24),
@@ -857,6 +884,81 @@ class _OperationalNotesCard extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AdditionalServicesCard extends StatelessWidget {
+  final List<BookingAdditionalService> additionalServices;
+  final double? actualCost;
+
+  const _AdditionalServicesCard({
+    required this.additionalServices,
+    required this.actualCost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Additional service',
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
+            ),
+            const SizedBox(height: 10),
+            ...additionalServices.map(
+              (service) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            service.serviceName,
+                            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            service.isIncluded ? 'Included in actual cost' : 'Not included',
+                            style: const TextStyle(fontSize: 12, color: Colors.green),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      'AED ${service.servicePrice.toStringAsFixed(2)}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Actual cost',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.green),
+                ),
+                Text(
+                  'AED ${(actualCost ?? 0).toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.green),
+                ),
+              ],
             ),
           ],
         ),

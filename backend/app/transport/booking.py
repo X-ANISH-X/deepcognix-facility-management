@@ -18,6 +18,7 @@ from app.model.booking_model import (
     AssignTechnicianRequest,
     BookingChecklistTaskUpdate,
     BookingCreate,
+    BookingAdditionalServiceCreate,
     CompleteBookingRequest,
     RejectBookingRequest,
 )
@@ -80,6 +81,32 @@ def get_booking(
         raise HTTPException(status_code=403, detail="You cannot view this booking")
 
     return booking
+
+
+@router.post("/{booking_id}/additional-services")
+def add_booking_additional_service(
+    booking_id: int,
+    payload: BookingAdditionalServiceCreate,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _ensure_roles(current_user, {"admin"})
+    success, error = booking_logic.add_booking_additional_service(db, booking_id, payload.service_id)
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+
+    booking = booking_logic.get_booking_by_id(db, booking_id)
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    try:
+        from app.transport.admin_compat import _publish_event
+
+        _publish_event("booking.updated", booking_id=booking_id, action="additional_service_added", service_id=payload.service_id)
+    except Exception:
+        pass
+
+    return {"booking": booking}
 
 
 @router.post("/{booking_id}/approve")

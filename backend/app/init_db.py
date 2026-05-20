@@ -355,6 +355,24 @@ def ensure_schema_updates(cursor):
             "ALTER TABLE bookings ADD COLUMN call_before_arrival BOOLEAN DEFAULT FALSE AFTER pet_warning",
         )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS booking_additional_services (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            booking_id INT NOT NULL,
+            service_id INT NOT NULL,
+            service_name VARCHAR(100) NOT NULL,
+            service_price DECIMAL(10,2) NOT NULL,
+            is_included BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_booking_additional_service (booking_id, service_id),
+            FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+            FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT
+        )
+        """
+    )
+
     if not _column_exists(cursor, "technician_live_locations", "booking_id"):
         _run_safe_alter(cursor, "ALTER TABLE technician_live_locations ADD COLUMN booking_id INT NULL")
         _run_safe_alter(
