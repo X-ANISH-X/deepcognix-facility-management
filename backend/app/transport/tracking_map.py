@@ -126,7 +126,7 @@ def list_technician_locations(
                     WHERE ll.technician_id = u.id
                 ) AS location_recorded_at
             FROM users u
-            WHERE u.role = 'technician'
+            WHERE u.role = 'technician' AND u.is_active = TRUE
             ORDER BY u.is_active DESC, u.id DESC
             """
         )
@@ -216,8 +216,6 @@ def list_user_locations(
             INNER JOIN services s ON s.id = b.service_id
             INNER JOIN packages p ON p.id = b.package_id
             LEFT JOIN users t ON t.id = b.technician_id
-            WHERE b.latitude IS NOT NULL
-              AND b.longitude IS NOT NULL
             ORDER BY b.updated_at DESC, b.id DESC
             """
         )

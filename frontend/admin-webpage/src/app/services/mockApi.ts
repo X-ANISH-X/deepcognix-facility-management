@@ -5,6 +5,11 @@ export interface Technician {
   phone: string;
   specialty: string[];
   status: 'available' | 'assigned' | 'enroute' | 'onsite' | 'offline';
+  isActive: boolean;
+  disabledAt?: string;
+  removedAt?: string;
+  removalDueAt?: string;
+  removalStatus?: 'active' | 'disabled' | 'removed';
   locationSource: 'live' | 'booking' | 'fallback';
   location: {
     lat: number;
@@ -509,6 +514,11 @@ function mapTechnician(item: Dict): Technician {
     phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
     specialty: specialties,
     status: mappedStatus,
+    isActive: item.is_active !== false,
+    disabledAt: pickString(item, 'disabled_at') || undefined,
+    removedAt: pickString(item, 'removed_at') || undefined,
+    removalDueAt: pickString(item, 'removal_due_at') || undefined,
+    removalStatus: (pickString(item, 'removal_status') as Technician['removalStatus']) || (item.removed_at ? 'removed' : item.disabled_at ? 'disabled' : 'active'),
     locationSource: normalizedLocationSource,
     location: {
       lat,
@@ -814,6 +824,22 @@ export const mockApi = {
 
   removeTechnician: async (id: string): Promise<void> => {
     await request(`/technicians/${id}`, { method: 'DELETE' }, true);
+  },
+
+  reinstateTechnician: async (id: string): Promise<Technician> => {
+    const data = await request<{ technician?: Dict }>(`/technicians/${id}/reinstate`, {
+      method: 'POST',
+    }, true);
+
+    if (data.technician) {
+      return mapTechnician(data.technician);
+    }
+
+    const technician = await mockApi.getTechnicianById(id);
+    if (!technician) {
+      throw new Error('Technician not found after reinstating');
+    }
+    return technician;
   },
 
   getWorkOrders: async (): Promise<WorkOrder[]> => {

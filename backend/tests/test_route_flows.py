@@ -2,10 +2,9 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import HTTPException
-from starlette.responses import Response
 
 from app.main import app
-from app.model.auth_model import UserLogin, UserRegister
+from app.model.auth_model import RefreshTokenRequest, UserLogin, UserRegister
 from app.model.booking_model import AssignTechnicianRequest, BookingChecklistTaskUpdate, BookingCreate
 from app.model.category_model import CategoryCreate
 from app.model.location_model import LocationCreate
@@ -84,28 +83,31 @@ class RouteFlowTests(unittest.TestCase):
             },
         ), patch("app.transport.auth.verify_password", return_value=True), patch(
             "app.transport.auth.create_access_token", return_value="jwt-token"
-        ):
-            response = auth.login(payload, response=Response(), db=object())
+        ), patch("app.transport.auth.create_refresh_token", return_value="refresh-token"):
+            response = auth.login(payload, db=object())
 
         self.assertEqual(response["access_token"], "jwt-token")
+        self.assertEqual(response["refresh_token"], "refresh-token")
         self.assertEqual(response["role"], "customer")
 
     def test_refresh_session_returns_new_access_token(self):
-        response = Response()
-        refresh_token = "refresh-jwt"
+        payload = RefreshTokenRequest(refresh_token="refresh-jwt")
 
-        with patch("app.transport.auth.decode_access_token", return_value={"id": 7, "sub": "customer@example.com", "role": "customer"}), patch(
+        with patch("app.transport.auth.decode_refresh_token", return_value={"id": 7, "sub": "customer@example.com", "role": "customer"}), patch(
             "app.transport.auth.user_logic.get_user_by_id",
             return_value={
                 "id": 7,
                 "email": "customer@example.com",
                 "role": "customer",
                 "is_active": True,
+                "full_name": "Customer One",
             },
-        ), patch("app.transport.auth.create_access_token", return_value="new-jwt"):
-            payload = auth.refresh_session(response=response, db=object(), refresh_token=refresh_token)
+        ), patch("app.transport.auth.create_access_token", return_value="new-jwt"), patch(
+            "app.transport.auth.create_refresh_token", return_value="new-refresh-jwt"
+        ):
+            response = auth.refresh_access_token(payload, db=object())
 
-        self.assertEqual(payload["access_token"], "new-jwt")
+        self.assertEqual(response["access_token"], "new-jwt")
 
     def test_me_returns_current_user(self):
         with patch(

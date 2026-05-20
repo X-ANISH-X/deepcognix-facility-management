@@ -12,6 +12,8 @@ from app.logic import booking_logic, category_logic, notification_logic, package
 
 router = APIRouter(tags=["Admin Compatibility"])
 
+TECHNICIAN_REMOVAL_WINDOW_HOURS = 24
+
 
 class _RealtimeHub:
     def __init__(self):
@@ -72,11 +74,11 @@ def _map_technician(user: dict) -> dict:
         status_value = "offline"
     elif current_jobs <= 0:
         status_value = "available"
-    elif latest_booking_status in {"in_progress", "arrival_approval_pending", "customer_review_pending", "admin_review_pending"}:
+    elif latest_booking_status in {"in_progress"}:
         status_value = "onsite"
-    elif latest_booking_status in {"on_the_way"}:
+    elif latest_booking_status in {"on_the_way", "arrival_approval_pending"}:
         status_value = "enroute"
-    elif latest_booking_status in {"assigned", "completion_requested"}:
+    elif latest_booking_status in {"assigned", "approved", "customer_review_pending", "admin_review_pending", "completion_requested"}:
         status_value = "assigned"
     else:
         status_value = "available"
@@ -144,6 +146,16 @@ def _map_technician(user: dict) -> dict:
         else "fallback"
     )
 
+    disabled_at = user.get("disabled_at")
+    removed_at = user.get("removed_at")
+    removal_due_at = user.get("removal_due_at")
+    if removed_at:
+        removal_status = "removed"
+    elif disabled_at:
+        removal_status = "disabled"
+    else:
+        removal_status = "active"
+
     return {
         "id": user.get("id"),
         "full_name": user.get("full_name") or "Technician",
@@ -165,7 +177,54 @@ def _map_technician(user: dict) -> dict:
         "current_jobs": current_jobs_value,
         "completion_rate": completion_rate_value,
         "is_active": is_active,
+        "disabled_at": disabled_at,
+        "removed_at": removed_at,
+        "removal_due_at": removal_due_at,
+        "removal_status": removal_status,
     }
+
+
+def _ensure_technician_removals_table(db):
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS technician_removals (
+                technician_id INT PRIMARY KEY,
+                disabled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                removed_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+            """
+        )
+        db.commit()
+    finally:
+        cursor.close()
+
+
+def _sync_expired_technician_removals(db):
+    _ensure_technician_removals_table(db)
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            f"""
+            UPDATE technician_removals tr
+            INNER JOIN users u ON u.id = tr.technician_id
+            SET
+                tr.removed_at = CURRENT_TIMESTAMP,
+                u.email = CONCAT('removed+', u.id, '+', UNIX_TIMESTAMP(CURRENT_TIMESTAMP), '@archived.local'),
+                u.is_active = FALSE
+            WHERE tr.disabled_at IS NOT NULL
+              AND tr.removed_at IS NULL
+              AND tr.disabled_at <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL {TECHNICIAN_REMOVAL_WINDOW_HOURS} HOUR)
+            """
+        )
+        if cursor.rowcount:
+            db.commit()
+    finally:
+        cursor.close()
 
 
 def _coerce_booking_status(raw_status: str) -> str:
@@ -422,6 +481,7 @@ def list_technicians(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
+    _sync_expired_technician_removals(db)
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
@@ -501,6 +561,9 @@ def list_technicians(
                     FROM technician_live_locations ll
                     WHERE ll.technician_id = u.id
                 ) AS location_recorded_at,
+                tr.disabled_at,
+                tr.removed_at,
+                DATE_ADD(tr.disabled_at, INTERVAL %s HOUR) AS removal_due_at,
                 COALESCE(
                     (
                         SELECT b.address_line
@@ -512,11 +575,13 @@ def list_technicians(
                     'N/A'
                 ) AS location_address
             FROM users u
+            LEFT JOIN technician_removals tr ON tr.technician_id = u.id
             WHERE u.role = 'technician'
             ORDER BY u.is_active DESC, u.id DESC
-            """
+            """,
+            (TECHNICIAN_REMOVAL_WINDOW_HOURS,),
         )
-        technicians = [_map_technician(row) for row in cursor.fetchall()]
+        technicians = [_map_technician(row) for row in cursor.fetchall() if not row.get("removed_at")]
         return {"technicians": technicians}
     finally:
         cursor.close()
@@ -529,6 +594,7 @@ def create_technician(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
+    _sync_expired_technician_removals(db)
 
     full_name = str(payload.get("full_name") or "").strip()
     email = str(payload.get("email") or "").strip().lower()
@@ -587,19 +653,41 @@ def deactivate_technician(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
+    _sync_expired_technician_removals(db)
 
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
-            "SELECT id, role, is_active FROM users WHERE id = %s",
+            """
+            SELECT
+                u.id,
+                u.role,
+                u.is_active,
+                tr.disabled_at,
+                tr.removed_at
+            FROM users u
+            LEFT JOIN technician_removals tr ON tr.technician_id = u.id
+            WHERE u.id = %s
+            """,
             (technician_id,),
         )
         row = cursor.fetchone()
         if not row or row.get("role") != "technician":
             raise HTTPException(status_code=404, detail="Technician not found")
 
-        if not bool(row.get("is_active", True)):
-            return {"message": "Technician already inactive", "technician_id": technician_id, "is_active": False}
+        if row.get("removed_at"):
+            raise HTTPException(status_code=410, detail="Technician has already been permanently removed")
+
+        cursor.execute(
+            """
+            INSERT INTO technician_removals (technician_id, disabled_at, removed_at)
+            VALUES (%s, CURRENT_TIMESTAMP, NULL)
+            ON DUPLICATE KEY UPDATE
+                disabled_at = VALUES(disabled_at),
+                removed_at = NULL
+            """,
+            (technician_id,),
+        )
 
         cursor.execute("UPDATE users SET is_active = FALSE WHERE id = %s", (technician_id,))
         db.commit()
@@ -612,8 +700,61 @@ def deactivate_technician(
     finally:
         cursor.close()
 
-    _publish_event("technician.updated", technician_id=technician_id, action="deactivated")
-    return {"message": "Technician deactivated", "technician_id": technician_id, "is_active": False}
+    _publish_event("technician.updated", technician_id=technician_id, action="disabled")
+    return {
+        "message": "Technician disabled",
+        "technician_id": technician_id,
+        "is_active": False,
+        "disabled_at": row.get("disabled_at") or None,
+    }
+
+
+@router.post("/technicians/{technician_id}/reinstate")
+def reinstate_technician(
+    technician_id: int,
+    db=Depends(get_db_connection),
+    current_user: dict = Depends(get_current_user_payload),
+):
+    _require_admin(current_user)
+    _sync_expired_technician_removals(db)
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT
+                u.id,
+                u.role,
+                u.is_active,
+                tr.disabled_at,
+                tr.removed_at
+            FROM users u
+            LEFT JOIN technician_removals tr ON tr.technician_id = u.id
+            WHERE u.id = %s
+            """,
+            (technician_id,),
+        )
+        row = cursor.fetchone()
+        if not row or row.get("role") != "technician":
+            raise HTTPException(status_code=404, detail="Technician not found")
+
+        if row.get("removed_at"):
+            raise HTTPException(status_code=410, detail="Technician has already been permanently removed")
+
+        cursor.execute("UPDATE users SET is_active = TRUE WHERE id = %s", (technician_id,))
+        cursor.execute("DELETE FROM technician_removals WHERE technician_id = %s", (technician_id,))
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+    _publish_event("technician.updated", technician_id=technician_id, action="reinstated")
+    return {"message": "Technician reinstated", "technician_id": technician_id, "is_active": True}
 
 
 @router.get("/customers/previous")
@@ -825,18 +966,28 @@ def get_technician(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
+    _sync_expired_technician_removals(db)
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
             """
-            SELECT id, full_name, email, phone_number, is_active
-            FROM users
-            WHERE id = %s AND role = 'technician'
+            SELECT
+                u.id,
+                u.full_name,
+                u.email,
+                u.phone_number,
+                u.is_active,
+                tr.disabled_at,
+                tr.removed_at,
+                DATE_ADD(tr.disabled_at, INTERVAL %s HOUR) AS removal_due_at
+            FROM users u
+            LEFT JOIN technician_removals tr ON tr.technician_id = u.id
+            WHERE u.id = %s AND u.role = 'technician'
             """,
-            (technician_id,),
+            (TECHNICIAN_REMOVAL_WINDOW_HOURS, technician_id),
         )
         row = cursor.fetchone()
-        if not row:
+        if not row or row.get("removed_at"):
             raise HTTPException(status_code=404, detail="Technician not found")
         return {"technician": _map_technician(row)}
     finally:
@@ -851,15 +1002,29 @@ def update_technician_profile_alias(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
+    _sync_expired_technician_removals(db)
 
     cursor = db.cursor(dictionary=True)
     try:
         cursor.execute(
-            "SELECT id, full_name, email, phone_number, is_active FROM users WHERE id = %s AND role = 'technician'",
-            (technician_id,),
+            """
+            SELECT
+                u.id,
+                u.full_name,
+                u.email,
+                u.phone_number,
+                u.is_active,
+                tr.disabled_at,
+                tr.removed_at,
+                DATE_ADD(tr.disabled_at, INTERVAL %s HOUR) AS removal_due_at
+            FROM users u
+            LEFT JOIN technician_removals tr ON tr.technician_id = u.id
+            WHERE u.id = %s AND u.role = 'technician'
+            """,
+            (TECHNICIAN_REMOVAL_WINDOW_HOURS, technician_id),
         )
         row = cursor.fetchone()
-        if not row:
+        if not row or row.get("removed_at"):
             raise HTTPException(status_code=404, detail="Technician not found")
 
         updates: list[str] = []
