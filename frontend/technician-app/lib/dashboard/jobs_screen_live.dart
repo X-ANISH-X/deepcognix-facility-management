@@ -12,7 +12,7 @@ class JobsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('My Jobs'),
@@ -20,7 +20,6 @@ class JobsScreen extends StatelessWidget {
             tabs: [
               Tab(text: 'Assigned'),
               Tab(text: 'Active'),
-              Tab(text: 'Requests'),
               Tab(text: 'Completed'),
             ],
           ),
@@ -29,7 +28,6 @@ class JobsScreen extends StatelessWidget {
           children: [
             JobsList(status: 'assigned'),
             JobsList(status: 'active'),
-            JobsList(status: 'rejection_requested'),
             JobsList(status: 'completed'),
           ],
         ),
