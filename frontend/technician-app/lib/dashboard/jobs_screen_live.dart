@@ -68,18 +68,40 @@ class _JobsListState extends State<JobsList> {
   String get _statusFilter {
     switch (widget.status) {
       case 'active':
-        return 'in_progress';
+        return 'active';
       default:
         return widget.status;
     }
+  }
+
+  bool _matchesStatus(BookingSummary booking) {
+    if (_statusFilter == 'active') {
+      return const {
+        'on_the_way',
+        'arrival_approval_pending',
+        'in_progress',
+        'customer_review_pending',
+        'admin_review_pending',
+      }.contains(booking.status);
+    }
+
+    return booking.status == _statusFilter;
   }
 
   String _chipLabel(String status) {
     switch (status) {
       case 'assigned':
         return 'Assigned';
+      case 'on_the_way':
+        return 'On The Way';
+      case 'arrival_approval_pending':
+        return 'Arrived';
       case 'in_progress':
         return 'In Progress';
+      case 'customer_review_pending':
+        return 'Awaiting Customer';
+      case 'admin_review_pending':
+        return 'Awaiting Admin';
       case 'completed':
         return 'Completed';
       case 'rejection_requested':
@@ -95,7 +117,7 @@ class _JobsListState extends State<JobsList> {
       title: booking.title,
       location: booking.locationLine,
       time: booking.timeLine,
-      status: widget.status,
+      status: booking.status,
       tasks: [],
     );
   }
@@ -133,7 +155,7 @@ class _JobsListState extends State<JobsList> {
         }
 
         final bookings = (snapshot.data ?? [])
-            .where((booking) => booking.status == _statusFilter)
+            .where(_matchesStatus)
             .toList();
 
         if (bookings.isEmpty) {

@@ -75,6 +75,16 @@ class BookingService {
     await _authorizedPost('/bookings/$bookingId/start', token);
   }
 
+  Future<void> markOnTheWay(int bookingId) async {
+    final token = await _requireToken();
+    await _authorizedPost('/bookings/$bookingId/on-the-way', token);
+  }
+
+  Future<void> markArrival(int bookingId) async {
+    final token = await _requireToken();
+    await _authorizedPost('/bookings/$bookingId/arrival-confirmation', token);
+  }
+
   Future<void> rejectJob({
     required int bookingId,
     required String reason,

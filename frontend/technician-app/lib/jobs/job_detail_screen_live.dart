@@ -39,6 +39,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   LiveLocationSnapshot? _lastLocationSnapshot;
   DateTime? _lastLocationSentAt;
   int _locationUpdateCount = 0;
+  int _locationIntervalSeconds = 10;
 
   @override
   void initState() {
@@ -125,36 +126,54 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
   }
 
   void _syncLocationTracking(BookingSummary booking) {
-    if (booking.status == 'in_progress') {
-      _startLocationTracking(booking.id);
+    if (const {
+      'assigned',
+      'on_the_way',
+      'arrival_approval_pending',
+      'in_progress',
+    }.contains(booking.status)) {
+      _startLocationTracking(
+        booking.id,
+        interval: _trackingIntervalForStatus(booking.status),
+      );
       return;
     }
 
     _stopLocationTracking(clearMessage: booking.status == 'completed');
   }
 
-  Future<void> _startLocationTracking(int bookingId) async {
-    if (_locationTrackingService.isTracking) {
-      return;
-    }
+  Duration _trackingIntervalForStatus(String status) {
+    return status == 'in_progress'
+        ? const Duration(seconds: 10)
+        : const Duration(seconds: 5);
+  }
 
+  Future<void> _startLocationTracking(
+    int bookingId, {
+    required Duration interval,
+  }) async {
     setState(() {
       _isTrackingLocation = true;
+      _locationIntervalSeconds = interval.inSeconds;
       _trackingMessage = 'Starting live location sharing...';
     });
 
     await _locationTrackingService.start(
       bookingId: bookingId,
+      interval: interval,
       onSent: (snapshot) {
         if (!mounted) {
           return;
         }
         setState(() {
           _isTrackingLocation = true;
+          _locationIntervalSeconds = interval.inSeconds;
           _lastLocationSnapshot = snapshot;
           _lastLocationSentAt = DateTime.now();
           _locationUpdateCount += 1;
-          _trackingMessage = 'Live location is being shared.';
+          _trackingMessage = interval.inSeconds <= 5
+              ? 'High-frequency live tracking is active.'
+              : 'Live location is being shared while the job is in progress.';
         });
       },
       onError: (message) {
@@ -181,6 +200,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
         _lastLocationSnapshot = null;
         _lastLocationSentAt = null;
         _locationUpdateCount = 0;
+        _locationIntervalSeconds = 10;
       }
     });
   }
@@ -279,6 +299,66 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Job started successfully.')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _markOnTheWay() async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _bookingService.markOnTheWay(widget.job.id);
+      await _loadBooking();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Job accepted. You are now marked as on the way.')),
+      );
+    } on AuthException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _markArrival() async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      await _bookingService.markArrival(widget.job.id);
+      await _loadBooking();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Arrival marked. You can start the job now.')),
       );
     } on AuthException catch (error) {
       if (!mounted) {
@@ -562,14 +642,19 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       appBar: AppBar(
         title: const Text('Job Details'),
       ),
-      body: booking.status == 'assigned'
+      body: const {
+            'assigned',
+            'on_the_way',
+            'arrival_approval_pending',
+          }.contains(booking.status)
           ? _AssignedView(
               booking: booking,
               packageEntry: packageEntry,
               isSubmitting: _isSubmitting,
+              onAccept: _markOnTheWay,
+              onMarkArrival: _markArrival,
               onStart: _startJob,
               onReject: () => _openRejectJobSheet(booking),
-              trackingMessage: _trackingMessage,
             )
           : ListView(
               controller: _tasksScrollController,
@@ -629,16 +714,6 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                       ),
                     ),
                   ),
-                  if (booking.status == 'in_progress') ...[
-                    const SizedBox(height: 12),
-                    _LiveTrackingCard(
-                      isTracking: _isTrackingLocation,
-                      trackingMessage: _trackingMessage,
-                      snapshot: _lastLocationSnapshot,
-                      lastSentAt: _lastLocationSentAt,
-                      updateCount: _locationUpdateCount,
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   if (packageEntry != null) ...[
                     _PackageSummaryCard(
@@ -736,46 +811,66 @@ class _AssignedView extends StatelessWidget {
   final BookingSummary booking;
   final PackageCatalogEntry? packageEntry;
   final bool isSubmitting;
+  final Future<void> Function() onAccept;
+  final Future<void> Function() onMarkArrival;
   final Future<void> Function() onStart;
   final Future<void> Function() onReject;
-  final String? trackingMessage;
 
   const _AssignedView({
     required this.booking,
     required this.packageEntry,
     required this.isSubmitting,
+    required this.onAccept,
+    required this.onMarkArrival,
     required this.onStart,
     required this.onReject,
-    required this.trackingMessage,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final String title;
+    final String subtitle;
+    final String primaryLabel;
+    final Future<void> Function() primaryAction;
+
+    switch (booking.status) {
+      case 'on_the_way':
+        title = 'Travel In Progress';
+        subtitle = 'You accepted this job. Mark it when you reach the customer location.';
+        primaryLabel = 'Reached Location';
+        primaryAction = onMarkArrival;
+        break;
+      case 'arrival_approval_pending':
+        title = 'Ready To Start';
+        subtitle = 'You are at the location. Start the job when you are ready to begin the work.';
+        primaryLabel = 'Start Job';
+        primaryAction = onStart;
+        break;
+      default:
+        title = 'New Job Assigned';
+        subtitle = 'Review the package scope, then accept the job and head to the location.';
+        primaryLabel = 'Accept Job';
+        primaryAction = onAccept;
+        break;
+    }
+
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Icon(Icons.assignment, size: 48),
           const SizedBox(height: 12),
-          const Text(
-            'New Job Assigned',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Review the package scope, then start the job when you are ready.',
+          Text(
+            subtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.grey),
           ),
-          if (trackingMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              trackingMessage!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Theme.of(context).colorScheme.primary),
-            ),
-          ],
           const SizedBox(height: 24),
           if (packageEntry != null) ...[
             _PackageSummaryCard(
@@ -799,14 +894,14 @@ class _AssignedView extends StatelessWidget {
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: isSubmitting ? null : () => onStart(),
+              onPressed: isSubmitting ? null : () => primaryAction(),
               child: isSubmitting
                   ? const SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Start Job'),
+                  : Text(primaryLabel),
             ),
           ),
           const SizedBox(height: 12),
@@ -973,6 +1068,7 @@ class _LiveTrackingCard extends StatelessWidget {
   final LiveLocationSnapshot? snapshot;
   final DateTime? lastSentAt;
   final int updateCount;
+  final int intervalSeconds;
 
   const _LiveTrackingCard({
     required this.isTracking,
@@ -980,6 +1076,7 @@ class _LiveTrackingCard extends StatelessWidget {
     required this.snapshot,
     required this.lastSentAt,
     required this.updateCount,
+    required this.intervalSeconds,
   });
 
   @override
@@ -987,53 +1084,159 @@ class _LiveTrackingCard extends StatelessWidget {
     final statusColor = isTracking ? Colors.green : Theme.of(context).colorScheme.primary;
     final statusText = trackingMessage ??
         (isTracking ? 'Live location is active.' : 'Live location is not active.');
+    final cadenceLabel = intervalSeconds <= 5 ? 'Travel mode' : 'Work mode';
+    final cadenceDescription = intervalSeconds <= 5
+        ? 'Admin receives your location every 5 seconds while you are heading to the job.'
+        : 'Admin receives your location every 10 seconds while you are actively working.';
 
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(
+          color: isTracking
+              ? statusColor.withOpacity(0.25)
+              : Theme.of(context).dividerColor,
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isTracking ? Icons.my_location : Icons.location_disabled,
-                  color: statusColor,
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    isTracking ? Icons.my_location : Icons.location_disabled,
+                    color: statusColor,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Live Location',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Live Location',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        statusText,
+                        style: TextStyle(color: statusColor),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${intervalSeconds}s',
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              statusText,
-              style: TextStyle(color: statusColor),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: _TrackingStatChip(
+                    label: 'Updates Sent',
+                    value: '$updateCount',
+                    icon: Icons.send_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _TrackingStatChip(
+                    label: cadenceLabel,
+                    value: 'Every ${intervalSeconds}s',
+                    icon: intervalSeconds <= 5
+                        ? Icons.route_outlined
+                        : Icons.cleaning_services_outlined,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Updates sent: $updateCount. Next update runs every 30 seconds while this screen is open.',
-              style: const TextStyle(fontSize: 12),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    intervalSeconds <= 5
+                        ? Icons.navigation_outlined
+                        : Icons.schedule_outlined,
+                    size: 18,
+                    color: statusColor,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      cadenceDescription,
+                      style: const TextStyle(fontSize: 12.5, height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (snapshot != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Last sent: ${snapshot!.latitude.toStringAsFixed(5)}, ${snapshot!.longitude.toStringAsFixed(5)}',
-                style: const TextStyle(fontSize: 12),
-              ),
-              if (snapshot!.accuracy != null)
-                Text(
-                  'Accuracy: ${snapshot!.accuracy!.toStringAsFixed(1)} m',
-                  style: const TextStyle(fontSize: 12),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-            ],
-            if (lastSentAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Updated at ${_formatTimestamp(lastSentAt!)}',
-                style: const TextStyle(fontSize: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Last sent: ${snapshot!.latitude.toStringAsFixed(5)}, ${snapshot!.longitude.toStringAsFixed(5)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    if (snapshot!.accuracy != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Accuracy: ${snapshot!.accuracy!.toStringAsFixed(1)} m',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                    if (lastSentAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Updated at ${_formatTimestamp(lastSentAt!)}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ],
@@ -1047,6 +1250,61 @@ class _LiveTrackingCard extends StatelessWidget {
     final minute = timestamp.minute.toString().padLeft(2, '0');
     final second = timestamp.second.toString().padLeft(2, '0');
     return '$hour:$minute:$second';
+  }
+}
+
+class _TrackingStatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _TrackingStatChip({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

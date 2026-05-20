@@ -72,9 +72,11 @@ def _map_technician(user: dict) -> dict:
         status_value = "offline"
     elif current_jobs <= 0:
         status_value = "available"
-    elif latest_booking_status in {"in_progress"}:
+    elif latest_booking_status in {"in_progress", "arrival_approval_pending", "customer_review_pending", "admin_review_pending"}:
         status_value = "onsite"
-    elif latest_booking_status in {"assigned", "customer_review_pending", "admin_review_pending", "completion_requested"}:
+    elif latest_booking_status in {"on_the_way"}:
+        status_value = "enroute"
+    elif latest_booking_status in {"assigned", "completion_requested"}:
         status_value = "assigned"
     else:
         status_value = "available"
@@ -171,6 +173,8 @@ def _coerce_booking_status(raw_status: str) -> str:
         "submitted",
         "approved",
         "assigned",
+        "on_the_way",
+        "arrival_approval_pending",
         "in_progress",
         "customer_review_pending",
         "admin_review_pending",
@@ -432,7 +436,7 @@ def list_technicians(
                     SELECT COUNT(*)
                     FROM bookings b
                     WHERE b.technician_id = u.id
-                      AND b.status IN ('assigned', 'in_progress', 'customer_review_pending', 'admin_review_pending', 'completion_requested')
+                      AND b.status IN ('assigned', 'on_the_way', 'arrival_approval_pending', 'in_progress', 'customer_review_pending', 'admin_review_pending', 'completion_requested')
                 ) AS current_jobs,
                 (
                     SELECT b.status
@@ -1015,7 +1019,7 @@ def dashboard_stats_alias(
             f"""
             SELECT
                 COUNT(*) AS total_bookings,
-                SUM(CASE WHEN status IN ('submitted', 'approved', 'assigned', 'in_progress', 'customer_review_pending', 'admin_review_pending', 'completion_requested', 'rejection_requested') THEN 1 ELSE 0 END) AS active_bookings,
+                SUM(CASE WHEN status IN ('submitted', 'approved', 'assigned', 'on_the_way', 'arrival_approval_pending', 'in_progress', 'customer_review_pending', 'admin_review_pending', 'completion_requested', 'rejection_requested') THEN 1 ELSE 0 END) AS active_bookings,
                 SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_bookings,
                 SUM(CASE WHEN status = 'completed' AND DATE(updated_at) = CURDATE() THEN 1 ELSE 0 END) AS completed_today,
                 COALESCE(SUM(CASE WHEN status = 'completed' THEN final_price ELSE 0 END), 0) AS total_revenue
@@ -1143,7 +1147,7 @@ def revenue_stats_alias(
             """
             SELECT
                 COALESCE(SUM(CASE WHEN status = 'completed' THEN final_price ELSE 0 END), 0) AS total_revenue,
-                COALESCE(SUM(CASE WHEN status IN ('submitted','approved','assigned','in_progress','customer_review_pending','admin_review_pending','completion_requested','rejection_requested') THEN final_price ELSE 0 END), 0) AS pending_revenue
+                COALESCE(SUM(CASE WHEN status IN ('submitted','approved','assigned','on_the_way','arrival_approval_pending','in_progress','customer_review_pending','admin_review_pending','completion_requested','rejection_requested') THEN final_price ELSE 0 END), 0) AS pending_revenue
             FROM bookings
             """
         )

@@ -534,7 +534,7 @@ export default function TechnicianTrackingMap() {
 
     const timer = window.setInterval(() => {
       void loadMapData(true);
-    }, 15000);
+    }, 5000);
 
     return () => {
       window.clearInterval(timer);

@@ -61,7 +61,15 @@ def list_technician_locations(
                     SELECT COUNT(*)
                     FROM bookings b
                     WHERE b.technician_id = u.id
-                      AND b.status IN ('assigned', 'in_progress', 'customer_review_pending', 'admin_review_pending', 'completion_requested')
+                      AND b.status IN (
+                          'assigned',
+                          'on_the_way',
+                          'arrival_approval_pending',
+                          'in_progress',
+                          'customer_review_pending',
+                          'admin_review_pending',
+                          'completion_requested'
+                      )
                 ) AS current_jobs,
                 (
                     SELECT b.status
