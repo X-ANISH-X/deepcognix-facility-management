@@ -800,27 +800,6 @@ class LiveTrackingScreen
   ) {
 
     if (status ==
-        "arrival_approval_pending") {
-
-      return SizedBox(
-        width:
-            double.infinity,
-
-        child: ElevatedButton(
-          onPressed: () async {
-
-            await controller
-                .approveArrival();
-          },
-
-          child: const Text(
-            "Confirm Arrival",
-          ),
-        ),
-      );
-    }
-
-    if (status ==
         "customer_review_pending") {
 
       return Column(
@@ -1009,7 +988,7 @@ class LiveTrackingScreen
         return "Your technician is currently on the way to your location.";
 
       case "arrival_approval_pending":
-        return "Technician has arrived. Please confirm arrival to begin service.";
+        return "Your technician has reached the location and is about to begin the service.";
 
       case "in_progress":
         return "Cleaning professionals are currently working on your apartment.";

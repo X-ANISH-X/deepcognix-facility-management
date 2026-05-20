@@ -411,9 +411,8 @@ def start_job(conn, booking_id, technician_id):
         if booking["technician_id"] != technician_id:
             return False, "Booking not assigned to technician"
 
-        # Allow starting from either 'assigned' or 'arrival_approval_pending'
-        if booking["status"] not in ("assigned", "arrival_approval_pending"):
-            return False, f"Job can be started only when assigned or arrival pending (current: {booking['status']})"
+        if booking["status"] != "arrival_approval_pending":
+            return False, f"Job can be started only after reaching the location (current: {booking['status']})"
 
         cursor.execute(
             "UPDATE bookings SET status = 'in_progress' WHERE id = %s",

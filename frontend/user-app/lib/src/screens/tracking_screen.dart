@@ -522,7 +522,7 @@ class TrackingScreen extends StatelessWidget {
         return 'Your technician is currently on the way to your location.';
 
       case 'arrival_approval_pending':
-        return 'Technician has arrived. Please confirm arrival to begin service.';
+        return 'Your technician has reached the location and is preparing to begin the service.';
 
       case 'in_progress':
         return 'Cleaning professionals are currently working on your service.';

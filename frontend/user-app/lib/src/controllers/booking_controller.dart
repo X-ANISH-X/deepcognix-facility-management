@@ -162,6 +162,8 @@ class BookingController extends GetxController {
         return 'customer_review_pending';
       case 'admin_review_pending':
       case 'customer_review_pending':
+      case 'on_the_way':
+      case 'arrival_approval_pending':
       case 'rework_requested':
       case 'submitted':
       case 'approved':
