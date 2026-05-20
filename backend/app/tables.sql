@@ -88,6 +88,15 @@ CREATE TABLE IF NOT EXISTS technician_profiles (
     FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS technician_removals (
+    technician_id INT PRIMARY KEY,
+    disabled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    removed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- ==========================================
 -- 3D. PAYMENTS (ADMIN COMPAT)
 -- ==========================================

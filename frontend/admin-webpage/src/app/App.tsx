@@ -26,10 +26,8 @@ type NavigateEventDetail = {
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const storedToken = typeof window !== 'undefined' ? localStorage.getItem('admin_token') || localStorage.getItem('backend_access_token') : null;
-  const storedUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : null;
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(storedToken));
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(storedUser ? JSON.parse(storedUser) as AuthUser : null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);

@@ -308,6 +308,19 @@ def ensure_schema_updates(cursor):
 
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS technician_removals (
+            technician_id INT PRIMARY KEY,
+            disabled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            removed_at TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS payments (
             id INT AUTO_INCREMENT PRIMARY KEY,
             booking_id INT NOT NULL,
