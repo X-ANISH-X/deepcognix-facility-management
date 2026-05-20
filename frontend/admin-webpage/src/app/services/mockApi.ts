@@ -5,9 +5,6 @@ export interface Technician {
   phone: string;
   specialty: string[];
   status: 'available' | 'assigned' | 'enroute' | 'onsite' | 'offline';
-  isTemporarilyDisabled?: boolean;
-  disabledAt?: string;
-  removalDueAt?: string;
   locationSource: 'live' | 'booking' | 'fallback';
   location: {
     lat: number;
@@ -517,9 +514,6 @@ function mapTechnician(item: Dict): Technician {
     phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
     specialty: specialties,
     status: mappedStatus,
-    isTemporarilyDisabled: item.is_temporarily_disabled === true,
-    disabledAt: pickString(item, 'disabled_at') || undefined,
-    removalDueAt: pickString(item, 'removal_due_at') || undefined,
     locationSource: normalizedLocationSource,
     location: {
       lat,
@@ -827,32 +821,6 @@ export const mockApi = {
     await request(`/technicians/${id}`, { method: 'DELETE' }, true);
   },
 
-  disableTechnician: async (id: string): Promise<Technician> => {
-    const data = await request<{ technician?: Dict }>(`/technicians/${id}`, { method: 'DELETE' }, true);
-    if (data.technician) {
-      return mapTechnician(data.technician);
-    }
-
-    const technician = await mockApi.getTechnicianById(id);
-    if (!technician) {
-      throw new Error('Technician not found after disabling');
-    }
-    return technician;
-  },
-
-  reinstateTechnician: async (id: string): Promise<Technician> => {
-    const data = await request<{ technician?: Dict }>(`/technicians/${id}/reinstate`, { method: 'POST' }, true);
-    if (data.technician) {
-      return mapTechnician(data.technician);
-    }
-
-    const technician = await mockApi.getTechnicianById(id);
-    if (!technician) {
-      throw new Error('Technician not found after reinstatement');
-    }
-    return technician;
-  },
-
   getWorkOrders: async (): Promise<WorkOrder[]> => {
     const data = await request<Dict[] | { bookings?: Dict[] }>('/bookings/', undefined, true);
     const list = Array.isArray(data) ? data : (data.bookings || []);
@@ -982,12 +950,6 @@ export const mockApi = {
       throw new Error('Booking not found after rejection approval');
     }
     return full;
-  },
-
-  // Get current authenticated user (returns raw backend /auth/me payload)
-  getCurrentUser: async (): Promise<Dict> => {
-    const me = await request<Dict>('/auth/me', undefined, true);
-    return me;
   },
 
   getServices: async (): Promise<Service[]> => {

@@ -115,48 +115,16 @@ function formatDateTime(value: string): string {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
-function formatRemainingDisableTime(removalDueAt?: string): string {
-  if (!removalDueAt) {
-    return 'less than a minute';
-  }
-
-  const dueMs = new Date(removalDueAt).getTime();
-  if (!Number.isFinite(dueMs)) {
-    return 'less than a minute';
-  }
-
-  const remainingMs = Math.max(0, dueMs - Date.now());
-  if (remainingMs <= 0) {
-    return 'less than a minute';
-  }
-
-  const totalMinutes = Math.ceil(remainingMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours <= 0) {
-    return `${minutes}m`;
-  }
-
-  if (minutes === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${minutes}m`;
-}
-
 export function TechnicianManagement() {
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [search, setSearch] = useState('');
-  const [registryFilter, setRegistryFilter] = useState<'all' | 'active' | 'disabled'>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
-  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
   const [registrationForm, setRegistrationForm] = useState({
     fullName: '',
     email: '',
@@ -179,13 +147,7 @@ export function TechnicianManagement() {
       ]);
       setTechnicians(nextTechnicians);
       setOrders(nextOrders);
-      setSelectedId((current) => {
-        if (current && nextTechnicians.some((tech) => tech.id === current)) {
-          return current;
-        }
-
-        return nextTechnicians[0]?.id || '';
-      });
+      setSelectedId((current) => current || nextTechnicians[0]?.id || '');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load technician registry';
       toast.error(message);
@@ -202,43 +164,21 @@ export function TechnicianManagement() {
   }, []);
 
   const filteredTechnicians = useMemo(() => {
-    const statusFiltered = technicians.filter((tech) => {
-      const isDisabled = tech.isTemporarilyDisabled === true;
-      if (registryFilter === 'disabled') return isDisabled;
-      if (registryFilter === 'active') return !isDisabled;
-      return true;
-    });
-
     const needle = search.trim().toLowerCase();
-    if (!needle) return statusFiltered;
+    if (!needle) return technicians;
 
-    return statusFiltered.filter((tech) => {
-      const isDisabled = tech.isTemporarilyDisabled === true;
-      return [tech.name, tech.email, tech.phone, tech.status, tech.location.address, isDisabled ? 'disabled' : '']
+    return technicians.filter((tech) => {
+      return [tech.name, tech.email, tech.phone, tech.status, tech.location.address]
         .join(' ')
         .toLowerCase()
         .includes(needle);
     });
-  }, [registryFilter, search, technicians]);
-
-  const registryCounts = useMemo(() => {
-    const disabled = technicians.filter((tech) => tech.isTemporarilyDisabled === true).length;
-    const all = technicians.length;
-    return {
-      all,
-      disabled,
-      active: all - disabled,
-    };
-  }, [technicians]);
+  }, [search, technicians]);
 
   const selectedTechnician = useMemo(
     () => technicians.find((item) => item.id === selectedId) || filteredTechnicians[0] || null,
     [filteredTechnicians, selectedId, technicians],
   );
-
-  const selectedTechnicianIsDisabled = selectedTechnician
-    ? selectedTechnician.isTemporarilyDisabled === true
-    : false;
 
   useEffect(() => {
     if (!selectedTechnician) {
@@ -271,16 +211,6 @@ export function TechnicianManagement() {
       setSelectedOrder(null);
     }
   }, [isOrderDialogOpen]);
-
-  useEffect(() => {
-    if (!isRemoveDialogOpen) {
-      return;
-    }
-
-    if (!selectedTechnician || selectedTechnicianIsDisabled) {
-      setIsRemoveDialogOpen(false);
-    }
-  }, [isRemoveDialogOpen, selectedTechnician, selectedTechnicianIsDisabled]);
 
   const saveProfile = async () => {
     if (!selectedTechnician) return;
@@ -353,33 +283,6 @@ export function TechnicianManagement() {
       toast.error(message);
     } finally {
       setRegistering(false);
-    }
-  };
-
-  const confirmRemoveTechnician = async () => {
-    if (!selectedTechnician) return;
-
-    try {
-      const updated = await mockApi.disableTechnician(selectedTechnician.id);
-      setTechnicians((current) => current.map((tech) => (tech.id === updated.id ? updated : tech)));
-      setIsRemoveDialogOpen(false);
-      toast.success(`${selectedTechnician.name} disabled for 24 hours`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to disable technician';
-      toast.error(message);
-    }
-  };
-
-  const handleReinstateTechnician = async () => {
-    if (!selectedTechnician) return;
-
-    try {
-      const updated = await mockApi.reinstateTechnician(selectedTechnician.id);
-      setTechnicians((current) => current.map((tech) => (tech.id === updated.id ? updated : tech)));
-      toast.success(`${selectedTechnician.name} reinstated`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to reinstate technician';
-      toast.error(message);
     }
   };
 
@@ -472,29 +375,6 @@ export function TechnicianManagement() {
               placeholder="Search name, email, status"
               className={registrySearchClass}
             />
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setRegistryFilter('all')}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${registryFilter === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-              >
-                All ({registryCounts.all})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegistryFilter('active')}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${registryFilter === 'active' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
-              >
-                Active ({registryCounts.active})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRegistryFilter('disabled')}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${registryFilter === 'disabled' ? 'bg-slate-600 text-white' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
-              >
-                Disabled ({registryCounts.disabled})
-              </button>
-            </div>
           </CardHeader>
           <CardContent className="max-h-144 space-y-3 overflow-y-auto">
             {filteredTechnicians.length ? filteredTechnicians.map((tech) => (
@@ -506,22 +386,13 @@ export function TechnicianManagement() {
               >
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <p className="min-w-0 flex-1 font-semibold text-slate-900 wrap-break-word">{tech.name}</p>
-                  {tech.isTemporarilyDisabled === true ? (
-                    <Badge className="bg-slate-500 text-white">Disabled</Badge>
-                  ) : (
-                    <Badge className={statusBadgeClass(getRegistryStatus(tech))}>{statusLabel(getRegistryStatus(tech))}</Badge>
-                  )}
+                  <Badge className={statusBadgeClass(getRegistryStatus(tech))}>{statusLabel(getRegistryStatus(tech))}</Badge>
                 </div>
                 <p className="min-w-0 break-all text-xs text-slate-500">{tech.email}</p>
                 <p className="mt-1 wrap-break-word text-xs text-slate-500">{tech.location.address}</p>
-                {tech.isTemporarilyDisabled === true ? (
-                  <p className="mt-1 text-xs text-rose-600">
-                    Permanently removed in {formatRemainingDisableTime(tech.removalDueAt)}
-                  </p>
-                ) : null}
               </button>
             )) : (
-              <p className="text-sm text-slate-500">No technicians matched your search or selected filter.</p>
+              <p className="text-sm text-slate-500">No technicians matched your search.</p>
             )}
           </CardContent>
         </Card>
@@ -544,26 +415,22 @@ export function TechnicianManagement() {
                     onChange={(event) => setProfile((prev) => ({ ...prev, fullName: event.target.value }))}
                     placeholder="Full name"
                     className={profileInputClass}
-                    disabled={selectedTechnicianIsDisabled}
                   />
                   <Input
                     value={profile.email}
                     onChange={(event) => setProfile((prev) => ({ ...prev, email: event.target.value }))}
                     placeholder="Email"
                     className={profileInputClass}
-                    disabled={selectedTechnicianIsDisabled}
                   />
                   <Input
                     value={profile.phone}
                     onChange={(event) => setProfile((prev) => ({ ...prev, phone: event.target.value }))}
                     placeholder="Phone number"
                     className={profileInputClass}
-                    disabled={selectedTechnicianIsDisabled}
                   />
                   <Select
                     value={profile.status}
                     onValueChange={(value) => setProfile((prev) => ({ ...prev, status: value as Technician['status'] }))}
-                    disabled={selectedTechnicianIsDisabled}
                   >
                     <SelectTrigger className={profileSelectClass}>
                       <SelectValue placeholder="Select status" />
@@ -579,7 +446,7 @@ export function TechnicianManagement() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button onClick={() => void saveProfile()} disabled={saving || selectedTechnicianIsDisabled} className="rounded-xl">
+                  <Button onClick={() => void saveProfile()} disabled={saving} className="rounded-xl">
                     {saving ? 'Saving...' : 'Save Changes'}
                   </Button>
                   <Button
@@ -589,30 +456,7 @@ export function TechnicianManagement() {
                   >
                     Refresh Registry
                   </Button>
-                  {selectedTechnicianIsDisabled ? (
-                    <Button
-                      type="button"
-                      onClick={handleReinstateTechnician}
-                      className="ml-auto rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-                    >
-                      Reinstate Technician
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      onClick={() => setIsRemoveDialogOpen(true)}
-                      className="ml-auto rounded-xl bg-rose-600 text-white hover:bg-rose-700"
-                    >
-                      Remove Technician
-                    </Button>
-                  )}
                 </div>
-
-                {selectedTechnicianIsDisabled ? (
-                  <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-200">
-                    This technician is disabled and hidden from live map tracking. Permanent removal in {formatRemainingDisableTime(selectedTechnician?.removalDueAt)}.
-                  </div>
-                ) : null}
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className="rounded-2xl border border-slate-200 bg-slate-100/90 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
@@ -640,7 +484,7 @@ export function TechnicianManagement() {
                           setSelectedOrder(order);
                           setIsOrderDialogOpen(true);
                         }}
-                            className={`w-full rounded-xl border border-slate-200 border-l-4 bg-white p-3 text-left transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:border-slate-700 dark:hover:bg-slate-900`}
+                            className={`w-full rounded-xl border border-slate-200 border-l-4 bg-white p-3 text-left transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/70 dark:hover:border-slate-700 dark:hover:bg-slate-900 ${getOrderStatusBadgeClass(order.status)}`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Order #{order.id}</p>
@@ -661,34 +505,6 @@ export function TechnicianManagement() {
           </CardContent>
         </Card>
       </div>
-
-      <Dialog open={isRemoveDialogOpen} onOpenChange={setIsRemoveDialogOpen}>
-        <DialogContent className="max-w-xl rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-          <DialogHeader>
-            <DialogTitle className="text-slate-900 dark:text-slate-100">Remove Technician</DialogTitle>
-          </DialogHeader>
-
-          <p className="text-sm text-slate-600 dark:text-slate-300">
-            {selectedTechnician
-              ? `Are you sure you want to remove ${selectedTechnician.name}? The technician will be disabled for the next 24 hours and then permanently removed. They can be reinstated during this period`
-              : 'No technician selected.'}
-          </p>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setIsRemoveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="rounded-xl bg-rose-600 text-white hover:bg-rose-700"
-              onClick={confirmRemoveTechnician}
-              disabled={!selectedTechnician}
-            >
-              Remove Technician
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
         <DialogContent className="max-w-3xl rounded-3xl border border-slate-200 bg-white max-h-[90vh] overflow-y-auto dark:border-slate-800 dark:bg-slate-950">

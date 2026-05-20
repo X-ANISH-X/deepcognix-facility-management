@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import get_current_user_payload
 from app.database import get_db_connection
-from app.logic import technician_removal_logic
 
 router = APIRouter(prefix="/api", tags=["Tracking Map"])
 
@@ -47,7 +46,6 @@ def list_technician_locations(
     current_user: dict = Depends(get_current_user_payload),
 ):
     _require_admin(current_user)
-    technician_removal_logic.sync_expired_removals(db)
 
     cursor = db.cursor(dictionary=True)
     try:
@@ -120,9 +118,7 @@ def list_technician_locations(
                     WHERE ll.technician_id = u.id
                 ) AS location_recorded_at
             FROM users u
-                        LEFT JOIN technician_account_removals tr ON tr.technician_id = u.id
             WHERE u.role = 'technician'
-                            AND tr.technician_id IS NULL
             ORDER BY u.is_active DESC, u.id DESC
             """
         )

@@ -304,23 +304,6 @@ def ensure_schema_updates(cursor):
 
     cursor.execute(
         """
-        CREATE TABLE IF NOT EXISTS technician_account_removals (
-            technician_id INT PRIMARY KEY,
-            disabled_at TIMESTAMP NOT NULL,
-            removal_due_at TIMESTAMP NOT NULL,
-            removed_at TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_technician_account_removals_technician
-                FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE CASCADE,
-            INDEX idx_technician_removal_due_at (removal_due_at),
-            INDEX idx_technician_removed_at (removed_at)
-        )
-        """
-    )
-
-    cursor.execute(
-        """
         CREATE TABLE IF NOT EXISTS payments (
             id INT AUTO_INCREMENT PRIMARY KEY,
             booking_id INT NOT NULL,
