@@ -192,6 +192,23 @@ CREATE TABLE IF NOT EXISTS booking_checklist (
 );
 
 -- ==========================================
+-- 7B. BOOKING ADDITIONAL SERVICES
+-- ==========================================
+CREATE TABLE IF NOT EXISTS booking_additional_services (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    service_id INT NOT NULL,
+    service_name VARCHAR(100) NOT NULL,
+    service_price DECIMAL(10,2) NOT NULL,
+    is_included BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_booking_additional_service (booking_id, service_id),
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    FOREIGN KEY (service_id) REFERENCES services(id) ON DELETE RESTRICT
+);
+
+-- ==========================================
 -- 7. TECHNICIAN LOCATION (KEEP EXISTING STYLE)
 -- ==========================================
 CREATE TABLE IF NOT EXISTS technician_live_locations (

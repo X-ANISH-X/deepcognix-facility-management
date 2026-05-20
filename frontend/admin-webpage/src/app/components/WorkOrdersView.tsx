@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
 import { Button } from '@/app/components/ui/button';
@@ -8,7 +8,7 @@ import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';
 import { Textarea } from '@/app/components/ui/textarea';
 import { LoadingSpinner } from '@/app/components/LoadingSpinner';
-import { api as mockApi, type WorkOrder, type Technician } from '@/app/services/api';
+import { api as mockApi, type Service, type WorkOrder, type Technician } from '@/app/services/api';
 import { useLanguage } from '@/app/context/LanguageContext';
 import type { UserRole } from '@/app/utils/accessControl';
 import { Plus, Search, Calendar, MapPin, DollarSign, User, Clock } from 'lucide-react';
@@ -49,10 +49,16 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [isAddonDialogOpen, setIsAddonDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<WorkOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [scheduledTimeSlot, setScheduledTimeSlot] = useState<string>('09:00:00');
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedAddonServiceId, setSelectedAddonServiceId] = useState('');
+  const [selectedAddonCategory, setSelectedAddonCategory] = useState('All');
+  const [isAddonSubmitting, setIsAddonSubmitting] = useState(false);
   const canCreateRequest = role === 'admin' || role === 'customer';
+  const addonBlockedStatuses = useMemo(() => new Set(['admin_review_pending', 'rejection-requested', 'completed', 'rejected']), []);
 
   const loadData = async (showLoader = false, silent = true) => {
     if (showLoader) {
@@ -91,9 +97,11 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
         eventName === 'booking.created' ||
         eventName === 'booking.assigned' ||
         eventName === 'booking.status_updated' ||
+        eventName === 'booking.updated' ||
         eventName === 'checklist.item_added' ||
         eventName === 'checklist.item_toggled' ||
-        eventName === 'technician.status_updated'
+        eventName === 'technician.status_updated' ||
+        eventName === 'technician.updated'
       ) {
         void loadData(false, true);
       }
@@ -107,6 +115,12 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       unsubscribe();
       window.clearInterval(pollTimer);
     };
+  }, []);
+
+  useEffect(() => {
+    void mockApi.getServices()
+      .then((list) => setServices(list))
+      .catch(() => setServices([]));
   }, []);
 
   useEffect(() => {
@@ -179,6 +193,81 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
     toast.success('Rejection request approved');
   };
 
+  const availableAddonServices = useMemo(() => {
+    if (!selectedOrder) {
+      return [];
+    }
+
+    const blockedServiceIds = new Set([
+      selectedOrder.serviceId,
+      ...(selectedOrder.additionalServices || []).map((addon) => addon.serviceId),
+    ]);
+
+    return services.filter((service) => service.isActive && !blockedServiceIds.has(service.id));
+  }, [selectedOrder, services]);
+
+  const addonServiceCategories = useMemo(() => {
+    const categorySet = new Set(
+      availableAddonServices
+        .map((service) => service.category?.trim())
+        .filter((category): category is string => Boolean(category)),
+    );
+
+    return ['All', ...Array.from(categorySet).sort((left, right) => left.localeCompare(right))];
+  }, [availableAddonServices]);
+
+  const filteredAddonServices = useMemo(() => {
+    if (selectedAddonCategory === 'All') {
+      return availableAddonServices;
+    }
+
+    return availableAddonServices.filter((service) => service.category === selectedAddonCategory);
+  }, [availableAddonServices, selectedAddonCategory]);
+
+  useEffect(() => {
+    if (!isAddonDialogOpen) {
+      return;
+    }
+
+    setSelectedAddonServiceId((current) => (
+      filteredAddonServices.some((service) => service.id === current)
+        ? current
+        : filteredAddonServices[0]?.id ?? ''
+    ));
+  }, [filteredAddonServices, isAddonDialogOpen]);
+
+  const canAddAddonService = Boolean(selectedOrder && canManage && !addonBlockedStatuses.has(selectedOrder.status));
+
+  const openAddonDialog = () => {
+    if (!selectedOrder || !canAddAddonService) {
+      return;
+    }
+
+    setSelectedAddonCategory('All');
+    setSelectedAddonServiceId(availableAddonServices[0]?.id ?? '');
+    setIsAddonDialogOpen(true);
+  };
+
+  const handleAddAddonService = async () => {
+    if (!selectedOrder || !selectedAddonServiceId) {
+      return;
+    }
+
+    setIsAddonSubmitting(true);
+    try {
+      const updated = await mockApi.addBookingAdditionalService(selectedOrder.id, selectedAddonServiceId);
+      setWorkOrders((current) => current.map((order) => (order.id === updated.id ? updated : order)));
+      setSelectedOrder(updated);
+      setIsAddonDialogOpen(false);
+      toast.success('Additional service added');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to add additional service';
+      toast.error(message);
+    } finally {
+      setIsAddonSubmitting(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-500/10 text-green-600 border-green-200 dark:bg-green-500/25 dark:text-green-300 dark:border-green-700';
@@ -186,7 +275,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       case 'approved':
       case 'submitted': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/25 dark:text-yellow-300 dark:border-yellow-700';
       case 'assigned': return 'bg-purple-500/10 text-purple-600 border-purple-200 dark:bg-purple-500/25 dark:text-purple-300 dark:border-purple-700';
-      case 'submitted': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/25 dark:text-yellow-300 dark:border-yellow-700';
       case 'admin_review_pending': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-700';
       case 'rejection-requested': return 'bg-rose-500/10 text-rose-600 border-rose-200 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-700';
       case 'rejected': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/25 dark:text-red-300 dark:border-red-700';
@@ -201,7 +289,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       case 'approved':
       case 'submitted': return 'bg-yellow-500 hover:bg-yellow-500';
       case 'assigned': return 'bg-purple-500 hover:bg-purple-500';
-      case 'submitted': return 'bg-yellow-500 hover:bg-yellow-500';
       case 'admin_review_pending': return 'bg-emerald-500 hover:bg-emerald-500';
       case 'rejection-requested': return 'bg-rose-500 hover:bg-rose-500';
       case 'rejected': return 'bg-red-500 hover:bg-red-500';
@@ -227,8 +314,10 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
   const getTechnicianStatusColor = (status: string) => {
     switch (status) {
       case 'available': return 'bg-emerald-500 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-600';
+      case 'assigned': return 'bg-purple-500 hover:bg-purple-500 dark:bg-purple-600 dark:hover:bg-purple-600';
       case 'enroute': return 'bg-amber-500 hover:bg-amber-500 dark:bg-amber-600 dark:hover:bg-amber-600';
       case 'onsite': return 'bg-teal-500 hover:bg-teal-500 dark:bg-teal-600 dark:hover:bg-teal-600';
+      case 'offline': return 'bg-gray-500 hover:bg-gray-500 dark:bg-gray-600 dark:hover:bg-gray-600';
       default: return 'bg-gray-500 hover:bg-gray-500 dark:bg-gray-600 dark:hover:bg-gray-600';
     }
   };
@@ -237,6 +326,8 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
     switch (status) {
       case 'available':
         return 'Available';
+      case 'assigned':
+        return 'Assigned';
       case 'enroute':
         return 'En Route';
       case 'onsite':
@@ -622,12 +713,33 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <DetailRow label="Priority" value={selectedOrder.priority} />
-                <DetailRow label="Actual Cost" value={selectedOrder.actualCost ? formatMoney(selectedOrder.actualCost) : 'Pending'} />
+                <DetailRow label="Actual Cost" value={formatMoney(selectedOrder.actualCost ?? selectedOrder.estimatedCost)} />
                 <DetailRow label="Preferred Technician" value={selectedOrder.preferredTechnician || 'No preference'} />
                 <DetailRow label="Call Before Arrival" value={selectedOrder.callBeforeArrival ? 'Yes' : 'No'} />
                 <DetailRow label="Parking Instructions" value={selectedOrder.parkingInstructions || 'No parking notes'} />
                 <DetailRow label="Pet Warning" value={selectedOrder.petWarning || 'No pet warning'} />
               </div>
+
+              {selectedOrder.additionalServices?.length ? (
+                <div className="rounded-2xl border border-emerald-200/80 dark:border-emerald-500/25 bg-emerald-50/80 dark:bg-emerald-500/10 px-4 py-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-300">Additional service</span>
+                  <div className="mt-3 space-y-3">
+                    {selectedOrder.additionalServices.map((addon) => (
+                      <div key={addon.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200/70 dark:border-emerald-500/25 bg-white/80 dark:bg-gray-950/40 px-3 py-2">
+                        <div>
+                          <p className="font-semibold text-emerald-900 dark:text-emerald-100">{addon.serviceName}</p>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-300">Added to booking</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-emerald-900 dark:text-emerald-100">{formatMoney(addon.servicePrice)}</p>
+                          <p className="text-xs text-emerald-700 dark:text-emerald-300">{addon.isIncluded ? 'Included' : 'Excluded'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-emerald-700 dark:text-emerald-300">The included add-ons are folded into the actual cost above.</p>
+                </div>
+              ) : null}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-800/60 px-4 py-3">
@@ -640,7 +752,20 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  {canAddAddonService && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-full border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200 dark:hover:bg-emerald-500/20"
+                      onClick={openAddonDialog}
+                    >
+                      Addon Services
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
                 {canManage && selectedOrder.status === 'submitted' && (
                   <Button
                     onClick={() => {
@@ -655,9 +780,68 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                 <Button variant="outline" className="rounded-full" onClick={() => setIsDetailsDialogOpen(false)}>
                   Close
                 </Button>
+                </div>
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddonDialogOpen} onOpenChange={setIsAddonDialogOpen}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Addon Services for {selectedOrder?.id}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-gray-50/80 dark:bg-gray-800/60 p-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Current service</p>
+              <p className="font-semibold text-gray-900 dark:text-gray-100">{selectedOrder?.serviceType}</p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <Label htmlFor="addon-service" className="text-sm font-medium text-gray-700 dark:text-gray-200">Select service</Label>
+                <div className="min-w-40">
+                  <Select value={selectedAddonCategory} onValueChange={setSelectedAddonCategory}>
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {addonServiceCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Select value={selectedAddonServiceId} onValueChange={setSelectedAddonServiceId}>
+                <SelectTrigger id="addon-service" className="rounded-xl">
+                  <SelectValue placeholder={filteredAddonServices.length ? 'Choose a service' : 'No services available'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredAddonServices.map((service) => (
+                    <SelectItem key={service.id} value={service.id}>
+                      {service.name} - AED {service.basePrice.toFixed(2)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" className="rounded-full" onClick={() => setIsAddonDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="rounded-full bg-emerald-600 hover:bg-emerald-700"
+                disabled={!selectedAddonServiceId || isAddonSubmitting || filteredAddonServices.length === 0}
+                onClick={() => void handleAddAddonService()}
+              >
+                {isAddonSubmitting ? 'Adding...' : 'Add Service'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

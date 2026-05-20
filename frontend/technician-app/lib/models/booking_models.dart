@@ -6,6 +6,7 @@ class BookingSummary {
   final int? technicianId;
   final String status;
   final double? finalPrice;
+  final double? actualCost;
   final String scheduledDate;
   final String scheduledTimeSlot;
   final String addressLine;
@@ -24,6 +25,7 @@ class BookingSummary {
   final String? serviceName;
   final String? customerName;
   final String? technicianName;
+  final List<BookingAdditionalService> additionalServices;
 
   const BookingSummary({
     required this.id,
@@ -33,6 +35,7 @@ class BookingSummary {
     required this.technicianId,
     required this.status,
     required this.finalPrice,
+    required this.actualCost,
     required this.scheduledDate,
     required this.scheduledTimeSlot,
     required this.addressLine,
@@ -51,6 +54,7 @@ class BookingSummary {
     required this.serviceName,
     required this.customerName,
     required this.technicianName,
+    required this.additionalServices,
   });
 
   factory BookingSummary.fromJson(Map<String, dynamic> json) {
@@ -62,6 +66,7 @@ class BookingSummary {
       technicianId: _asInt(json['technician_id']),
       status: json['status'] as String,
       finalPrice: _asDouble(json['final_price']),
+      actualCost: _asDouble(json['actual_cost']) ?? _asDouble(json['actualCost']),
       scheduledDate: json['scheduled_date'] as String,
       scheduledTimeSlot: json['scheduled_time_slot'] as String,
       addressLine: json['address_line'] as String,
@@ -80,6 +85,7 @@ class BookingSummary {
       serviceName: json['service_name'] as String?,
       customerName: json['customer_name'] as String?,
       technicianName: json['technician_name'] as String?,
+      additionalServices: _asBookingAdditionalServices(json['additional_services']),
     );
   }
 
@@ -112,6 +118,47 @@ class BookingSummary {
         return timeSlot;
     }
   }
+}
+
+
+class BookingAdditionalService {
+  final int id;
+  final int bookingId;
+  final int serviceId;
+  final String serviceName;
+  final double servicePrice;
+  final bool isIncluded;
+
+  const BookingAdditionalService({
+    required this.id,
+    required this.bookingId,
+    required this.serviceId,
+    required this.serviceName,
+    required this.servicePrice,
+    required this.isIncluded,
+  });
+
+  factory BookingAdditionalService.fromJson(Map<String, dynamic> json) {
+    return BookingAdditionalService(
+      id: _asInt(json['id']) ?? 0,
+      bookingId: _asInt(json['booking_id']) ?? 0,
+      serviceId: _asInt(json['service_id']) ?? 0,
+      serviceName: json['service_name'] as String? ?? 'Additional service',
+      servicePrice: _asDouble(json['service_price']) ?? _asDouble(json['servicePrice']) ?? 0,
+      isIncluded: json['is_included'] is bool ? json['is_included'] as bool : true,
+    );
+  }
+}
+
+List<BookingAdditionalService> _asBookingAdditionalServices(dynamic value) {
+  if (value is! List) {
+    return const [];
+  }
+
+  return value
+      .whereType<Map<String, dynamic>>()
+      .map(BookingAdditionalService.fromJson)
+      .toList();
 }
 
 

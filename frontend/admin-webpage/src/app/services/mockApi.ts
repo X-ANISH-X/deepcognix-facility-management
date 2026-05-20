@@ -36,9 +36,9 @@ export interface WorkOrder {
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
+  serviceId: string;
   packageName?: string;
   serviceType: string;
-  packageName?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'admin_review_pending' | 'rejection-requested' | 'completed' | 'rejected';
   technicianId?: string;
@@ -58,16 +58,29 @@ export interface WorkOrder {
   callBeforeArrival?: boolean;
   estimatedCost: number;
   actualCost?: number;
+  additionalServices?: BookingAdditionalService[];
   createdAt: string;
   completedAt?: string;
 }
 
-export interface BookingTask {
-  id: number;
+export interface BookingAdditionalService {
+  id: string;
   bookingId: string;
+  serviceId: string;
+  serviceName: string;
+  servicePrice: number;
+  isIncluded: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BookingTask {
+  id: string;
+  bookingId?: string;
   taskName: string;
   orderIndex: number;
   isCompleted: boolean;
+  description?: string;
 }
 
 export interface CustomerReportRow {
@@ -77,6 +90,7 @@ export interface CustomerReportRow {
   customerEmail: string;
   customerPhone: string;
   packageName: string;
+  technicianName?: string;
   amount: number;
 }
 
@@ -124,25 +138,6 @@ export interface PreviousCustomer {
   phone?: string;
   lastBookingAt?: string;
   totalBookings?: number;
-}
-
-export interface BookingTask {
-  id: string;
-  title: string;
-  description?: string;
-  orderIndex: number;
-  completed: boolean;
-}
-
-export interface CustomerReportRow {
-  orderId: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  packageName: string;
-  technicianName?: string;
-  amount: number;
 }
 
 export interface NotificationItem {
@@ -225,6 +220,13 @@ function readRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
+function emitSessionExpired(): void {
+  clearStoredAuthTokens();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('admin:session-expired'));
+  }
+}
+
 function persistAccessToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(LEGACY_TOKEN_KEY, token);
@@ -234,6 +236,10 @@ function clearStoredAuthTokens(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+function refreshAccessToken(): Promise<string | null> {
+  return tryRefreshAccessToken();
 }
 
 async function tryRefreshAccessToken(): Promise<string | null> {
@@ -546,7 +552,25 @@ function mapWorkOrder(item: Dict): WorkOrder {
   const createdAt = pickString(item, 'created_at') || new Date().toISOString();
   const finalPrice = pickFirstNumber(item, ['final_price', 'finalPrice']);
   const basePrice = pickFirstNumber(item, ['base_price', 'estimated_cost', 'estimatedCost']);
-  const actualCost = finalPrice > 0 ? finalPrice : undefined;
+  const additionalServices = Array.isArray(item.additional_services)
+    ? item.additional_services.map((service) => ({
+        id: String(service?.id ?? ''),
+        bookingId: String(service?.booking_id ?? item.id ?? ''),
+        serviceId: String(service?.service_id ?? ''),
+        serviceName: pickString(service as Dict, 'service_name') || 'Additional service',
+        servicePrice: pickFirstNumber(service as Dict, ['service_price', 'servicePrice']),
+        isIncluded: service?.is_included !== false,
+        createdAt: pickString(service as Dict, 'created_at') || undefined,
+        updatedAt: pickString(service as Dict, 'updated_at') || undefined,
+      }))
+    : [];
+  const additionalServicesTotal = additionalServices.reduce((sum, service) => (
+    service.isIncluded ? sum + (Number(service.servicePrice) || 0) : sum
+  ), 0);
+  const actualCostFromBackend = pickFirstNumber(item, ['actual_cost', 'actualCost']);
+  const actualCost = actualCostFromBackend > 0
+    ? actualCostFromBackend
+    : ((finalPrice > 0 ? finalPrice : 0) + additionalServicesTotal || undefined);
   const estimatedCost = basePrice > 0 ? basePrice : finalPrice;
 
   return {
@@ -555,6 +579,7 @@ function mapWorkOrder(item: Dict): WorkOrder {
     customerName: pickString(item, 'customer_name'),
     customerEmail: pickString(item, 'customer_email') || pickString(item, 'email'),
     customerPhone: pickString(item, 'customer_phone') || pickString(item, 'phone_number') || pickString(item, 'phone'),
+    serviceId: String(item.service_id ?? ''),
     serviceType: pickString(item, 'service_name') || pickString(item, 'serviceType'),
     packageName: pickString(item, 'package_name') || pickString(item, 'packageName') || pickString(item, 'package') || undefined,
     priority: (pickString(item, 'priority') as WorkOrder['priority']) || 'medium',
@@ -576,6 +601,7 @@ function mapWorkOrder(item: Dict): WorkOrder {
     callBeforeArrival: Boolean(item.call_before_arrival),
     estimatedCost,
     actualCost,
+    additionalServices,
     createdAt,
     completedAt: pickString(item, 'completed_at') || undefined,
   };
@@ -627,10 +653,11 @@ function mapPreviousCustomer(item: Dict): PreviousCustomer {
 function mapBookingTask(item: Dict): BookingTask {
   return {
     id: String(item.id ?? ''),
-    title: pickString(item, 'title') || pickString(item, 'name') || 'Task',
+    bookingId: pickStringOrNumber(item, 'booking_id') || undefined,
+    taskName: pickString(item, 'task_name') || pickString(item, 'title') || pickString(item, 'name') || 'Task',
     description: pickString(item, 'description') || pickString(item, 'notes') || undefined,
     orderIndex: pickNumber(item, 'order_index') || pickNumber(item, 'orderIndex') || 0,
-    completed: Boolean(item.completed || item.is_done || item.done),
+    isCompleted: Boolean(item.completed || item.is_completed || item.is_done || item.done),
   };
 }
 
@@ -836,6 +863,23 @@ export const mockApi = {
     const data = await request<Dict | { booking?: Dict }>(`/bookings/${id}`, undefined, true);
     const booking = 'booking' in data ? data.booking : data;
     return booking ? mapWorkOrder(booking as Dict) : undefined;
+  },
+
+  addBookingAdditionalService: async (bookingId: string, serviceId: string): Promise<WorkOrder> => {
+    const data = await request<{ booking?: Dict }>(`/bookings/${bookingId}/additional-services`, {
+      method: 'POST',
+      body: JSON.stringify({ service_id: Number(serviceId) }),
+    }, true);
+
+    if (data.booking) {
+      return mapWorkOrder(data.booking);
+    }
+
+    const booking = await mockApi.getWorkOrderById(bookingId);
+    if (!booking) {
+      throw new Error('Booking not found after adding additional service');
+    }
+    return booking;
   },
 
   createWorkOrder: async (data: Partial<WorkOrder>): Promise<WorkOrder> => {
@@ -1153,7 +1197,7 @@ export const mockApi = {
     } catch {
       // Ignore logout transport errors; local state still gets cleared.
     } finally {
-      clearStoredAuth();
+      clearStoredAuthTokens();
     }
   },
 };

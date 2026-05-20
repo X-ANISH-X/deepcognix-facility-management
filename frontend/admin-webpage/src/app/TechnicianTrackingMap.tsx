@@ -6,6 +6,7 @@ import 'leaflet-control-geocoder/dist/Control.Geocoder.css';
 import 'leaflet-control-geocoder';
 import { Check, ChevronLeft, ChevronRight, Minus, Plus, Scan, Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTheme } from '@/app/context/ThemeContext';
+import { mockApi } from '@/app/services/mockApi';
 
 type TechnicianLocation = {
   id: number;
@@ -537,6 +538,18 @@ export default function TechnicianTrackingMap() {
 
     return () => {
       window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = mockApi.subscribeRealtime((event) => {
+      if (event.event === 'technician.location_updated') {
+        void loadMapData(true);
+      }
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, []);
 

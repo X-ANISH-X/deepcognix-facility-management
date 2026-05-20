@@ -26,11 +26,8 @@ type NavigateEventDetail = {
 function AppContent() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const storedToken = typeof window !== 'undefined' ? localStorage.getItem('admin_token') || localStorage.getItem('backend_access_token') : null;
-  const storedUser = typeof window !== 'undefined' ? localStorage.getItem('admin_user') : null;
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(storedToken));
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(storedUser ? JSON.parse(storedUser) as AuthUser : null);
-  const [isBootstrapping, setIsBootstrapping] = useState<boolean>(Boolean(storedToken));
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -78,34 +75,18 @@ function AppContent() {
   };
 
   useEffect(() => {
+    const handleSessionExpired = () => {
+      handleLogout();
+    };
+
+    window.addEventListener('admin:session-expired', handleSessionExpired as EventListener);
+    return () => {
+      window.removeEventListener('admin:session-expired', handleSessionExpired as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isAuthenticated) {
-      // If we have a stored token, validate it before assuming authenticated
-      if (isBootstrapping) {
-        (async () => {
-          try {
-            const me = await mockApi.getCurrentUser();
-            const user = {
-              email: me.email || '',
-              name: me.full_name || me.name || '',
-              role: me.role || 'customer',
-            } as AuthUser;
-            setCurrentUser(user);
-            setIsAuthenticated(true);
-            void loadNotifications(false);
-          } catch {
-            // Token invalid or refresh failed — clear stored tokens and fall back to login
-            localStorage.removeItem('admin_token');
-            localStorage.removeItem('backend_access_token');
-            localStorage.removeItem('admin_refresh_token');
-            localStorage.removeItem('admin_user');
-            setIsAuthenticated(false);
-            setCurrentUser(null);
-          } finally {
-            setIsBootstrapping(false);
-          }
-        })();
-        return;
-      }
       return;
     }
 
@@ -215,7 +196,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-slate-900">
-      {/* Show login page if not authenticated */}
       {!isAuthenticated ? (
         <LoginPage
           onLoginSuccess={(user) => {
@@ -227,7 +207,7 @@ function AppContent() {
       ) : (
         <>
           <Toaster position="top-right" />
-      
+
       {/* Glassmorphism Sidebar */}
       <aside 
         className={`fixed top-0 left-0 flex h-screen flex-col bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 shadow-xl transition-all duration-300 z-50 ${

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../dashboard/jobs_screen.dart';
 import '../main_shell.dart';
 
 class TechnicianLoginScreen extends StatelessWidget {

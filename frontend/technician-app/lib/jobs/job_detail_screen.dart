@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../dashboard/jobs_screen_live.dart';
+import '../models/job_ui_models.dart';
 
 class JobDetailScreen extends StatefulWidget {
   final JobItem job;
@@ -145,7 +145,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
                   child: widget.job.tasks.isEmpty
                       ? const Center(
                           child: Text('Task details will be connected next.'),
-                        )cd
+                        )
                       : ListView.builder(
                           itemCount: widget.job.tasks.length,
                           itemBuilder: (context, index) {
