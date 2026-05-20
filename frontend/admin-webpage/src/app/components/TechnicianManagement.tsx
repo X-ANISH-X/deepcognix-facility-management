@@ -44,8 +44,6 @@ function normalizeOrderStatus(status: string): string {
       return 'submitted';
     case 'in_progress':
       return 'in-progress';
-    case 'rejection_requested':
-      return 'rejection-requested';
     default:
       return status;
   }
@@ -63,10 +61,6 @@ function getOrderStatusBadgeClass(status: string): string {
       return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-200';
     case 'admin_review_pending':
       return 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/15 dark:text-cyan-200';
-    case 'rejection-requested':
-      return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/15 dark:text-rose-200';
-    case 'rejected':
-      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200';
     default:
       return 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
   }
@@ -82,12 +76,8 @@ function getOrderStatusLabel(status: string): string {
       return 'In Progress';
     case 'admin_review_pending':
       return 'Completion Requested';
-    case 'rejection-requested':
-      return 'Rejection Requested';
     case 'completed':
       return 'Completed';
-    case 'rejected':
-      return 'Rejected';
     default:
       return status
         .split(/[-_]/)
@@ -146,7 +136,7 @@ export function TechnicianManagement() {
         mockApi.getWorkOrders(),
       ]);
       setTechnicians(nextTechnicians);
-      setOrders(nextOrders);
+      setOrders(nextOrders.filter((order) => !['rejection-requested', 'rejected'].includes(order.status)));
       setSelectedId((current) => current || nextTechnicians[0]?.id || '');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load technician registry';

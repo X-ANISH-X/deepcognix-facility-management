@@ -170,8 +170,11 @@ class BookingController extends GetxController {
       case 'assigned':
       case 'in_progress':
       case 'completed':
-      case 'rejected':
         return normalized;
+      case 'rejected':
+      case 'cancelled':
+      case 'rejection_requested':
+        return 'submitted';
       default:
         return normalized;
     }

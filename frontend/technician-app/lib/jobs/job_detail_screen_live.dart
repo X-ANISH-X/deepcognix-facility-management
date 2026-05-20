@@ -376,98 +376,47 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     }
   }
 
-  Future<void> _openRejectJobSheet(BookingSummary booking) async {
-    final reasonController = TextEditingController();
-    final reason = await showModalBottomSheet<String>(
+  Future<void> _contactAdminAndReturn() async {
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
+        return AlertDialog(
+          title: const Text('Call Admin'),
+          content: const Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Request Job Rejection',
-                style: Theme.of(context).textTheme.titleLarge,
+                'If you cannot take this job, please call admin so they can reassign it manually.',
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'This will send a rejection request to the admin team. The job is rejected only after admin approval.',
+              SizedBox(height: 16),
+              Text(
+                'Admin phone',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
-              const SizedBox(height: 16),
-              Text('Booking: ${booking.title}'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: reasonController,
-                autofocus: true,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Reason',
-                  hintText: 'Example: Not available for this slot',
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final value = reasonController.text.trim();
-                    if (value.isEmpty) {
-                      return;
-                    }
-                    Navigator.pop(context, value);
-                  },
-                  child: const Text('Send Request'),
-                ),
-              ),
+              SizedBox(height: 4),
+              Text('+971 50 123 4567'),
             ],
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Back To Assigned Jobs'),
+            ),
+          ],
         );
       },
     );
-    reasonController.dispose();
 
-    if (reason == null || reason.isEmpty) {
+    if (!mounted) {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      await _bookingService.rejectJob(
-        bookingId: booking.id,
-        reason: reason,
-      );
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rejection request sent to admin.')),
-      );
-      Navigator.pop(context, true);
-    } on AuthException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
+    Navigator.pop(context, true);
   }
 
   Future<void> _completeJob({String? notes}) async {
@@ -654,7 +603,7 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
               onAccept: _markOnTheWay,
               onMarkArrival: _markArrival,
               onStart: _startJob,
-              onReject: () => _openRejectJobSheet(booking),
+              onCallAdmin: _contactAdminAndReturn,
             )
           : ListView(
               controller: _tasksScrollController,
@@ -814,7 +763,7 @@ class _AssignedView extends StatelessWidget {
   final Future<void> Function() onAccept;
   final Future<void> Function() onMarkArrival;
   final Future<void> Function() onStart;
-  final Future<void> Function() onReject;
+  final Future<void> Function() onCallAdmin;
 
   const _AssignedView({
     required this.booking,
@@ -823,7 +772,7 @@ class _AssignedView extends StatelessWidget {
     required this.onAccept,
     required this.onMarkArrival,
     required this.onStart,
-    required this.onReject,
+    required this.onCallAdmin,
   });
 
   @override
@@ -909,8 +858,8 @@ class _AssignedView extends StatelessWidget {
             width: double.infinity,
             height: 48,
             child: OutlinedButton(
-              onPressed: isSubmitting ? null : () => onReject(),
-              child: const Text('Request Rejection'),
+              onPressed: isSubmitting ? null : () => onCallAdmin(),
+              child: const Text('Call Admin'),
             ),
           ),
         ],

@@ -64,12 +64,26 @@ class _UpcomingBookingsScreenState
       );
 
       if (response is List) {
-
         bookings.value =
             List<Map<String,
                 dynamic>>.from(
           response,
-        );
+        ).where(
+          (booking) {
+            final status =
+                (booking["status"] ??
+                        "")
+                    .toString()
+                    .toLowerCase();
+
+            return status !=
+                    "rejected" &&
+                status !=
+                    "rejection_requested" &&
+                status !=
+                    "cancelled";
+          },
+        ).toList();
 
       } else {
 
@@ -570,11 +584,6 @@ class _UpcomingBookingsScreenState
       case "on_the_way":
         color = Colors.blue;
         label = "On The Way";
-        break;
-
-      case "cancelled":
-        color = Colors.red;
-        label = "Cancelled";
         break;
 
       default:

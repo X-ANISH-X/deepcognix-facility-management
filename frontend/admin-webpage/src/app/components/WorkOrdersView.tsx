@@ -58,7 +58,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
   const [selectedAddonCategory, setSelectedAddonCategory] = useState('All');
   const [isAddonSubmitting, setIsAddonSubmitting] = useState(false);
   const canCreateRequest = role === 'admin' || role === 'customer';
-  const addonBlockedStatuses = useMemo(() => new Set(['admin_review_pending', 'rejection-requested', 'completed', 'rejected']), []);
+  const addonBlockedStatuses = useMemo(() => new Set(['admin_review_pending', 'completed']), []);
 
   const loadData = async (showLoader = false, silent = true) => {
     if (showLoader) {
@@ -70,9 +70,10 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
         mockApi.getWorkOrders(),
         mockApi.getTechnicians()
       ]);
-      setWorkOrders(orders);
+      const visibleOrders = orders.filter((order) => !['rejection-requested', 'rejected'].includes(order.status));
+      setWorkOrders(visibleOrders);
       setTechnicians(techs);
-      setFilteredOrders(orders);
+      setFilteredOrders(visibleOrders);
     } catch (error) {
       if (!silent) {
         const message = error instanceof Error ? error.message : 'Failed to load work orders';
@@ -187,12 +188,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
     toast.success('Completion request approved');
   };
 
-  const handleApproveRejection = async (orderId: string) => {
-    const updated = await mockApi.approveWorkOrderRejection(orderId);
-    setWorkOrders(workOrders.map((wo) => wo.id === updated.id ? updated : wo));
-    toast.success('Rejection request approved');
-  };
-
   const availableAddonServices = useMemo(() => {
     if (!selectedOrder) {
       return [];
@@ -276,8 +271,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       case 'submitted': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/25 dark:text-yellow-300 dark:border-yellow-700';
       case 'assigned': return 'bg-purple-500/10 text-purple-600 border-purple-200 dark:bg-purple-500/25 dark:text-purple-300 dark:border-purple-700';
       case 'admin_review_pending': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-700';
-      case 'rejection-requested': return 'bg-rose-500/10 text-rose-600 border-rose-200 dark:bg-rose-500/25 dark:text-rose-300 dark:border-rose-700';
-      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/25 dark:text-red-300 dark:border-red-700';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-200 dark:bg-gray-500/25 dark:text-gray-300 dark:border-gray-700';
     }
   };
@@ -290,8 +283,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
       case 'submitted': return 'bg-yellow-500 hover:bg-yellow-500';
       case 'assigned': return 'bg-purple-500 hover:bg-purple-500';
       case 'admin_review_pending': return 'bg-emerald-500 hover:bg-emerald-500';
-      case 'rejection-requested': return 'bg-rose-500 hover:bg-rose-500';
-      case 'rejected': return 'bg-red-500 hover:bg-red-500';
       default: return 'bg-gray-500 hover:bg-gray-500';
     }
   };
@@ -304,8 +295,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
         return 'Completion Requested';
       case 'in-progress':
         return 'In Progress';
-      case 'rejection-requested':
-        return 'Rejection Requested';
       default:
         return status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
     }
@@ -502,9 +491,7 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
                     <SelectItem value="admin_review_pending">Completion Requested</SelectItem>
-                    <SelectItem value="rejection-requested">Rejection Requested</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -600,14 +587,6 @@ export function WorkOrdersView({ canManage = true, role = 'customer', focusOrder
                     className="flex-1 min-w-37.5 rounded-full bg-emerald-600 hover:bg-emerald-700 dark:text-white"
                   >
                     Approve Completion
-                  </Button>
-                )}
-                {canManage && order.status === 'rejection-requested' && (
-                  <Button
-                    onClick={() => void handleApproveRejection(order.id)}
-                    className="flex-1 min-w-37.5 rounded-full bg-rose-600 hover:bg-rose-700 dark:text-white"
-                  >
-                    Approve Rejection
                   </Button>
                 )}
                 <Button

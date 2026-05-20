@@ -37,7 +37,7 @@ export interface WorkOrder {
   packageName?: string;
   serviceType: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'admin_review_pending' | 'rejection-requested' | 'completed' | 'rejected';
+  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'admin_review_pending' | 'completed';
   technicianId?: string;
   technicianName?: string;
   scheduledDate: string;
@@ -324,18 +324,13 @@ function statusFromBackend(raw: string): WorkOrder['status'] {
   if (raw === 'customer_review_pending') return 'in-progress';
   if (raw === 'admin_review_pending') return 'admin_review_pending';
   if (raw === 'completion_requested') return 'admin_review_pending';
-  if (raw === 'rejection_requested') return 'rejection-requested';
   if (raw === 'completed') return 'completed';
-  if (raw === 'rejected') return 'rejected';
-  if (raw === 'cancelled') return 'rejected';
   return 'submitted';
 }
 
 function statusToBackend(raw: WorkOrder['status']): string {
   if (raw === 'in-progress') return 'in_progress';
   if (raw === 'admin_review_pending') return 'admin_review_pending';
-  if (raw === 'rejection-requested') return 'rejection_requested';
-  if (raw === 'rejected') return 'rejected';
   return raw;
 }
 

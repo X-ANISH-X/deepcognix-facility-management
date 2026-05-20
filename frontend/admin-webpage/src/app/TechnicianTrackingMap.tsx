@@ -56,7 +56,7 @@ const API_BASE =
 
 const LEGEND_STORAGE_KEY = 'admin-technician-tracking-legend-state-v1';
 const DEFAULT_TECHNICIAN_STATUSES: TechnicianLocation['status'][] = ['available', 'assigned', 'enroute', 'onsite', 'offline'];
-const DEFAULT_BOOKING_STATUSES = ['submitted', 'assigned', 'in_progress', 'admin_review_pending', 'rejection_requested', 'completed', 'rejected'];
+const DEFAULT_BOOKING_STATUSES = ['submitted', 'assigned', 'in_progress', 'admin_review_pending', 'completed'];
 
 type LegendState = {
   isLegendCollapsed: boolean;
@@ -186,13 +186,8 @@ function getBookingStatusColor(status?: string | null): string {
     // Treat customer review the same as completion requested in the admin UI
     case 'customer_review_pending':
       return '#06b6d4';
-    case 'rejection_requested':
-      return '#ef4444';
     case 'completed':
       return '#10b981';
-    case 'cancelled':
-    case 'rejected':
-      return '#6b7280';
     default:
       return '#6b7280';
   }
@@ -217,13 +212,8 @@ function getBookingStatusText(status?: string | null): string {
     case 'customer_review_pending':
       // Merge customer review into completion requested for admin display
       return 'Completion Requested';
-    case 'rejection_requested':
-      return 'Rejection Requested';
     case 'completed':
       return 'Completed';
-    case 'cancelled':
-    case 'rejected':
-      return 'Rejected';
     default:
       return status;
   }
@@ -240,8 +230,6 @@ function normalizeBookingLegendStatus(status: string): string {
       return 'submitted';
     case 'in-progress':
       return 'in_progress';
-    case 'rejection-requested':
-      return 'rejection_requested';
     default:
       return status;
   }

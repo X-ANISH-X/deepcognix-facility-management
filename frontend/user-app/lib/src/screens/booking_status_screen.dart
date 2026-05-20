@@ -358,18 +358,6 @@ class BookingStatusScreen
               Icons.refresh,
         );
 
-      case "cancelled":
-        return _statusCard(
-          title:
-              "Booking Cancelled",
-
-          subtitle:
-              "This booking has been cancelled.",
-
-          icon:
-              Icons.cancel,
-        );
-
       default:
         return _statusCard(
           title:
