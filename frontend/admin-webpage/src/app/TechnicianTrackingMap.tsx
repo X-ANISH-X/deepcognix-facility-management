@@ -175,6 +175,7 @@ function getBookingStatusColor(status?: string | null): string {
   switch ((status || '').toLowerCase()) {
     case 'submitted':
     case 'pending':
+    case 'approved':
       return '#f97316';
     case 'assigned':
       return '#8b5cf6';
@@ -198,6 +199,7 @@ function getBookingStatusPillClass(status?: string | null): string {
   switch ((status || '').toLowerCase()) {
     case 'submitted':
     case 'pending':
+    case 'approved':
       return 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-200';
     case 'assigned':
       return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-200';
@@ -1260,22 +1262,21 @@ export default function TechnicianTrackingMap() {
                   <div className="space-y-4 overflow-auto pr-1">
                     <div className="rounded-2xl border border-slate-200/80 bg-amber-50/70 p-4 shadow-sm dark:border-slate-800/60 dark:bg-amber-950/20">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.customer_name}</p>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.customer_name}</p>
+                          <div className="mt-1 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            <p><span className="font-semibold text-slate-700 dark:text-slate-300">Email:</span> {selectedUser.customer_email}</p>
+                            <p><span className="font-semibold text-slate-700 dark:text-slate-300">Order ID: </span> #{selectedUser.booking_id}</p>
+                          </div>
+                        </div>
                         <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${getBookingStatusPillClass(selectedUser.status)}`}>
                           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(selectedUser.status) }} />
                           {getBookingStatusText(selectedUser.status)}
                         </span>
                       </div>
-                      <div className="mt-3 grid gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <p><span className="font-semibold text-slate-700 dark:text-slate-300">customer_email:</span> {selectedUser.customer_email}</p>
-                        <p><span className="font-semibold text-slate-700 dark:text-slate-300">customer_phone:</span> {selectedUser.customer_phone || 'N/A'}</p>
-                        <p><span className="font-semibold text-slate-700 dark:text-slate-300">booking_id:</span> #{selectedUser.booking_id}</p>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{selectedUser.address_line}</p>
                       {!hasSelectedUserCoordinates && (
                         <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">No coordinates yet. Address only.</p>
                       )}
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{selectedUser.package_name} · {selectedUser.service_name}</p>
                     </div>
 
                         <div className="flex items-center justify-between gap-2">
@@ -1310,7 +1311,7 @@ export default function TechnicianTrackingMap() {
                           <button
                             type="button"
                             onClick={() => setShowUserDetails((v) => !v)}
-                            className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
+                            className="rounded-full px-2.5 py-1.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
                           >
                             {showUserDetails ? 'Hide details' : 'Show details'}
                           </button>
@@ -1321,6 +1322,9 @@ export default function TechnicianTrackingMap() {
                             <div className="grid gap-2 text-sm">
                               <p><span className="font-semibold">Status:</span> {selectedUser.status}</p>
                               <p><span className="font-semibold">Phone:</span> {selectedUser.customer_phone || 'N/A'}</p>
+                              <p><span className="font-semibold">Address:</span> {selectedUser.address_line}</p>
+                              <p><span className="font-semibold">Package:</span> {selectedUser.package_name}</p>
+                              <p><span className="font-semibold">Service:</span> {selectedUser.service_name}</p>
                               <p><span className="font-semibold">Building:</span> {selectedUser.building_name || 'N/A'}</p>
                               <p><span className="font-semibold">Technician:</span> {selectedUser.technician_name || 'Unassigned'}</p>
                             </div>
@@ -1410,7 +1414,7 @@ export default function TechnicianTrackingMap() {
                       <button
                         type="button"
                         onClick={() => setShowTechnicianDetails((v) => !v)}
-                        className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
+                        className="rounded-full px-2.5 py-1.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
                       >
                         {showTechnicianDetails ? 'Hide details' : 'Show details'}
                       </button>
