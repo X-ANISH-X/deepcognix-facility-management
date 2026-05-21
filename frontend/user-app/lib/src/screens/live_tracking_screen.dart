@@ -737,61 +737,74 @@ class LiveTrackingScreen
     String status,
   ) {
 
-    if (status ==
-        "on_the_way") {
+    if (status == "on_the_way") {
 
-      return SizedBox(
-        width:
-            double.infinity,
+  return SizedBox(
+    width: double.infinity,
+
+    child: ElevatedButton(
+      onPressed: () async {
+        await controller.approveArrival();
+      },
+
+      child: const Text(
+        "Confirm Arrival",
+      ),
+    ),
+  );
+}
+
+if (status == "cleaning_in_progress" &&
+    controller.checklist.isNotEmpty &&
+    controller.completedTasks.length ==
+        controller.checklist.length) {
+
+  return Column(
+    children: [
+
+      SizedBox(
+        width: double.infinity,
 
         child: ElevatedButton(
           onPressed: () async {
 
-            await controller
-                .approveArrival();
+            controller.bookingStatus.value =
+                "completed";
+
+            controller.update();
+
+            await controller.approveWork();
           },
 
           child: const Text(
-            "Confirm Arrival",
+            "Approve Completion",
           ),
         ),
-      );
-    }
+      ),
 
-    if (status == "cleaning_in_progress" && controller.checklist.isNotEmpty && controller.completedTasks.length == controller.checklist.length) {
+      const SizedBox(
+        height: 12,
+      ),
 
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () async {
-                controller.bookingStatus.value = "completed";
-                controller.update();
-                await controller.approveWork();
-              },
-              child: const Text("Approve Completion"),
-            ),
+      SizedBox(
+        width: double.infinity,
+
+        child: OutlinedButton(
+          onPressed: () {
+            _showReworkDialog(controller);
+          },
+
+          child: const Text(
+            "Request Rework",
           ),
+        ),
+      ),
+    ],
+  );
+}
 
-          const SizedBox(height: 12),
-
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                _showReworkDialog(controller);
-              },
-              child: const Text("Request Rework"),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (status ==
-        "customer_review_pending") {
-
+if (status ==
+    "customer_review_pending") {
       return Column(
         children: [
 
@@ -977,8 +990,11 @@ class LiveTrackingScreen
       case "on_the_way":
         return "Your technician is currently on the way to your location.";
 
+      case "arrival_approval_pending":
+         return "Your technician has reached the location and is waiting for your confirmation.";
+
       case "arrival_confirmed":
-        return "Technician has arrived. Please confirm arrival to begin service.";
+         return "Technician has arrived. Service can now begin.";
 
       case "cleaning_in_progress":
         return "Cleaning professionals are currently working on your apartment.";

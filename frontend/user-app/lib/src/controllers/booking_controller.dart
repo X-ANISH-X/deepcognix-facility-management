@@ -157,28 +157,37 @@ class BookingController extends GetxController {
   }
 
   String mapStatus(String status) {
-    final normalized = status.trim().toLowerCase();
-    switch (normalized) {
-      case 'completion_requested':
-        return 'customer_review_pending';
-      case 'in_progress':
-        return 'cleaning_in_progress';
-      case 'arrival_confirmed':
-      case 'cleaning_in_progress':
-      case 'on_the_way':
-      case 'submitted':
-      case 'assigned':
-      case 'rework_requested':
-      case 'completed':
-      case 'approved':
-      case 'admin_review_pending':
-      case 'customer_review_pending':
-      case 'rejected':
-        return normalized;
-      default:
-        return normalized;
-    }
+   final normalized = status.trim().toLowerCase();
+
+   switch (normalized) {
+    case 'completion_requested':
+      return 'customer_review_pending';
+
+    case 'in_progress':
+      return 'cleaning_in_progress';
+
+    case 'submitted':
+    case 'approved':
+    case 'assigned':
+    case 'on_the_way':
+    case 'arrival_confirmed':
+    case 'arrival_approval_pending':
+    case 'cleaning_in_progress':
+    case 'customer_review_pending':
+    case 'admin_review_pending':
+    case 'rework_requested':
+    case 'completed':
+      return normalized;
+
+    case 'rejected':
+    case 'cancelled':
+    case 'rejection_requested':
+      return 'submitted';
+
+    default:
+      return normalized;
   }
+}
 
   String normalizeTime(String slotLabel) {
     return slotLabel.trim().toUpperCase();

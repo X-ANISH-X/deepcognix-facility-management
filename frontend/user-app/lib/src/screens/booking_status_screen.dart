@@ -289,10 +289,10 @@ class BookingStatusScreen
       case "arrival_approval_pending":
         return _statusCard(
           title:
-              "Arrival Confirmation Required",
+              "Technician Arrived",
 
           subtitle:
-              "Please confirm that the technician has arrived.",
+              "Your technician has reached the location and is preparing to start the service.",
 
           icon:
               Icons.location_on,
@@ -356,18 +356,6 @@ class BookingStatusScreen
 
           icon:
               Icons.refresh,
-        );
-
-      case "cancelled":
-        return _statusCard(
-          title:
-              "Booking Cancelled",
-
-          subtitle:
-              "This booking has been cancelled.",
-
-          icon:
-              Icons.cancel,
         );
 
       default:
@@ -560,20 +548,6 @@ class BookingStatusScreen
         "Call Technician",
 
         _callTechnician,
-      );
-    }
-
-    if (status ==
-        "arrival_approval_pending") {
-
-      return _button(
-        "Confirm Arrival",
-
-        () async {
-
-          await controller
-              .approveArrival();
-        },
       );
     }
 

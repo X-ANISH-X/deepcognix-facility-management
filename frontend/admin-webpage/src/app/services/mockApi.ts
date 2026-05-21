@@ -5,6 +5,11 @@ export interface Technician {
   phone: string;
   specialty: string[];
   status: 'available' | 'assigned' | 'enroute' | 'onsite' | 'offline';
+  isActive: boolean;
+  disabledAt?: string;
+  removedAt?: string;
+  removalDueAt?: string;
+  removalStatus?: 'active' | 'disabled' | 'removed';
   locationSource: 'live' | 'booking' | 'fallback';
   location: {
     lat: number;
@@ -33,11 +38,11 @@ export interface WorkOrder {
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
+  serviceId: string;
   packageName?: string;
   serviceType: string;
-  packageName?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'admin_review_pending' | 'rejection-requested' | 'completed' | 'rejected';
+  status: 'submitted' | 'approved' | 'assigned' | 'in-progress' | 'admin_review_pending' | 'completed';
   technicianId?: string;
   technicianName?: string;
   scheduledDate: string;
@@ -55,16 +60,29 @@ export interface WorkOrder {
   callBeforeArrival?: boolean;
   estimatedCost: number;
   actualCost?: number;
+  additionalServices?: BookingAdditionalService[];
   createdAt: string;
   completedAt?: string;
 }
 
-export interface BookingTask {
-  id: number;
+export interface BookingAdditionalService {
+  id: string;
   bookingId: string;
+  serviceId: string;
+  serviceName: string;
+  servicePrice: number;
+  isIncluded: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BookingTask {
+  id: string;
+  bookingId?: string;
   taskName: string;
   orderIndex: number;
   isCompleted: boolean;
+  description?: string;
 }
 
 export interface CustomerReportRow {
@@ -74,6 +92,7 @@ export interface CustomerReportRow {
   customerEmail: string;
   customerPhone: string;
   packageName: string;
+  technicianName?: string;
   amount: number;
 }
 
@@ -121,25 +140,6 @@ export interface PreviousCustomer {
   phone?: string;
   lastBookingAt?: string;
   totalBookings?: number;
-}
-
-export interface BookingTask {
-  id: string;
-  title: string;
-  description?: string;
-  orderIndex: number;
-  completed: boolean;
-}
-
-export interface CustomerReportRow {
-  orderId: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  packageName: string;
-  technicianName?: string;
-  amount: number;
 }
 
 export interface NotificationItem {
@@ -222,6 +222,13 @@ function readRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
+function emitSessionExpired(): void {
+  clearStoredAuthTokens();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('admin:session-expired'));
+  }
+}
+
 function persistAccessToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(LEGACY_TOKEN_KEY, token);
@@ -231,6 +238,10 @@ function clearStoredAuthTokens(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(LEGACY_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+function refreshAccessToken(): Promise<string | null> {
+  return tryRefreshAccessToken();
 }
 
 async function tryRefreshAccessToken(): Promise<string | null> {
@@ -310,26 +321,29 @@ function pickFirstNumber(obj: Dict, keys: string[], fallback = 0): number {
   return fallback;
 }
 
-function statusFromBackend(raw: string): WorkOrder['status'] {
-  if (raw === 'submitted') return 'submitted';
-  if (raw === 'approved') return 'submitted';
-  if (raw === 'assigned') return 'assigned';
-  if (raw === 'in_progress') return 'in-progress';
-  if (raw === 'customer_review_pending') return 'in-progress';
-  if (raw === 'admin_review_pending') return 'admin_review_pending';
-  if (raw === 'completion_requested') return 'admin_review_pending';
-  if (raw === 'rejection_requested') return 'rejection-requested';
-  if (raw === 'completed') return 'completed';
-  if (raw === 'rejected') return 'rejected';
-  if (raw === 'cancelled') return 'rejected';
+function statusFromBackend(raw: string, technicianId?: string): WorkOrder['status'] {
+  const normalized = raw.trim().toLowerCase();
+  const hasTechnician = Boolean(technicianId);
+
+  if (normalized === 'assigned') return 'assigned';
+  if (normalized === 'in_progress') return 'in-progress';
+  if (normalized === 'customer_review_pending') return 'in-progress';
+  if (normalized === 'admin_review_pending') return 'admin_review_pending';
+  if (normalized === 'completion_requested') return 'admin_review_pending';
+  if (normalized === 'completed') return 'completed';
+
+  if (hasTechnician && (normalized === 'submitted' || normalized === 'approved' || normalized === 'pending')) {
+    return 'assigned';
+  }
+
+  if (normalized === 'approved') return 'submitted';
+  if (normalized === 'submitted' || normalized === 'pending') return 'submitted';
   return 'submitted';
 }
 
 function statusToBackend(raw: WorkOrder['status']): string {
   if (raw === 'in-progress') return 'in_progress';
   if (raw === 'admin_review_pending') return 'admin_review_pending';
-  if (raw === 'rejection-requested') return 'rejection_requested';
-  if (raw === 'rejected') return 'rejected';
   return raw;
 }
 
@@ -508,6 +522,11 @@ function mapTechnician(item: Dict): Technician {
     phone: pickString(item, 'phone_number') || pickString(item, 'phone'),
     specialty: specialties,
     status: mappedStatus,
+    isActive: item.is_active !== false,
+    disabledAt: pickString(item, 'disabled_at') || undefined,
+    removedAt: pickString(item, 'removed_at') || undefined,
+    removalDueAt: pickString(item, 'removal_due_at') || undefined,
+    removalStatus: (pickString(item, 'removal_status') as Technician['removalStatus']) || (item.removed_at ? 'removed' : item.disabled_at ? 'disabled' : 'active'),
     locationSource: normalizedLocationSource,
     location: {
       lat,
@@ -536,11 +555,30 @@ function mapTechnician(item: Dict): Technician {
 }
 
 function mapWorkOrder(item: Dict): WorkOrder {
-  const status = statusFromBackend(pickString(item, 'status'));
+  const technicianId = item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined;
+  const status = statusFromBackend(pickString(item, 'status'), technicianId);
   const createdAt = pickString(item, 'created_at') || new Date().toISOString();
   const finalPrice = pickFirstNumber(item, ['final_price', 'finalPrice']);
   const basePrice = pickFirstNumber(item, ['base_price', 'estimated_cost', 'estimatedCost']);
-  const actualCost = finalPrice > 0 ? finalPrice : undefined;
+  const additionalServices = Array.isArray(item.additional_services)
+    ? item.additional_services.map((service) => ({
+        id: String(service?.id ?? ''),
+        bookingId: String(service?.booking_id ?? item.id ?? ''),
+        serviceId: String(service?.service_id ?? ''),
+        serviceName: pickString(service as Dict, 'service_name') || 'Additional service',
+        servicePrice: pickFirstNumber(service as Dict, ['service_price', 'servicePrice']),
+        isIncluded: service?.is_included !== false,
+        createdAt: pickString(service as Dict, 'created_at') || undefined,
+        updatedAt: pickString(service as Dict, 'updated_at') || undefined,
+      }))
+    : [];
+  const additionalServicesTotal = additionalServices.reduce((sum, service) => (
+    service.isIncluded ? sum + (Number(service.servicePrice) || 0) : sum
+  ), 0);
+  const actualCostFromBackend = pickFirstNumber(item, ['actual_cost', 'actualCost']);
+  const actualCost = actualCostFromBackend > 0
+    ? actualCostFromBackend
+    : ((finalPrice > 0 ? finalPrice : 0) + additionalServicesTotal || undefined);
   const estimatedCost = basePrice > 0 ? basePrice : finalPrice;
 
   return {
@@ -549,11 +587,12 @@ function mapWorkOrder(item: Dict): WorkOrder {
     customerName: pickString(item, 'customer_name'),
     customerEmail: pickString(item, 'customer_email') || pickString(item, 'email'),
     customerPhone: pickString(item, 'customer_phone') || pickString(item, 'phone_number') || pickString(item, 'phone'),
+    serviceId: String(item.service_id ?? ''),
     serviceType: pickString(item, 'service_name') || pickString(item, 'serviceType'),
     packageName: pickString(item, 'package_name') || pickString(item, 'packageName') || pickString(item, 'package') || undefined,
     priority: (pickString(item, 'priority') as WorkOrder['priority']) || 'medium',
     status,
-    technicianId: item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined,
+    technicianId,
     technicianName: pickString(item, 'technician_name') || undefined,
     scheduledDate: pickString(item, 'scheduled_date'),
     scheduledTime: pickString(item, 'scheduled_time_slot') || '09:00:00',
@@ -570,6 +609,7 @@ function mapWorkOrder(item: Dict): WorkOrder {
     callBeforeArrival: Boolean(item.call_before_arrival),
     estimatedCost,
     actualCost,
+    additionalServices,
     createdAt,
     completedAt: pickString(item, 'completed_at') || undefined,
   };
@@ -621,10 +661,11 @@ function mapPreviousCustomer(item: Dict): PreviousCustomer {
 function mapBookingTask(item: Dict): BookingTask {
   return {
     id: String(item.id ?? ''),
-    title: pickString(item, 'title') || pickString(item, 'name') || 'Task',
+    bookingId: pickStringOrNumber(item, 'booking_id') || undefined,
+    taskName: pickString(item, 'task_name') || pickString(item, 'title') || pickString(item, 'name') || 'Task',
     description: pickString(item, 'description') || pickString(item, 'notes') || undefined,
     orderIndex: pickNumber(item, 'order_index') || pickNumber(item, 'orderIndex') || 0,
-    completed: Boolean(item.completed || item.is_done || item.done),
+    isCompleted: Boolean(item.completed || item.is_completed || item.is_done || item.done),
   };
 }
 
@@ -794,6 +835,22 @@ export const mockApi = {
     await request(`/technicians/${id}`, { method: 'DELETE' }, true);
   },
 
+  reinstateTechnician: async (id: string): Promise<Technician> => {
+    const data = await request<{ technician?: Dict }>(`/technicians/${id}/reinstate`, {
+      method: 'POST',
+    }, true);
+
+    if (data.technician) {
+      return mapTechnician(data.technician);
+    }
+
+    const technician = await mockApi.getTechnicianById(id);
+    if (!technician) {
+      throw new Error('Technician not found after reinstating');
+    }
+    return technician;
+  },
+
   getWorkOrders: async (): Promise<WorkOrder[]> => {
     const data = await request<Dict[] | { bookings?: Dict[] }>('/bookings/', undefined, true);
     const list = Array.isArray(data) ? data : (data.bookings || []);
@@ -804,6 +861,23 @@ export const mockApi = {
     const data = await request<Dict | { booking?: Dict }>(`/bookings/${id}`, undefined, true);
     const booking = 'booking' in data ? data.booking : data;
     return booking ? mapWorkOrder(booking as Dict) : undefined;
+  },
+
+  addBookingAdditionalService: async (bookingId: string, serviceId: string): Promise<WorkOrder> => {
+    const data = await request<{ booking?: Dict }>(`/bookings/${bookingId}/additional-services`, {
+      method: 'POST',
+      body: JSON.stringify({ service_id: Number(serviceId) }),
+    }, true);
+
+    if (data.booking) {
+      return mapWorkOrder(data.booking);
+    }
+
+    const booking = await mockApi.getWorkOrderById(bookingId);
+    if (!booking) {
+      throw new Error('Booking not found after adding additional service');
+    }
+    return booking;
   },
 
   createWorkOrder: async (data: Partial<WorkOrder>): Promise<WorkOrder> => {
@@ -1115,7 +1189,7 @@ export const mockApi = {
     } catch {
       // Ignore logout transport errors; local state still gets cleared.
     } finally {
-      clearStoredAuth();
+      clearStoredAuthTokens();
     }
   },
 };

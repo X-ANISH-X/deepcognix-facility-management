@@ -51,6 +51,13 @@ def _fetch_active_service(cursor, service_id: int):
     return cursor.fetchone()
 
 
+def _to_float(value) -> float:
+    try:
+        return float(value) if value is not None else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _fetch_booking(cursor, booking_id: int):
     cursor.execute(
         """
@@ -61,6 +68,60 @@ def _fetch_booking(cursor, booking_id: int):
         (booking_id,),
     )
     return cursor.fetchone()
+
+
+def _fetch_booking_additional_services(cursor, booking_ids: list[int]):
+    if not booking_ids:
+        return {}
+
+    placeholders = ",".join(["%s"] * len(booking_ids))
+    cursor.execute(
+        f"""
+        SELECT
+            id,
+            booking_id,
+            service_id,
+            service_name,
+            service_price,
+            is_included,
+            created_at,
+            updated_at
+        FROM booking_additional_services
+        WHERE booking_id IN ({placeholders})
+        ORDER BY created_at ASC, id ASC
+        """,
+        tuple(booking_ids),
+    )
+
+    services_by_booking: dict[int, list[dict]] = {}
+    for row in cursor.fetchall():
+        booking_key = int(row.get("booking_id") or 0)
+        services_by_booking.setdefault(booking_key, []).append(
+            {
+                "id": row.get("id"),
+                "booking_id": row.get("booking_id"),
+                "service_id": row.get("service_id"),
+                "service_name": row.get("service_name") or "Additional service",
+                "service_price": _to_float(row.get("service_price")),
+                "is_included": bool(row.get("is_included", True)),
+                "created_at": row.get("created_at"),
+                "updated_at": row.get("updated_at"),
+            }
+        )
+
+    return services_by_booking
+
+
+def _augment_booking_row(row: dict, additional_services: list[dict]) -> dict:
+    included_total = sum(
+        _to_float(item.get("service_price"))
+        for item in additional_services
+        if item.get("is_included", True)
+    )
+    base_price = _to_float(row.get("final_price"))
+    row["additional_services"] = additional_services
+    row["actual_cost"] = base_price + included_total if row.get("final_price") is not None or additional_services else None
+    return row
 
 
 def _upsert_payment_record(
@@ -265,7 +326,12 @@ def list_bookings(conn, user_id: int | None = None, role: str | None = None):
 
         query += " ORDER BY b.created_at DESC"
         cursor.execute(query, params)
-        return cursor.fetchall()
+        bookings = cursor.fetchall()
+        services_by_booking = _fetch_booking_additional_services(cursor, [int(row.get("id") or 0) for row in bookings])
+        return [
+            _augment_booking_row(row, services_by_booking.get(int(row.get("id") or 0), []))
+            for row in bookings
+        ]
     finally:
         cursor.close()
 
@@ -293,7 +359,55 @@ def get_booking_by_id(conn, booking_id: int):
             """,
             (booking_id,),
         )
-        return cursor.fetchone()
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        services_by_booking = _fetch_booking_additional_services(cursor, [int(row.get("id") or booking_id)])
+        return _augment_booking_row(row, services_by_booking.get(int(row.get("id") or booking_id), []))
+    finally:
+        cursor.close()
+
+
+def add_booking_additional_service(conn, booking_id: int, service_id: int):
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = _fetch_booking(cursor, booking_id)
+        if not booking:
+            return False, "Booking not found"
+
+        normalized_status = normalize_booking_status(booking.get("status")) or booking.get("status")
+        if normalized_status in {"admin_review_pending", "rejection_requested", "completed", "rejected"}:
+            return False, "Additional services cannot be added for the current booking status"
+
+        if int(booking.get("service_id") or 0) == service_id:
+            return False, "The primary service is already part of this booking"
+
+        service = _fetch_active_service(cursor, service_id)
+        if not service:
+            return False, "Service not found or inactive"
+
+        cursor.execute(
+            "SELECT id FROM booking_additional_services WHERE booking_id = %s AND service_id = %s",
+            (booking_id, service_id),
+        )
+        if cursor.fetchone():
+            return False, "This service has already been added to the booking"
+
+        cursor.execute(
+            """
+            INSERT INTO booking_additional_services (
+                booking_id, service_id, service_name, service_price, is_included
+            )
+            VALUES (%s, %s, %s, %s, TRUE)
+            """,
+            (booking_id, service_id, service["name"], service["base_price"] or 0),
+        )
+        conn.commit()
+        return True, None
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         cursor.close()
 
@@ -411,9 +525,8 @@ def start_job(conn, booking_id, technician_id):
         if booking["technician_id"] != technician_id:
             return False, "Booking not assigned to technician"
 
-        # Allow starting from either 'assigned' or 'arrival_approval_pending'
-        if booking["status"] not in ("assigned", "arrival_approval_pending"):
-            return False, f"Job can be started only when assigned or arrival pending (current: {booking['status']})"
+        if booking["status"] != "arrival_approval_pending":
+            return False, f"Job can be started only after reaching the location (current: {booking['status']})"
 
         cursor.execute(
             "UPDATE bookings SET status = 'in_progress' WHERE id = %s",

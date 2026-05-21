@@ -61,7 +61,15 @@ def list_technician_locations(
                     SELECT COUNT(*)
                     FROM bookings b
                     WHERE b.technician_id = u.id
-                      AND b.status IN ('assigned', 'in_progress', 'customer_review_pending', 'admin_review_pending', 'completion_requested')
+                      AND b.status IN (
+                          'assigned',
+                          'on_the_way',
+                          'arrival_approval_pending',
+                          'in_progress',
+                          'customer_review_pending',
+                          'admin_review_pending',
+                          'completion_requested'
+                      )
                 ) AS current_jobs,
                 (
                     SELECT b.status
@@ -118,7 +126,7 @@ def list_technician_locations(
                     WHERE ll.technician_id = u.id
                 ) AS location_recorded_at
             FROM users u
-            WHERE u.role = 'technician'
+            WHERE u.role = 'technician' AND u.is_active = TRUE
             ORDER BY u.is_active DESC, u.id DESC
             """
         )
@@ -208,8 +216,6 @@ def list_user_locations(
             INNER JOIN services s ON s.id = b.service_id
             INNER JOIN packages p ON p.id = b.package_id
             LEFT JOIN users t ON t.id = b.technician_id
-            WHERE b.latitude IS NOT NULL
-              AND b.longitude IS NOT NULL
             ORDER BY b.updated_at DESC, b.id DESC
             """
         )
@@ -217,6 +223,15 @@ def list_user_locations(
 
         users: list[dict] = []
         for row in rows:
+            # Determine an effective status for the admin map. If a booking
+            # was submitted but already has a technician assigned, surface it
+            # as 'assigned' so the UI reflects the current assignment state.
+            raw_status = (row.get("status") or "submitted").strip().lower()
+            tech_id = row.get("technician_id")
+            effective_status = raw_status
+            if raw_status in {"submitted", "approved", "pending"} and tech_id is not None:
+                effective_status = "assigned"
+
             users.append(
                 {
                     "booking_id": row.get("booking_id"),
@@ -228,7 +243,7 @@ def list_user_locations(
                     "service_name": row.get("service_name") or "",
                     "package_id": row.get("package_id"),
                     "package_name": row.get("package_name") or "",
-                    "status": row.get("status") or "submitted",
+                    "status": effective_status,
                     "address_line": row.get("address_line") or "",
                     "building_name": row.get("building_name") or "",
                     "floor_number": row.get("floor_number") or "",
@@ -237,7 +252,7 @@ def list_user_locations(
                     "longitude": _as_float(row.get("longitude")),
                     "created_at": row.get("created_at"),
                     "updated_at": row.get("updated_at"),
-                    "technician_id": row.get("technician_id"),
+                    "technician_id": tech_id,
                     "technician_name": row.get("technician_name") or None,
                 }
             )

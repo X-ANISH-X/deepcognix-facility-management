@@ -6,6 +6,7 @@ import 'leaflet-control-geocoder/dist/Control.Geocoder.css';
 import 'leaflet-control-geocoder';
 import { Check, ChevronLeft, ChevronRight, Minus, Plus, Scan, Search, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTheme } from '@/app/context/ThemeContext';
+import { mockApi } from '@/app/services/mockApi';
 
 type TechnicianLocation = {
   id: number;
@@ -55,7 +56,8 @@ const API_BASE =
 
 const LEGEND_STORAGE_KEY = 'admin-technician-tracking-legend-state-v1';
 const DEFAULT_TECHNICIAN_STATUSES: TechnicianLocation['status'][] = ['available', 'assigned', 'enroute', 'onsite', 'offline'];
-const DEFAULT_BOOKING_STATUSES = ['submitted', 'assigned', 'in_progress', 'admin_review_pending', 'rejection_requested', 'completed', 'rejected'];
+const DEFAULT_BOOKING_STATUSES = ['submitted', 'assigned', 'in_progress', 'admin_review_pending', 'completed'];
+const USER_STATUS_FILTERS = [...DEFAULT_BOOKING_STATUSES];
 
 type LegendState = {
   isLegendCollapsed: boolean;
@@ -173,6 +175,7 @@ function getBookingStatusColor(status?: string | null): string {
   switch ((status || '').toLowerCase()) {
     case 'submitted':
     case 'pending':
+    case 'approved':
       return '#f97316';
     case 'assigned':
       return '#8b5cf6';
@@ -185,15 +188,32 @@ function getBookingStatusColor(status?: string | null): string {
     // Treat customer review the same as completion requested in the admin UI
     case 'customer_review_pending':
       return '#06b6d4';
-    case 'rejection_requested':
-      return '#ef4444';
     case 'completed':
       return '#10b981';
-    case 'cancelled':
-    case 'rejected':
-      return '#6b7280';
     default:
       return '#6b7280';
+  }
+}
+
+function getBookingStatusPillClass(status?: string | null): string {
+  switch ((status || '').toLowerCase()) {
+    case 'submitted':
+    case 'pending':
+    case 'approved':
+      return 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/30 dark:bg-orange-500/15 dark:text-orange-200';
+    case 'assigned':
+      return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-200';
+    case 'in_progress':
+    case 'in-progress':
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200';
+    case 'completion_requested':
+    case 'admin_review_pending':
+    case 'customer_review_pending':
+      return 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/15 dark:text-cyan-200';
+    case 'completed':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200';
+    default:
+      return 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200';
   }
 }
 
@@ -216,13 +236,8 @@ function getBookingStatusText(status?: string | null): string {
     case 'customer_review_pending':
       // Merge customer review into completion requested for admin display
       return 'Completion Requested';
-    case 'rejection_requested':
-      return 'Rejection Requested';
     case 'completed':
       return 'Completed';
-    case 'cancelled':
-    case 'rejected':
-      return 'Rejected';
     default:
       return status;
   }
@@ -239,8 +254,6 @@ function normalizeBookingLegendStatus(status: string): string {
       return 'submitted';
     case 'in-progress':
       return 'in_progress';
-    case 'rejection-requested':
-      return 'rejection_requested';
     default:
       return status;
   }
@@ -415,12 +428,23 @@ function MapInstanceBridge({ onMapReady }: { onMapReady: (map: L.Map) => void })
   return null;
 }
 
-function DetailButton({ label, onClick, variant = 'default' }: { label: string; onClick: () => void; variant?: 'default' | 'primary' }) {
+function DetailButton({
+  label,
+  onClick,
+  variant = 'default',
+  disabled = false,
+}: {
+  label: string;
+  onClick: () => void;
+  variant?: 'default' | 'primary';
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${variant === 'primary' ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'}`}
+      disabled={disabled}
+      className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${disabled ? 'cursor-not-allowed opacity-55' : ''} ${variant === 'primary' ? 'bg-teal-600 text-white hover:bg-teal-700' : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700'}`}
     >
       {label}
     </button>
@@ -444,6 +468,7 @@ export default function TechnicianTrackingMap() {
   const [userQuery, setUserQuery] = useState('');
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null);
   const [selectedUserBookingId, setSelectedUserBookingId] = useState<number | null>(null);
+  const [visibleUserStatuses, setVisibleUserStatuses] = useState<string[]>([...DEFAULT_BOOKING_STATUSES]);
   const [activeSidebar, setActiveSidebar] = useState<'user' | 'technician' | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [initialLegendState] = useState<LegendState>(() => readLegendState());
@@ -533,10 +558,22 @@ export default function TechnicianTrackingMap() {
 
     const timer = window.setInterval(() => {
       void loadMapData(true);
-    }, 15000);
+    }, 5000);
 
     return () => {
       window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = mockApi.subscribeRealtime((event) => {
+      if (event.event === 'technician.location_updated') {
+        void loadMapData(true);
+      }
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, []);
 
@@ -562,10 +599,15 @@ export default function TechnicianTrackingMap() {
   const filteredUsers = useMemo(() => {
     const needle = userQuery.trim().toLowerCase();
     if (!needle) {
-      return users;
+      return users.filter((user) => visibleUserStatuses.includes(normalizeBookingLegendStatus(String(user.status).toLowerCase())));
     }
 
     return users.filter((user) => {
+      const normalizedStatus = normalizeBookingLegendStatus(String(user.status).toLowerCase());
+      if (!visibleUserStatuses.includes(normalizedStatus)) {
+        return false;
+      }
+
       return [
         user.customer_name,
         user.customer_email,
@@ -576,7 +618,21 @@ export default function TechnicianTrackingMap() {
         user.status,
       ].some((value) => String(value ?? '').toLowerCase().includes(needle));
     });
-  }, [userQuery, users]);
+  }, [userQuery, users, visibleUserStatuses]);
+
+  const toggleUserStatus = (status: string) => {
+    setVisibleUserStatuses((current) => (
+      current.includes(status)
+        ? current.filter((item) => item !== status)
+        : [...current, status]
+    ));
+  };
+
+  const allUserStatusesVisible = visibleUserStatuses.length === USER_STATUS_FILTERS.length;
+
+  const toggleAllUserStatuses = () => {
+    setVisibleUserStatuses(allUserStatusesVisible ? [] : [...USER_STATUS_FILTERS]);
+  };
 
   const toggleTechnicianStatus = (status: TechnicianLocation['status']) => {
     setVisibleTechnicianStatuses((current) => (
@@ -592,6 +648,17 @@ export default function TechnicianTrackingMap() {
         ? current.filter((item) => item !== status)
         : [...current, status]
     ));
+  };
+
+  const allTechnicianStatusesVisible = visibleTechnicianStatuses.length === DEFAULT_TECHNICIAN_STATUSES.length;
+  const allBookingStatusesVisible = visibleBookingStatuses.length === DEFAULT_BOOKING_STATUSES.length;
+
+  const toggleAllTechnicianStatuses = () => {
+    setVisibleTechnicianStatuses(allTechnicianStatusesVisible ? [] : [...DEFAULT_TECHNICIAN_STATUSES]);
+  };
+
+  const toggleAllBookingStatuses = () => {
+    setVisibleBookingStatuses(allBookingStatusesVisible ? [] : [...DEFAULT_BOOKING_STATUSES]);
   };
 
   const visibleTechnicians = useMemo(
@@ -662,6 +729,8 @@ export default function TechnicianTrackingMap() {
     [selectedUser],
   );
 
+  const hasSelectedUserCoordinates = Number.isFinite(selectedUserCoordinates.lat) && Number.isFinite(selectedUserCoordinates.lng);
+
   const selectedTechnicianCoordinates = useMemo(
     () => ({ lat: selectedTechnician?.latitude ?? null, lng: selectedTechnician?.longitude ?? null }),
     [selectedTechnician],
@@ -678,6 +747,22 @@ export default function TechnicianTrackingMap() {
     () => Boolean(selectedUser?.technician_name && selectedUser.technician_name.trim() && selectedUser.technician_name !== 'Unassigned'),
     [selectedUser],
   );
+
+  const handleUserSelection = (bookingId: number) => {
+    setSelectedUserBookingId(bookingId);
+    setSelectedTechnicianId(null);
+    setShowUserDetails(true);
+    setShowTechnicianDetails(false);
+    setActiveSidebar('user');
+  };
+
+  const handleTechnicianSelection = (technicianId: number) => {
+    setSelectedTechnicianId(technicianId);
+    setSelectedUserBookingId(null);
+    setShowTechnicianDetails(true);
+    setShowUserDetails(false);
+    setActiveSidebar('technician');
+  };
 
   const openGeocoderSearch = () => {
     if (!mapInstance) {
@@ -705,9 +790,7 @@ export default function TechnicianTrackingMap() {
       'assigned',
       'in_progress',
       'admin_review_pending',
-      'rejection_requested',
       'completed',
-      'rejected',
     ];
     const present = new Set<string>();
     visibleTechnicians.forEach((t) => {
@@ -809,7 +892,7 @@ export default function TechnicianTrackingMap() {
           z-index: 2;
         }
         .drawer-panel {
-          width: min(420px, calc(100% - 72px));
+          width: min(560px, calc(100% - 72px));
           backdrop-filter: blur(16px);
         }
         .drawer-collapsed {
@@ -898,11 +981,9 @@ export default function TechnicianTrackingMap() {
               eventHandlers={{
                 click: () => {
                   if (marker.kind === 'technician') {
-                    setSelectedTechnicianId(marker.technician.id);
-                    setActiveSidebar('technician');
+                    handleTechnicianSelection(marker.technician.id);
                   } else {
-                    setSelectedUserBookingId(marker.user.booking_id);
-                    setActiveSidebar('user');
+                    handleUserSelection(marker.user.booking_id);
                   }
                 },
               }}
@@ -1005,31 +1086,54 @@ export default function TechnicianTrackingMap() {
 
           {!isLegendCollapsed && (
             <div className="space-y-2 px-3 pb-3">
-              {displayedTechnicianStatuses.map((statusItem) => (
-                <button
-                  key={statusItem.status}
-                  type="button"
-                  onClick={() => toggleTechnicianStatus(statusItem.status)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-slate-500/5 ${statusItem.present ? (isLightMode ? 'text-slate-900' : 'text-slate-100') : 'opacity-45'}`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(statusItem.status) }} />
-                    <span>{getStatusText(statusItem.status)}</span>
-                  </span>
-                  {statusItem.present ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
-                </button>
-              ))}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Technician statuses</p>
+                  <button
+                    type="button"
+                    onClick={toggleAllTechnicianStatuses}
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${isLightMode ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-slate-800 text-slate-100 hover:bg-slate-700'}`}
+                  >
+                    {allTechnicianStatusesVisible ? <Check className="h-3 w-3 " /> : <X className="h-3 w-3" />}
+                    {allTechnicianStatusesVisible ? '' : ''}
+                  </button>
+                </div>
+                {displayedTechnicianStatuses.map((statusItem) => (
+                  <button
+                    key={statusItem.status}
+                    type="button"
+                    onClick={() => toggleTechnicianStatus(statusItem.status)}
+                    className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left text-xs transition hover:bg-slate-500/5 ${statusItem.present ? (isLightMode ? 'text-slate-900' : 'text-slate-100') : 'opacity-45'}`}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getStatusColor(statusItem.status) }} />
+                      <span>{getStatusText(statusItem.status)}</span>
+                    </span>
+                    {statusItem.present ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                  </button>
+                ))}
+              </div>
 
               {displayedBookingStatuses.length ? (
                 <div className="pt-2">
-                  <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Booking statuses</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${isLightMode ? 'text-slate-500' : 'text-slate-400'}`}>Booking statuses</p>
+                    <button
+                      type="button"
+                      onClick={toggleAllBookingStatuses}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${isLightMode ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-slate-800 text-slate-100 hover:bg-slate-700'}`}
+                    >
+                      {allBookingStatusesVisible ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      {allBookingStatusesVisible ? '' : ''}
+                    </button>
+                  </div>
                   <div className="mt-1 space-y-1">
                     {displayedBookingStatuses.map((statusItem) => (
                       <button
                         key={statusItem.status}
                         type="button"
                         onClick={() => toggleBookingStatus(statusItem.status)}
-                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition hover:bg-slate-500/5 ${statusItem.present ? (isLightMode ? 'text-slate-900' : 'text-slate-100') : 'opacity-45'}`}
+                        className={`flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1 text-left text-xs transition hover:bg-slate-500/5 ${statusItem.present ? (isLightMode ? 'text-slate-900' : 'text-slate-100') : 'opacity-45'}`}
                       >
                         <span className="flex items-center gap-2.5">
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(statusItem.status) }} />
@@ -1082,7 +1186,7 @@ export default function TechnicianTrackingMap() {
                 <button
                   type="button"
                   onClick={() => setActiveSidebar('user')}
-                  className="rounded-full px-3 py-1 text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
+                  className="rounded-full px-1 py-1 pr-2.5  text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
                 >
                   <div className="flex items-center gap-2">
                     {activeSidebar === 'user' ? (
@@ -1106,7 +1210,15 @@ export default function TechnicianTrackingMap() {
                         <span className="text-xs font-semibold">#{selectedTechnician.latest_booking_id ?? ''}</span>
                       </>
                     ) : (
-                      'Status / Order#'
+                      <>
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white whitespace-nowrap"
+                          style={{ backgroundColor: getBookingStatusColor(undefined) }}
+                        >
+                          {getBookingStatusText(undefined)}
+                        </span>
+                        <span className="text-xs font-semibold">#</span>
+                      </>
                     )}
                   </div>
                 </button>
@@ -1123,16 +1235,48 @@ export default function TechnicianTrackingMap() {
                     placeholder="Search customer name, address, package, service"
                     className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
                   />
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={toggleAllUserStatuses}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${allUserStatusesVisible ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+                    >
+                      {allUserStatusesVisible ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      {allUserStatusesVisible ? 'Clear all' : 'Show all'}
+                    </button>
+                    {USER_STATUS_FILTERS.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => toggleUserStatus(status)}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${visibleUserStatuses.includes(status) ? getBookingStatusPillClass(status) : 'border-slate-200 bg-white text-slate-500 opacity-55 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400'}`}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(status) }} />
+                        {getBookingStatusText(status)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {selectedUser ? (
                   <div className="space-y-4 overflow-auto pr-1">
                     <div className="rounded-2xl border border-slate-200/80 bg-amber-50/70 p-4 shadow-sm dark:border-slate-800/60 dark:bg-amber-950/20">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.customer_name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{selectedUser.customer_email}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">#{selectedUser.booking_id}</p>
-                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">{selectedUser.address_line}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{selectedUser.package_name} · {selectedUser.service_name}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{selectedUser.customer_name}</p>
+                          <div className="mt-1 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            <p><span className="font-semibold text-slate-700 dark:text-slate-300">Email:</span> {selectedUser.customer_email}</p>
+                            <p><span className="font-semibold text-slate-700 dark:text-slate-300">Order ID: </span> #{selectedUser.booking_id}</p>
+                          </div>
+                        </div>
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${getBookingStatusPillClass(selectedUser.status)}`}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(selectedUser.status) }} />
+                          {getBookingStatusText(selectedUser.status)}
+                        </span>
+                      </div>
+                      {!hasSelectedUserCoordinates && (
+                        <p className="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">No coordinates yet. Address only.</p>
+                      )}
                     </div>
 
                         <div className="flex items-center justify-between gap-2">
@@ -1140,6 +1284,7 @@ export default function TechnicianTrackingMap() {
                           <DetailButton
                             label="Focus on map"
                             variant="primary"
+                            disabled={!hasSelectedUserCoordinates}
                             onClick={() => {
                               setActiveSidebar('user');
                               focusMapOnPoint(mapInstance, selectedUserCoordinates.lat, selectedUserCoordinates.lng);
@@ -1166,7 +1311,7 @@ export default function TechnicianTrackingMap() {
                           <button
                             type="button"
                             onClick={() => setShowUserDetails((v) => !v)}
-                            className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
+                            className="rounded-full px-2.5 py-1.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
                           >
                             {showUserDetails ? 'Hide details' : 'Show details'}
                           </button>
@@ -1177,6 +1322,9 @@ export default function TechnicianTrackingMap() {
                             <div className="grid gap-2 text-sm">
                               <p><span className="font-semibold">Status:</span> {selectedUser.status}</p>
                               <p><span className="font-semibold">Phone:</span> {selectedUser.customer_phone || 'N/A'}</p>
+                              <p><span className="font-semibold">Address:</span> {selectedUser.address_line}</p>
+                              <p><span className="font-semibold">Package:</span> {selectedUser.package_name}</p>
+                              <p><span className="font-semibold">Service:</span> {selectedUser.service_name}</p>
                               <p><span className="font-semibold">Building:</span> {selectedUser.building_name || 'N/A'}</p>
                               <p><span className="font-semibold">Technician:</span> {selectedUser.technician_name || 'Unassigned'}</p>
                             </div>
@@ -1193,13 +1341,16 @@ export default function TechnicianTrackingMap() {
                       <button
                         key={user.booking_id}
                         type="button"
-                        onClick={() => {
-                          setSelectedUserBookingId(user.booking_id);
-                          setActiveSidebar('user');
-                        }}
+                        onClick={() => handleUserSelection(user.booking_id)}
                         className={`w-full rounded-2xl border p-4 text-left transition ${selectedUser?.booking_id === user.booking_id ? 'border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30' : 'border-slate-200/80 bg-white hover:bg-slate-50 dark:border-slate-800/60 dark:bg-slate-950/60 dark:hover:bg-slate-900'}`}
                       >
-                        <p className="font-semibold text-slate-900 dark:text-white">{user.customer_name}</p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-slate-900 dark:text-white">{user.customer_name}</p>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${getBookingStatusPillClass(user.status)}`}>
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: getBookingStatusColor(user.status) }} />
+                            {getBookingStatusText(user.status)}
+                          </span>
+                        </div>
                         <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">#{user.booking_id}</p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">{user.address_line}</p>
                       </button>
@@ -1263,7 +1414,7 @@ export default function TechnicianTrackingMap() {
                       <button
                         type="button"
                         onClick={() => setShowTechnicianDetails((v) => !v)}
-                        className="rounded-full px-2 py-0.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
+                        className="rounded-full px-2.5 py-1.5 text-xs font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200/60 dark:bg-slate-800 dark:text-white whitespace-nowrap"
                       >
                         {showTechnicianDetails ? 'Hide details' : 'Show details'}
                       </button>
@@ -1290,10 +1441,7 @@ export default function TechnicianTrackingMap() {
                       <button
                         key={technician.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedTechnicianId(technician.id);
-                          setActiveSidebar('technician');
-                        }}
+                        onClick={() => handleTechnicianSelection(technician.id)}
                         className={`w-full rounded-2xl border p-4 text-left transition ${selectedTechnician?.id === technician.id ? 'border-teal-300 bg-teal-50 dark:border-teal-700/60 dark:bg-teal-950/30' : 'border-slate-200/80 bg-white hover:bg-slate-50 dark:border-slate-800/60 dark:bg-slate-950/60 dark:hover:bg-slate-900'}`}
                       >
                         <div className="flex items-center justify-between gap-3">

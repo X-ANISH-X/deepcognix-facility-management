@@ -27,6 +27,7 @@ src/
 	vite-env.d.ts
 	app/
 		App.tsx
+		TechnicianTrackingMap.tsx
 		components/
 			DashboardView.tsx
 			LoadingSpinner.tsx
@@ -35,7 +36,7 @@ src/
 			ServicePackagesView.tsx
 			ServicesView.tsx
 			SettingsView.tsx
-			TechnicianMapView.tsx
+			TechnicianManagement.tsx
 			TranslatableText.tsx
 			WorkOrdersView.tsx
 			figma/
@@ -101,6 +102,7 @@ src/
 			accessControl.ts
 			serviceCatalog.ts
 			serviceColors.ts
+			technicianRemovalState.ts
 			translations.ts
 	styles/
 		fonts.css
@@ -125,12 +127,13 @@ src/
 1. `src/app/services/api.ts` is the abstraction point for backend integration.
 2. `src/app/services/mockApi.ts` and `src/app/services/mockRevenueData.ts` support development without backend availability.
 3. `src/app/context/LanguageContext.tsx` and `src/app/components/TranslatableText.tsx` provide UI localization plumbing.
-4. `src/app/components/ui/` contains many generated/shared primitives; avoid changing these unless updating design system behavior.
-5. `src/styles/index.css` should remain the single import point for global styles.
+4. `src/app/TechnicianTrackingMap.tsx` is a standalone feature screen and is not nested under `components/`.
+5. `src/app/components/ui/` contains many generated/shared primitives; avoid changing these unless updating design system behavior.
+6. `src/styles/index.css` should remain the single import point for global styles.
 
 ## Maintenance Rules
 
-1. Add new feature screens under `src/app/components/`.
+1. Add new feature screens under `src/app/components/`, except for standalone screens that intentionally live alongside `App.tsx` such as `TechnicianTrackingMap.tsx`.
 2. Keep network/data concerns in `src/app/services/` rather than inside view components.
 3. Keep reusable pure helpers in `src/app/utils/`.
 4. Update this file whenever files are added, removed, or moved in `src/`.

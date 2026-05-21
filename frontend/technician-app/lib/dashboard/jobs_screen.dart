@@ -1,36 +1,10 @@
 import 'package:flutter/material.dart';
+import '../models/job_ui_models.dart';
 import '../jobs/job_detail_screen.dart';
-
-class TaskItem {
-  final String title;
-  bool completed;
-  DateTime? completedAt;
-
-  TaskItem({
-    required this.title,
-    this.completed = false,
-    this.completedAt,
-  });
-}
-
-class JobItem {
-  final String title;
-  final String location;
-  final String time;
-  final String status;
-  final List<TaskItem> tasks;
-
-  JobItem({
-    required this.title,
-    required this.location,
-    required this.time,
-    required this.status,
-    required this.tasks,
-  });
-}
 
 final List<JobItem> demoJobs = [
   JobItem(
+    id: 1,
     title: 'Office Cleaning – Koramangala',
     location: '5th Block, Koramangala, Bengaluru',
     time: 'Today • 10:30 AM',
@@ -47,6 +21,7 @@ final List<JobItem> demoJobs = [
     ],
   ),
   JobItem(
+    id: 2,
     title: 'Apartment Cleaning – Whitefield',
     location: 'ITPL Main Road, Whitefield, Bengaluru',
     time: 'Today • 3:00 PM',
@@ -62,6 +37,7 @@ final List<JobItem> demoJobs = [
     ],
   ),
   JobItem(
+    id: 3,
     title: 'Office Cleaning – Indiranagar',
     location: '100 ft Road, Indiranagar, Bengaluru',
     time: 'Yesterday • 11:00 AM',

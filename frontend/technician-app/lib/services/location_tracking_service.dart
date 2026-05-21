@@ -7,6 +7,8 @@ class LocationTrackingService {
   final LocationService _locationService;
   Timer? _timer;
   bool _isSending = false;
+  int? _activeBookingId;
+  Duration? _activeInterval;
 
   LocationTrackingService({LocationService? locationService})
       : _locationService = locationService ?? LocationService();
@@ -30,12 +32,22 @@ class LocationTrackingService {
     required void Function(String message) onError,
     Duration interval = const Duration(seconds: 30),
   }) async {
+    if (_timer != null &&
+        _activeBookingId == bookingId &&
+        _activeInterval == interval) {
+      return;
+    }
+
     stop();
+    _activeBookingId = bookingId;
+    _activeInterval = interval;
 
     try {
       final initialSnapshot = await sendSingleUpdate(bookingId);
       onSent(initialSnapshot);
     } catch (error) {
+      _activeBookingId = null;
+      _activeInterval = null;
       onError(error.toString());
       return;
     }
@@ -61,7 +73,10 @@ class LocationTrackingService {
     _timer?.cancel();
     _timer = null;
     _isSending = false;
+    _activeBookingId = null;
+    _activeInterval = null;
   }
 
   bool get isTracking => _timer != null;
+  Duration? get currentInterval => _activeInterval;
 }

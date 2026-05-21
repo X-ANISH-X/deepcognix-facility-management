@@ -432,13 +432,32 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (String(status).toLowerCase()) {
       case 'completed': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-800';
-      case 'in-progress': return 'bg-teal-500/10 text-teal-600 border-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-800';
-      case 'assigned': return 'bg-green-500/10 text-green-600 border-green-200 dark:bg-green-500/20 dark:text-green-400 dark:border-green-800';
+      case 'in-progress':
+      case 'in_progress': return 'bg-teal-500/10 text-teal-600 border-teal-200 dark:bg-teal-500/20 dark:text-teal-400 dark:border-teal-800';
+      case 'assigned': return 'bg-purple-500/10 text-purple-600 border-purple-200 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-700';
+      case 'approved':
+      case 'submitted':
       case 'pending': return 'bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-800';
-      case 'rejected': return 'bg-red-500/10 text-red-600 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-800';
+      case 'admin_review_pending': return 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/25 dark:text-emerald-300 dark:border-emerald-700';
       default: return 'bg-gray-500/10 text-gray-600 border-gray-200 dark:bg-gray-500/20 dark:text-gray-400 dark:border-gray-800';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const s = String(status);
+    switch (s) {
+      case 'approved':
+      case 'submitted':
+        return 'Submitted';
+      case 'admin_review_pending':
+        return 'Completion Requested';
+      case 'in-progress':
+      case 'in_progress':
+        return 'In Progress';
+      default:
+        return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
     }
   };
 
@@ -524,28 +543,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
         </Card>
       </div>
 
-      {role === 'admin' && (
-        <Card className="rounded-3xl border-none shadow-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Pending Customer Requests</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingSubmittedOrders.length === 0 ? (
-              <p className="text-sm text-gray-500">No submitted requests waiting for approval.</p>
-            ) : (
-              pendingSubmittedOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between rounded-xl border border-gray-200 dark:border-gray-800 px-3 py-2">
-                  <div>
-                    <p className="text-sm font-semibold">{order.id} - {order.customerName}</p>
-                    <p className="text-xs text-gray-500">{order.serviceType} | {order.scheduledDate}</p>
-                  </div>
-                  <Badge className="bg-yellow-500/10 text-yellow-700 border-yellow-200" variant="outline">submitted</Badge>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* Pending Customer Requests removed per UX request */}
 
       {/* Charts Section */}
       <div className="flex flex-wrap gap-6 items-stretch">
@@ -681,7 +679,7 @@ export function DashboardView({ role = 'customer' }: DashboardViewProps) {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold">{order.id}</span>
                       <Badge className={getStatusColor(order.status)} variant="outline">
-                        {order.status}
+                        {getStatusLabel(order.status)}
                       </Badge>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">{order.customerName} • {order.serviceType}</p>
