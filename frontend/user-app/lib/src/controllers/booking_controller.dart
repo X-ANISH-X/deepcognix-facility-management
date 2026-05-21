@@ -328,16 +328,27 @@ class BookingController extends GetxController {
             return left.compareTo(right);
           });
 
-        checklist.value = orderedTasks
+        final fetchedChecklist = orderedTasks
             .map((task) => (task["task_name"] ?? "").toString())
             .where((task) => task.trim().isNotEmpty)
             .toList();
 
-        completedTasks.value = orderedTasks
+        final backendCompleted = orderedTasks
             .where((task) => _isTaskCompleted(task["is_completed"]))
             .map((task) => (task["task_name"] ?? "").toString())
             .where((task) => task.trim().isNotEmpty)
-            .toList();
+            .toSet();
+
+        checklist.value = fetchedChecklist;
+
+        final preservedCompleted = <String>{};
+        for (final task in fetchedChecklist) {
+          if (backendCompleted.contains(task) || completedTasks.contains(task)) {
+            preservedCompleted.add(task);
+          }
+        }
+
+        completedTasks.value = preservedCompleted.toList();
       }
       debugPrint("UPDATED STATUS => ${bookingStatus.value}");
     } catch (e) {
@@ -369,7 +380,9 @@ class BookingController extends GetxController {
 
     try {
       await _api.post("/bookings/${bookingId.value}/customer-approve", {});
-      bookingStatus.value = "admin_review_pending";
+      if (bookingStatus.value != "completed") {
+        bookingStatus.value = "admin_review_pending";
+      }
     } catch (e) {
       debugPrint("APPROVE WORK ERROR -> $e");
     }

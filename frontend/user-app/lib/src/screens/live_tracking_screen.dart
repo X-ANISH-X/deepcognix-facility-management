@@ -88,12 +88,16 @@ class LiveTrackingScreen
             20,
           ),
 
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
 
-            children: [
+              mainAxisSize: MainAxisSize.min,
+
+              children: [
 
               // ==========================================
               // STATUS CARD
@@ -268,178 +272,95 @@ class LiveTrackingScreen
               // ==========================================
               // TIMELINE
               // ==========================================
-              Expanded(
-                child: Container(
-                  width:
-                      double.infinity,
-
-                  padding:
-                      const EdgeInsets
-                          .all(20),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        Colors.white,
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      24,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Service Progress",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-
-                    children: [
-
-                      const Text(
-                        "Service Progress",
-
-                        style:
-                            TextStyle(
-                          fontSize: 18,
-                          fontWeight:
-                              FontWeight
-                                  .bold,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 24,
-                      ),
-
-                      Expanded(
-                        child: ListView(
+                    const SizedBox(height: 24),
+                    _timelineTile(
+                      "Booking Submitted",
+                      true,
+                    ),
+                    _timelineTile(
+                      "Technician Assigned",
+                      status != "submitted",
+                    ),
+                    _timelineTile(
+                      "Technician On The Way",
+                      status == "on_the_way" ||
+                          status == "arrival_confirmed" ||
+                          status == "cleaning_in_progress" ||
+                          status == "customer_review_pending" ||
+                          status == "admin_review_pending" ||
+                          status == "completed",
+                    ),
+                    _timelineTile(
+                      "Arrival Confirmed",
+                      status == "arrival_confirmed" ||
+                          status == "cleaning_in_progress" ||
+                          status == "customer_review_pending" ||
+                          status == "admin_review_pending" ||
+                          status == "completed",
+                    ),
+                    _timelineTile(
+                      "Cleaning In Progress",
+                      status == "cleaning_in_progress" ||
+                          status == "customer_review_pending" ||
+                          status == "admin_review_pending" ||
+                          status == "completed",
+                    ),
+                    _timelineTile(
+                      "Customer Approval",
+                      status == "admin_review_pending" || status == "completed",
+                    ),
+                    _timelineTile(
+                      "Completed",
+                      status == "completed",
+                    ),
+                    if (status == "cleaning_in_progress")
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-
-                            _timelineTile(
-                              "Booking Submitted",
-                              true,
-                            ),
-
-                            _timelineTile(
-                              "Technician Assigned",
-                              status !=
-                                  "submitted",
-                            ),
-
-                            _timelineTile(
-                              "Technician On The Way",
-                              status ==
-                                      "on_the_way" ||
-                                  status ==
-                                      "arrival_confirmed" ||
-                                  status ==
-                                      "cleaning_in_progress" ||
-                                  status ==
-                                      "customer_review_pending" ||
-                                  status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Arrival Confirmed",
-                              status ==
-                                      "arrival_confirmed" ||
-                                  status ==
-                                      "cleaning_in_progress" ||
-                                  status ==
-                                      "customer_review_pending" ||
-                                  status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Cleaning In Progress",
-                              status ==
-                                      "cleaning_in_progress" ||
-                                  status ==
-                                      "customer_review_pending" ||
-                                  status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Customer Approval",
-                              status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Completed",
-                              status ==
-                                  "completed",
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      if (status ==
-                              "cleaning_in_progress")
-
-                        Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
-
-                          children: [
-
-                            const SizedBox(
-                              height: 10,
-                            ),
-
                             const Text(
                               "Checklist Progress",
-
-                              style:
-                                  TextStyle(
-                                fontWeight:
-                                    FontWeight
-                                        .bold,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-
-                            const SizedBox(
-                              height: 10,
-                            ),
-
+                            const SizedBox(height: 10),
                             Obx(
                               () => LinearProgressIndicator(
-                                value:
-                                    controller.progress,
+                                value: controller.progress,
                               ),
                             ),
-
-                            const SizedBox(
-                              height: 8,
-                            ),
-
+                            const SizedBox(height: 8),
                             Obx(
                               () => Text(
                                 "${controller.completedTasks.length}/${controller.checklist.length} tasks completed",
                               ),
                             ),
-
+                            const SizedBox(height: 10),
                             Obx(
                               () {
                                 final items = controller.checklist;
-
                                 return Column(
                                   children: items.map((task) {
                                     final completed = controller.completedTasks.contains(task);
-
                                     return CheckboxListTile(
                                       value: completed,
                                       onChanged: (val) {
@@ -450,7 +371,6 @@ class LiveTrackingScreen
                                         } else {
                                           controller.completedTasks.removeWhere((t) => t == task);
                                         }
-
                                         controller.update();
                                       },
                                       title: Text(task),
@@ -462,8 +382,8 @@ class LiveTrackingScreen
                             ),
                           ],
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
 
@@ -624,7 +544,8 @@ class LiveTrackingScreen
               ),
             ],
           ),
-        );
+        ),
+      );
       }),
     );
   }
