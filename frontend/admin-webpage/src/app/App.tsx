@@ -220,7 +220,7 @@ function AppContent() {
             {isSidebarOpen ? (
               <div>
                 <h1 className="text-2xl font-bold bg-linear-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
-                  DeepCognix
+                  Cartel Star
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Mission Control</p>
               </div>

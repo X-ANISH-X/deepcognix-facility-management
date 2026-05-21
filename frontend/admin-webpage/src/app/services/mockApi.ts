@@ -321,15 +321,23 @@ function pickFirstNumber(obj: Dict, keys: string[], fallback = 0): number {
   return fallback;
 }
 
-function statusFromBackend(raw: string): WorkOrder['status'] {
-  if (raw === 'submitted') return 'submitted';
-  if (raw === 'approved') return 'submitted';
-  if (raw === 'assigned') return 'assigned';
-  if (raw === 'in_progress') return 'in-progress';
-  if (raw === 'customer_review_pending') return 'in-progress';
-  if (raw === 'admin_review_pending') return 'admin_review_pending';
-  if (raw === 'completion_requested') return 'admin_review_pending';
-  if (raw === 'completed') return 'completed';
+function statusFromBackend(raw: string, technicianId?: string): WorkOrder['status'] {
+  const normalized = raw.trim().toLowerCase();
+  const hasTechnician = Boolean(technicianId);
+
+  if (normalized === 'assigned') return 'assigned';
+  if (normalized === 'in_progress') return 'in-progress';
+  if (normalized === 'customer_review_pending') return 'in-progress';
+  if (normalized === 'admin_review_pending') return 'admin_review_pending';
+  if (normalized === 'completion_requested') return 'admin_review_pending';
+  if (normalized === 'completed') return 'completed';
+
+  if (hasTechnician && (normalized === 'submitted' || normalized === 'approved' || normalized === 'pending')) {
+    return 'assigned';
+  }
+
+  if (normalized === 'approved') return 'submitted';
+  if (normalized === 'submitted' || normalized === 'pending') return 'submitted';
   return 'submitted';
 }
 
@@ -547,7 +555,8 @@ function mapTechnician(item: Dict): Technician {
 }
 
 function mapWorkOrder(item: Dict): WorkOrder {
-  const status = statusFromBackend(pickString(item, 'status'));
+  const technicianId = item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined;
+  const status = statusFromBackend(pickString(item, 'status'), technicianId);
   const createdAt = pickString(item, 'created_at') || new Date().toISOString();
   const finalPrice = pickFirstNumber(item, ['final_price', 'finalPrice']);
   const basePrice = pickFirstNumber(item, ['base_price', 'estimated_cost', 'estimatedCost']);
@@ -583,7 +592,7 @@ function mapWorkOrder(item: Dict): WorkOrder {
     packageName: pickString(item, 'package_name') || pickString(item, 'packageName') || pickString(item, 'package') || undefined,
     priority: (pickString(item, 'priority') as WorkOrder['priority']) || 'medium',
     status,
-    technicianId: item.technician_id !== null && item.technician_id !== undefined ? String(item.technician_id) : undefined,
+    technicianId,
     technicianName: pickString(item, 'technician_name') || undefined,
     scheduledDate: pickString(item, 'scheduled_date'),
     scheduledTime: pickString(item, 'scheduled_time_slot') || '09:00:00',

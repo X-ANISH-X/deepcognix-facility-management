@@ -533,9 +533,8 @@ export function TechnicianManagement() {
                   </Button>
                   <div className="ml-auto flex items-center">
                     <Button
-                      variant="outline"
                       onClick={() => setIsRemovalDialogOpen(true)}
-                      className="rounded-xl border-red-300 text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10"
+                      className={`rounded-xl ${selectedTechnician.isActive ? 'bg-red-600 text-white hover:bg-red-500 dark:bg-red-500 dark:hover:bg-red-400' : 'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-200 dark:hover:bg-red-500/10'}`}
                     >
                       {selectedTechnician.isActive ? 'Remove Technician' : 'Reinstate Technician'}
                     </Button>
