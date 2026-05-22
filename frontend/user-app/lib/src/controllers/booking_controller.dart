@@ -36,6 +36,7 @@ class BookingController extends GetxController {
   final activePollingBookingId = 0.obs;
 
   final estimatedArrivalMinutes = 45.obs;
+  final estimatedArrivalTime = "".obs;
   final estimatedCompletionMinutes = 180.obs;
 
   final technicianName = "".obs;
@@ -156,29 +157,37 @@ class BookingController extends GetxController {
   }
 
   String mapStatus(String status) {
-    final normalized = status.trim().toLowerCase();
-    switch (normalized) {
-      case 'completion_requested':
-        return 'customer_review_pending';
-      case 'admin_review_pending':
-      case 'customer_review_pending':
-      case 'on_the_way':
-      case 'arrival_approval_pending':
-      case 'rework_requested':
-      case 'submitted':
-      case 'approved':
-      case 'assigned':
-      case 'in_progress':
-      case 'completed':
-        return normalized;
-      case 'rejected':
-      case 'cancelled':
-      case 'rejection_requested':
-        return 'submitted';
-      default:
-        return normalized;
-    }
+   final normalized = status.trim().toLowerCase();
+
+   switch (normalized) {
+    case 'completion_requested':
+      return 'customer_review_pending';
+
+    case 'in_progress':
+      return 'cleaning_in_progress';
+
+    case 'submitted':
+    case 'approved':
+    case 'assigned':
+    case 'on_the_way':
+    case 'arrival_confirmed':
+    case 'arrival_approval_pending':
+    case 'cleaning_in_progress':
+    case 'customer_review_pending':
+    case 'admin_review_pending':
+    case 'rework_requested':
+    case 'completed':
+      return normalized;
+
+    case 'rejected':
+    case 'cancelled':
+    case 'rejection_requested':
+      return 'submitted';
+
+    default:
+      return normalized;
   }
+}
 
   String normalizeTime(String slotLabel) {
     return slotLabel.trim().toUpperCase();
@@ -289,7 +298,32 @@ class BookingController extends GetxController {
       }
 
       final rawStatus = (res["status"] ?? "").toString();
-      bookingStatus.value = mapStatus(rawStatus);
+      final newStatus = mapStatus(rawStatus);
+
+      // Update ETA fields if provided by backend
+      try {
+        if (res.containsKey('estimated_arrival_minutes')) {
+          final val = res['estimated_arrival_minutes'];
+          estimatedArrivalMinutes.value = int.tryParse(val?.toString() ?? '') ?? estimatedArrivalMinutes.value;
+        }
+        if (res.containsKey('estimated_arrival_time')) {
+          estimatedArrivalTime.value = (res['estimated_arrival_time'] ?? '').toString();
+        }
+      } catch (e) {
+        debugPrint("ETA PARSE ERROR -> $e");
+      }
+
+      // Protect user-controlled local statuses from being immediately rolled back by polling
+      final localStatus = bookingStatus.value;
+      final userControlled = <String>{'arrival_confirmed', 'completed', 'rework_requested'};
+      final allowedOverrideFromBackend = <String>{'cleaning_in_progress', 'rework_requested', 'completed'};
+
+      if (userControlled.contains(localStatus) && !allowedOverrideFromBackend.contains(newStatus)) {
+        debugPrint("SKIPPING POLL OVERRIDE: local $localStatus, backend $newStatus");
+      } else {
+        bookingStatus.value = newStatus;
+      }
+
       technicianName.value = (res["technician_name"] ?? "").toString();
       technicianPhone.value = (res["technician_phone"] ?? "").toString();
       technicianRating.value = (res["technician_rating"] ?? "").toString();
@@ -303,16 +337,27 @@ class BookingController extends GetxController {
             return left.compareTo(right);
           });
 
-        checklist.value = orderedTasks
+        final fetchedChecklist = orderedTasks
             .map((task) => (task["task_name"] ?? "").toString())
             .where((task) => task.trim().isNotEmpty)
             .toList();
 
-        completedTasks.value = orderedTasks
+        final backendCompleted = orderedTasks
             .where((task) => _isTaskCompleted(task["is_completed"]))
             .map((task) => (task["task_name"] ?? "").toString())
             .where((task) => task.trim().isNotEmpty)
-            .toList();
+            .toSet();
+
+        checklist.value = fetchedChecklist;
+
+        final preservedCompleted = <String>{};
+        for (final task in fetchedChecklist) {
+          if (backendCompleted.contains(task) || completedTasks.contains(task)) {
+            preservedCompleted.add(task);
+          }
+        }
+
+        completedTasks.value = preservedCompleted.toList();
       }
       debugPrint("UPDATED STATUS => ${bookingStatus.value}");
     } catch (e) {
@@ -326,8 +371,12 @@ class BookingController extends GetxController {
     }
 
     try {
+      // Optimistic local update to prevent polling rollback
+      bookingStatus.value = "arrival_confirmed";
+      update();
+
+      // Fire-and-forget backend call; backend will progress to cleaning_in_progress when ready
       await _api.post("/bookings/${bookingId.value}/start", {});
-      bookingStatus.value = "in_progress";
     } catch (e) {
       debugPrint("ARRIVAL APPROVAL ERROR -> $e");
     }
@@ -340,7 +389,9 @@ class BookingController extends GetxController {
 
     try {
       await _api.post("/bookings/${bookingId.value}/customer-approve", {});
-      bookingStatus.value = "admin_review_pending";
+      if (bookingStatus.value != "completed") {
+        bookingStatus.value = "admin_review_pending";
+      }
     } catch (e) {
       debugPrint("APPROVE WORK ERROR -> $e");
     }

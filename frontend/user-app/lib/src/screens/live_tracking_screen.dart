@@ -88,17 +88,25 @@ class LiveTrackingScreen
             20,
           ),
 
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
 
-            children: [
+              mainAxisSize: MainAxisSize.min,
+
+              children: [
 
               // ==========================================
-              // ETA STATUS CARD
+              // STATUS CARD
               // ==========================================
-              Container(
+              AnimatedContainer(
+                duration: const Duration(
+                  milliseconds: 400,
+                ),
+                curve: Curves.easeInOut,
                 width:
                     double.infinity,
 
@@ -116,6 +124,19 @@ class LiveTrackingScreen
                           .circular(
                     20,
                   ),
+                  boxShadow: status == "on_the_way"
+                      ? [
+                          BoxShadow(
+                            color:
+                                Colors.black12,
+                            blurRadius: 14,
+                            offset: const Offset(
+                              0,
+                              8,
+                            ),
+                          ),
+                        ]
+                      : null,
                 ),
 
                 child: Column(
@@ -156,120 +177,93 @@ class LiveTrackingScreen
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 14,
-                    ),
-
-                    if (status ==
-                        "on_the_way")
-
-                      Obx(
-                        () => Text(
-                          "Estimated arrival in ${controller.estimatedArrivalMinutes.value} mins",
-                        ),
+                    if (status == "on_the_way") ...[
+                      const SizedBox(
+                        height: 18,
                       ),
 
-                    if (status ==
-                        "in_progress")
+                      Row(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
 
-                      Obx(
-                        () => Text(
-                          "Estimated completion in ${controller.estimatedCompletionMinutes.value} mins",
-                        ),
+                        children: [
+                          Container(
+                            padding:
+                                const EdgeInsets
+                                    .all(12),
+                            decoration:
+                                BoxDecoration(
+                              color:
+                                  const Color(
+                                0xFFE6F4F1,
+                              ),
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                16,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.local_shipping,
+                              color:
+                                  Color(
+                                0xFF0F9D8A,
+                              ),
+                              size: 28,
+                            ),
+                          ),
+
+                          const SizedBox(
+                            width: 14,
+                          ),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment
+                                      .start,
+
+                              children: const [
+                                Text(
+                                  "Technician On The Way",
+                                  style:
+                                      TextStyle(
+                                    fontWeight:
+                                        FontWeight
+                                            .bold,
+                                  ),
+                                ),
+
+                                SizedBox(
+                                  height: 8,
+                                ),
+
+                                Text(
+                                  "Our technician is currently travelling to your location.",
+                                ),
+
+                                SizedBox(
+                                  height: 6,
+                                ),
+
+                                Text(
+                                  "You can confirm arrival once the technician reaches your location.",
+                                  style:
+                                      TextStyle(
+                                    color:
+                                        Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
+                    ],
                   ],
                 ),
               ),
-
-              // ==========================================
-              // ARRIVAL COUNTDOWN CARD (on_the_way only)
-              // ==========================================
-              if (status == "on_the_way")
-                Container(
-                  width:
-                      double.infinity,
-
-                  margin:
-                      const EdgeInsets
-                          .only(
-                    bottom: 24,
-                  ),
-
-                  padding:
-                      const EdgeInsets
-                          .all(18),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        Colors.white,
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      20,
-                    ),
-                  ),
-
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .center,
-
-                    children: [
-
-                      const Icon(
-                        Icons.access_time,
-
-                        size: 48,
-
-                        color: Color(
-                          0xFF0F9D8A,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 8,
-                      ),
-
-                      const Text(
-                        "Arrival Countdown",
-
-                        style:
-                            TextStyle(
-                          fontSize: 18,
-
-                          fontWeight:
-                              FontWeight
-                                  .bold,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 8,
-                      ),
-
-                      Obx(
-                        () => Text(
-                          "${controller.estimatedArrivalMinutes.value} minutes remaining",
-
-                          style:
-                              const TextStyle(
-                            fontSize: 24,
-
-                            fontWeight:
-                                FontWeight
-                                    .w600,
-
-                            color: Color(
-                              0xFF0F9D8A,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
               const SizedBox(
                 height: 24,
@@ -278,175 +272,118 @@ class LiveTrackingScreen
               // ==========================================
               // TIMELINE
               // ==========================================
-              Expanded(
-                child: Container(
-                  width:
-                      double.infinity,
-
-                  padding:
-                      const EdgeInsets
-                          .all(20),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        Colors.white,
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      24,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Service Progress",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-
-                    children: [
-
-                      const Text(
-                        "Service Progress",
-
-                        style:
-                            TextStyle(
-                          fontSize: 18,
-                          fontWeight:
-                              FontWeight
-                                  .bold,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 24,
-                      ),
-
-                      Expanded(
-                        child: ListView(
+                    const SizedBox(height: 24),
+                    _timelineTile(
+                      "Booking Submitted",
+                      true,
+                    ),
+                    _timelineTile(
+                      "Technician Assigned",
+                      status != "submitted",
+                    ),
+                    _timelineTile(
+                      "Technician On The Way",
+                      status == "on_the_way" ||
+                          status == "arrival_confirmed" ||
+                          status == "cleaning_in_progress" ||
+                          status == "customer_review_pending" ||
+                          status == "admin_review_pending" ||
+                          status == "completed",
+                    ),
+                    _timelineTile(
+                      "Arrival Confirmed",
+                      status == "arrival_confirmed" ||
+                          status == "cleaning_in_progress" ||
+                          status == "customer_review_pending" ||
+                          status == "admin_review_pending" ||
+                          status == "completed",
+                    ),
+                    _timelineTile(
+                      "Cleaning In Progress",
+                      status == "cleaning_in_progress" ||
+                          status == "customer_review_pending" ||
+                          status == "admin_review_pending" ||
+                          status == "completed",
+                    ),
+                    _timelineTile(
+                      "Customer Approval",
+                      status == "admin_review_pending" || status == "completed",
+                    ),
+                    _timelineTile(
+                      "Completed",
+                      status == "completed",
+                    ),
+                    if (status == "cleaning_in_progress")
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-
-                            _timelineTile(
-                              "Booking Submitted",
-                              true,
-                            ),
-
-                            _timelineTile(
-                              "Technician Assigned",
-                              status !=
-                                  "submitted",
-                            ),
-
-                            _timelineTile(
-                              "Technician On The Way",
-                              status ==
-                                      "on_the_way" ||
-                                  status ==
-                                      "arrival_approval_pending" ||
-                                  status ==
-                                      "in_progress" ||
-                                  status ==
-                                      "customer_review_pending" ||
-                                  status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Arrival Confirmed",
-                              status ==
-                                      "arrival_approval_pending" ||
-                                  status ==
-                                      "in_progress" ||
-                                  status ==
-                                      "customer_review_pending" ||
-                                  status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Cleaning In Progress",
-                              status ==
-                                      "in_progress" ||
-                                  status ==
-                                      "customer_review_pending" ||
-                                  status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Customer Approval",
-                              status ==
-                                      "admin_review_pending" ||
-                                  status ==
-                                      "completed",
-                            ),
-
-                            _timelineTile(
-                              "Completed",
-                              status ==
-                                  "completed",
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      if (status ==
-                              "in_progress" ||
-                          status ==
-                              "customer_review_pending")
-
-                        Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
-
-                          children: [
-
-                            const SizedBox(
-                              height: 10,
-                            ),
-
                             const Text(
                               "Checklist Progress",
-
-                              style:
-                                  TextStyle(
-                                fontWeight:
-                                    FontWeight
-                                        .bold,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-
-                            const SizedBox(
-                              height: 10,
-                            ),
-
+                            const SizedBox(height: 10),
                             Obx(
                               () => LinearProgressIndicator(
-                                value:
-                                    controller.progress,
+                                value: controller.progress,
                               ),
                             ),
-
-                            const SizedBox(
-                              height: 8,
-                            ),
-
+                            const SizedBox(height: 8),
                             Obx(
                               () => Text(
                                 "${controller.completedTasks.length}/${controller.checklist.length} tasks completed",
                               ),
                             ),
+                            const SizedBox(height: 10),
+                            Obx(
+                              () {
+                                final items = controller.checklist;
+                                return Column(
+                                  children: items.map((task) {
+                                    final completed = controller.completedTasks.contains(task);
+                                    return CheckboxListTile(
+                                      value: completed,
+                                      onChanged: (val) {
+                                        if (val == true) {
+                                          if (!controller.completedTasks.contains(task)) {
+                                            controller.completedTasks.add(task);
+                                          }
+                                        } else {
+                                          controller.completedTasks.removeWhere((t) => t == task);
+                                        }
+                                        controller.update();
+                                      },
+                                      title: Text(task),
+                                      controlAffinity: ListTileControlAffinity.leading,
+                                    );
+                                  }).toList(),
+                                );
+                              },
+                            ),
                           ],
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               ),
 
@@ -607,7 +544,8 @@ class LiveTrackingScreen
               ),
             ],
           ),
-        );
+        ),
+      );
       }),
     );
   }
@@ -799,9 +737,74 @@ class LiveTrackingScreen
     String status,
   ) {
 
-    if (status ==
-        "customer_review_pending") {
+    if (status == "on_the_way") {
 
+  return SizedBox(
+    width: double.infinity,
+
+    child: ElevatedButton(
+      onPressed: () async {
+        await controller.approveArrival();
+      },
+
+      child: const Text(
+        "Confirm Arrival",
+      ),
+    ),
+  );
+}
+
+if (status == "cleaning_in_progress" &&
+    controller.checklist.isNotEmpty &&
+    controller.completedTasks.length ==
+        controller.checklist.length) {
+
+  return Column(
+    children: [
+
+      SizedBox(
+        width: double.infinity,
+
+        child: ElevatedButton(
+          onPressed: () async {
+
+            controller.bookingStatus.value =
+                "completed";
+
+            controller.update();
+
+            await controller.approveWork();
+          },
+
+          child: const Text(
+            "Approve Completion",
+          ),
+        ),
+      ),
+
+      const SizedBox(
+        height: 12,
+      ),
+
+      SizedBox(
+        width: double.infinity,
+
+        child: OutlinedButton(
+          onPressed: () {
+            _showReworkDialog(controller);
+          },
+
+          child: const Text(
+            "Request Rework",
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+if (status ==
+    "customer_review_pending") {
       return Column(
         children: [
 
@@ -950,10 +953,10 @@ class LiveTrackingScreen
       case "on_the_way":
         return "Technician On The Way";
 
-      case "arrival_approval_pending":
+      case "arrival_confirmed":
         return "Technician Arrived";
 
-      case "in_progress":
+      case "cleaning_in_progress":
         return "Cleaning In Progress";
 
       case "customer_review_pending":
@@ -988,9 +991,12 @@ class LiveTrackingScreen
         return "Your technician is currently on the way to your location.";
 
       case "arrival_approval_pending":
-        return "Your technician has reached the location and is about to begin the service.";
+         return "Your technician has reached the location and is waiting for your confirmation.";
 
-      case "in_progress":
+      case "arrival_confirmed":
+         return "Technician has arrived. Service can now begin.";
+
+      case "cleaning_in_progress":
         return "Cleaning professionals are currently working on your apartment.";
 
       case "customer_review_pending":
